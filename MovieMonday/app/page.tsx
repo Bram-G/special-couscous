@@ -1,12 +1,17 @@
-'use client'
+"use client";
 import React from "react";
-import Carousel from "../components/Carousel";
+import Carousel2 from "../components/Carousel2";
 
 export default function Home() {
   return (
-    <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
-<Carousel />
-<Carousel />
+    <section className="flex flex-col">
+      <div className="trendingCarouselContainer flex flex-col w-full">
+        <h1 className="">Trending</h1>
+        <div>
+        <Carousel2 />
+        </div>
+      </div>
+      
     </section>
   );
 }
