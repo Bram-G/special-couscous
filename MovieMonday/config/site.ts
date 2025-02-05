@@ -13,6 +13,7 @@ export const siteConfig = {
       href: "/trending",
     },
 
+
     {
       label: "Blog",
       href: "/blog",
@@ -20,6 +21,10 @@ export const siteConfig = {
     {
       label: "About",
       href: "/about",
+    },
+    {
+      label: "Sign In",
+      href: "/signin",
     },
     {
       label: "Sign In",
