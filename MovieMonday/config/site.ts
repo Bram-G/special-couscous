@@ -10,7 +10,7 @@ export const siteConfig = {
     },
     {
       label: "Trending",
-      href: "/Trending",
+      href: "/trending",
     },
 
     {

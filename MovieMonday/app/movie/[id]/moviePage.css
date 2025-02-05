@@ -1,0 +1,56 @@
+.MoviePageContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: auto;
+  justify-content: space-around;
+}
+.MoviePage {
+  display: flex;
+  flex-direction: column;
+  height: 1000px;
+  width: 100%;
+}
+.TitleText{
+    font-size: 30px;
+    font-weight: bold;
+}
+.TextContainer{
+    border: 1px solid gray;
+}
+.TopContainer{
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    margin: 10px;
+    align-items: center;    
+}
+.TopLeftContainer{
+    display: flex;
+    flex-direction: column;
+}
+.DetailText{
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+}
+.MidContainer{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 10px;
+}
+.MidRightContainer{
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    text-align: start;
+    justify-content: space-evenly;
+}
+.LogoImages{
+    display: flex;
+    flex-direction: row;
+}
+.LogoImage{
+    background-color: gray;
+}

@@ -14,8 +14,6 @@
     margin-left: calc(var(--slide-spacing) * -1);
   }
   .embla__slide {
-    position: relative;
-    overflow: hidden;
     flex: 0 0 var(--slide-size);
     min-width: 0;
     padding-left: var(--slide-spacing);
@@ -29,23 +27,6 @@
     align-items: center;
     justify-content: center;
     height: var(--slide-height);
-  }
-  .glassCover {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: rgba(255, 255, 255, 0.7); /* Adjust the background as needed */
-    color: #000; /* Text color */
-    transition: transform 0.5s ease;
-    transform: translateY(100%);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-  }
-  .embla__slide:hover .glassCover {
-    transform: translateY(0);
   }
   .embla__controls {
     display: grid;
@@ -88,14 +69,5 @@
   .embla__button__svg {
     width: 35%;
     height: 35%;
-  }
-  :root {
-    --dynamic-bg-image: url('https://example.com/default-image.jpg');
-  }
-  .bg-cover-dynamic {
-    background-size: cover;
-    background-position: center;
-    /* Use the CSS variable */
-    background-image: var(--dynamic-bg-image);
   }
   
