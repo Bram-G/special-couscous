@@ -9,6 +9,7 @@
 		"lint": "eslint . --ext .ts,.tsx -c .eslintrc.json --fix"
 	},
 	"dependencies": {
+		"@heroicons/react": "^2.2.0",
 		"@nextui-org/button": "2.0.33",
 		"@nextui-org/card": "^2.0.30",
 		"@nextui-org/code": "2.0.28",
