@@ -4,12 +4,7 @@ import { NextUIProvider } from "@nextui-org/react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { ThemeProviderProps } from "next-themes/dist/types";
 
-export interface ProvidersProps {
-  children: React.ReactNode;
-  themeProps?: ThemeProviderProps;
-}
-
-export function Providers({ children, themeProps }: ProvidersProps) {
+export function Providers({ children, themeProps }: { children: React.ReactNode; themeProps?: ThemeProviderProps }) {
   return (
     <NextUIProvider>
       <NextThemesProvider {...themeProps}>
@@ -18,3 +13,4 @@ export function Providers({ children, themeProps }: ProvidersProps) {
     </NextUIProvider>
   );
 }
+export default Providers;

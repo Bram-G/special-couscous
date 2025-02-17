@@ -13,7 +13,7 @@ import {
   UserIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 
 interface FormData {
   username: string;
@@ -37,7 +37,7 @@ const AuthForm: React.FC = () => {
     e.preventDefault();
     setError("");
     setLoading(true);
-
+  
     try {
       const endpoint = isLogin ? "/auth/login" : "/auth/register";
       const response = await fetch(`http://localhost:8000${endpoint}`, {
@@ -45,24 +45,47 @@ const AuthForm: React.FC = () => {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(
           isLogin
             ? { username: formData.username, password: formData.password }
             : formData
         ),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
-        throw new Error(data.message || "Authentication failed");
+        switch (response.status) {
+          case 401:
+            throw new Error("Invalid credentials");
+          case 400:
+            throw new Error(data.message || "Validation error");
+          case 409:
+            throw new Error("Username or email already exists");
+          case 500:
+            throw new Error("Server error - please try again later");
+          default:
+            throw new Error(data.message || "Authentication failed");
+        }
       }
-
+  
       if (data.token) {
-        login(data.token); // Use the context's login function
-        router.push("/dashboard"); // Use Next.js router for navigation
+        login(data.token);
+        
+        // Check for redirect after login
+        const redirectPath = localStorage.getItem('redirectAfterLogin');
+        if (redirectPath) {
+          localStorage.removeItem('redirectAfterLogin'); // Clean up
+          router.push(redirectPath);
+        } else {
+          router.push("/dashboard"); // Default redirect
+        }
+      } else {
+        throw new Error("No token received from server");
       }
     } catch (err) {
+      console.error("Authentication error:", err);
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
@@ -75,8 +98,15 @@ const AuthForm: React.FC = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: value.trim(), // Trim whitespace from inputs
     }));
+  };
+
+  // Basic form validation
+  const isFormValid = () => {
+    if (!formData.username || !formData.password) return false;
+    if (!isLogin && !formData.email) return false;
+    return true;
   };
 
   return (
@@ -115,6 +145,7 @@ const AuthForm: React.FC = () => {
               onChange={handleChange}
               required
               startContent={<UserIcon className="h-5 w-5 text-default-400" />}
+              isInvalid={!!(error && !formData.username)}
             />
 
             {!isLogin && (
@@ -129,6 +160,7 @@ const AuthForm: React.FC = () => {
                 startContent={
                   <EnvelopeIcon className="h-5 w-5 text-default-400" />
                 }
+                isInvalid={!!(!isLogin && error && !formData.email)}
               />
             )}
 
@@ -143,9 +175,16 @@ const AuthForm: React.FC = () => {
               startContent={
                 <LockClosedIcon className="h-5 w-5 text-default-400" />
               }
+              isInvalid={!!(error && !formData.password)}
             />
 
-            <Button type="submit" color="primary" fullWidth isLoading={loading}>
+            <Button 
+              type="submit" 
+              color="primary" 
+              fullWidth 
+              isLoading={loading}
+              isDisabled={!isFormValid()}
+            >
               {isLogin ? "Sign In" : "Sign Up"}
             </Button>
           </form>
@@ -154,7 +193,11 @@ const AuthForm: React.FC = () => {
             <Button
               variant="light"
               color="primary"
-              onPress={() => setIsLogin(!isLogin)}
+              onPress={() => {
+                setIsLogin(!isLogin);
+                setError(""); // Clear any errors when switching modes
+                setFormData({ username: "", email: "", password: "" }); // Reset form
+              }}
             >
               {isLogin
                 ? "Need an account? Sign Up"

@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import {Button, ButtonGroup} from "@heroui/button";
+import {Button, ButtonGroup} from "@nextui-org/react";
 import { useEffect, useState } from "react";
 import { Chip, Image } from "@nextui-org/react";
 import EmblaCarouselRec from "@/components/EmblaCarouselRec/EmblaCarouselRec";
