@@ -1,13 +1,19 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import {Button, ButtonGroup} from "@nextui-org/react";
+import { Button, ButtonGroup } from "@nextui-org/react";
 import { useEffect, useState } from "react";
 import { Chip, Image } from "@nextui-org/react";
+import { useAuth } from '@/contexts/AuthContext';
 import EmblaCarouselRec from "@/components/EmblaCarouselRec/EmblaCarouselRec";
 import "./moviePage.css";
 
-// Define interfaces for the data types
+interface WatchLaterMovie {
+  id: number;
+  tmdbMovieId: number;
+  title: string;
+  posterPath: string;
+}
 interface Genre {
   id: number;
   name: string;
@@ -43,15 +49,19 @@ export default function MoviePage() {
   const [budget, setBudget] = useState<number | null>(null);
   const [productionCompanies, setProductionCompanies] = useState<string[]>([]);
   const [productionLogo, setProductionLogo] = useState<(string | null)[]>([]);
+  const [isInWatchLater, setIsInWatchLater] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
+  const { token } = useAuth();
+
+  const movieId = pathname.split("/").pop();
 
   useEffect(() => {
-    const id = pathname.split("/").pop();
     const fetchMovieDetails = async () => {
       try {
-        const url = `https://api.themoviedb.org/3/movie/${id}?language=en-US`;
+        const url = `https://api.themoviedb.org/3/movie/${movieId}?language=en-US`;
         const options = {
           method: "GET",
           headers: {
@@ -74,14 +84,12 @@ export default function MoviePage() {
         setPosterPath(json.poster_path);
         setBackdropPath(json.backdrop_path);
         
-        // Map genres to an array of genre names
         const genreNames = json.genres.map((genre) => genre.name);
         setGenres(genreNames);
         
         setBudget(json.budget);
         setVote(json.vote_average);
         
-        // Map production companies to names and logos
         const productionNames = json.production_companies.map(
           (company) => company.name
         );
@@ -92,22 +100,123 @@ export default function MoviePage() {
         setProductionCompanies(productionNames);
         setProductionLogo(productionLogos);
 
-        // Set dynamic background image
         if (json.backdrop_path) {
           const backdropImageUrl = `https://image.tmdb.org/t/p/original${json.backdrop_path}`;
           document.documentElement.style.setProperty('--dynamic-bg-image', `url(${backdropImageUrl})`);
+        }
+
+        // Check watch later status
+        if (token) {
+          checkWatchLaterStatus();
         }
       } catch (error) {
         console.error("Error fetching movie details:", error);
       }
     };
 
-    if (id) {
+    if (movieId) {
       fetchMovieDetails();
     }
-  }, [pathname]);
+  }, [movieId, token]);
 
-  // Only generate backdropImageUrl if backdropPath exists
+  const checkWatchLaterStatus = async () => {
+    if (!token || !movieId) return;
+    
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/movie-monday/watch-later/status/${movieId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsInWatchLater(data.isInWatchLater);
+      }
+    } catch (error) {
+      console.error('Error checking watch later status:', error);
+    }
+  };
+  
+  const toggleWatchLater = async () => {
+    if (!token || !movieId || loading) return;
+  
+    setLoading(true);
+    try {
+      if (isInWatchLater) {
+        // Find the watch later entry first
+        const watchLaterResponse = await fetch(
+          'http://localhost:8000/api/movie-monday/watch-later',
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            }
+          }
+        );
+        
+        if (!watchLaterResponse.ok) {
+          throw new Error(`HTTP error! status: ${watchLaterResponse.status}`);
+        }
+        
+        const watchLaterData = await watchLaterResponse.json();
+        console.log('Watch Later Data:', watchLaterData); // Debug the response
+        
+        // Ensure we're working with an array
+        const watchLaterList: WatchLaterMovie[] = Array.isArray(watchLaterData) ? watchLaterData : [];
+        const movieEntry = watchLaterList.find(
+          item => item.tmdbMovieId === parseInt(movieId as string)
+        );
+        
+        if (movieEntry) {
+          // Remove from watch later using the entry's id
+          const deleteResponse = await fetch(
+            `http://localhost:8000/api/movie-monday/watch-later/${movieEntry.id}`,
+            {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              }
+            }
+          );
+          
+          if (!deleteResponse.ok) {
+            throw new Error(`Failed to delete movie: ${deleteResponse.status}`);
+          }
+        } else {
+          console.warn('Movie not found in watch later list');
+        }
+      } else {
+        // Add to watch later
+        const addResponse = await fetch('http://localhost:8000/api/movie-monday/watch-later', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            tmdbMovieId: parseInt(movieId as string),
+            title,
+            posterPath
+          })
+        });
+        
+        if (!addResponse.ok) {
+          throw new Error(`Failed to add movie: ${addResponse.status}`);
+        }
+      }
+      
+      setIsInWatchLater(!isInWatchLater);
+    } catch (error) {
+      console.error('Error toggling watch later:', error);
+      // You might want to add some user feedback here
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const backdropImageUrl = backdropPath 
     ? `https://image.tmdb.org/t/p/original${backdropPath}` 
     : '';
@@ -126,7 +235,7 @@ export default function MoviePage() {
             </div>
           </div>
         </div>
-        <div className="MidContainer">
+        <div className="MidContainer rounded-large">
           <div className="w-1/4 h-full">
             <Image
               className="w-full h-full"
@@ -136,14 +245,23 @@ export default function MoviePage() {
             />
           </div>
           <div className="MidRightContainer w-3/5">
-            <div><h1>Genres:</h1>
+            <div>
+              <h1>Genres:</h1>
               {genres.map((genre, index) => (
                 <Chip key={index}>{genre}</Chip>
               ))}
             </div>
             <div><h1>Description:</h1> {overview}</div>
-            <div> <h1>Budget:</h1> {budget?.toLocaleString()}</div>
-            <Button color="primary">Add to Watch List </Button>
+            <div><h1>Budget:</h1> {budget?.toLocaleString()}</div>
+            
+            <Button 
+              color={isInWatchLater ? "success" : "primary"}
+              onPress={toggleWatchLater}
+              isLoading={loading}
+            >
+              {isInWatchLater ? "Remove from Watch Later" : "Add to Watch Later"}
+            </Button>
+
             <div>
               {productionCompanies.map((company, index) => (
                 <Chip key={index}>{company}</Chip>

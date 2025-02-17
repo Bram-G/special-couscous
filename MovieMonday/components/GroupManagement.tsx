@@ -295,18 +295,18 @@ const copyToClipboard = async () => {
             <Button
               color="primary"
               endContent={<UserPlus className="h-4 w-4" />}
-              onPress={() => setShowInviteModal(true)}
+              onPress={generateInviteLink}
             >
               Invite
             </Button>
           </div>
         </div>
 
-        <div className="w-full space-y-2">
+        <div className="w-1/2 space-y-2">
           {group.members?.map((member) => (
             <div
               key={member.id}
-              className="w-full flex items-center space-x-2 p-2 bg-gray-50 rounded-lg"
+              className="w-full flex items-center space-x-2 p-2 bg-zinc-800 rounded-lg"
             >
               <div className="h-8 w-8 rounded-full bg-gray-200" />
               <div className="flex-1">

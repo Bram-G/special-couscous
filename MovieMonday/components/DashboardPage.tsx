@@ -1,43 +1,93 @@
-'use client'
-import React from 'react';
-import { Card, CardBody, CardHeader } from '@nextui-org/react';
-import { BarChart, Activity, Users } from 'lucide-react';
-import DashboardCalendar from './DashboardCalendar';
-import GroupManagement from './GroupManagement'; 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+"use client";
+import React, { useEffect, useState } from "react";
+import { Card, CardBody, CardHeader } from "@nextui-org/react";
+import { BarChart, Activity, Users } from "lucide-react";
+import DashboardCalendar from "./DashboardCalendar";
+import GroupManagement from "./GroupManagement";
+import WatchlistCarousel from "./WatchlistCarousel";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+
+// Define interfaces for type safety
+interface GroupMember {
+  id: string;
+  username: string;
+  email: string;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  createdById: string;
+  members: GroupMember[];
+}
 
 const DashboardPage = () => {
-
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, token } = useAuth();
   const router = useRouter();
+  const [groupData, setGroupData] = useState<Group | null>(null);
+  const [fetchingGroup, setFetchingGroup] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/login');
+      router.push("/login");
     }
   }, [isAuthenticated, isLoading, router]);
 
-  if (isLoading) {
-    return <div>Loading...</div>; // Or your loading component
+  // Fetch group data
+  useEffect(() => {
+    const fetchGroupData = async () => {
+      if (!token) return;
+
+      try {
+        const response = await fetch("http://localhost:8000/api/users/group", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setGroupData(data);
+        }
+      } catch (error) {
+        console.error("Error fetching group data:", error);
+      } finally {
+        setFetchingGroup(false);
+      }
+    };
+
+    if (isAuthenticated) {
+      fetchGroupData();
+    }
+  }, [isAuthenticated, token]);
+
+  if (isLoading || fetchingGroup) {
+    return <div>Loading...</div>;
   }
 
   if (!isAuthenticated) {
-    return null; // Will redirect in useEffect
+    return null;
   }
 
   return (
-    // Set width to 100% and remove any max-width constraints
     <div className="w-full">
-      
       <div className="w-full flex flex-col gap-6">
         <Card className="w-full">
           <CardBody className="space-y-4">
-          <p className="text-2xl font-bold">Mondays</p>
-          <p className="text-sm text-gray-500">Got a case of the Mondays</p>
+            <p className="text-2xl font-bold">Mondays</p>
+            <p className="text-sm text-gray-500">Got a case of the Mondays</p>
             <div className="w-full rounded-lg flex items-center justify-center">
-              <DashboardCalendar />
+              <DashboardCalendar
+                groupMembers={groupData?.members || []}
+                groupId={groupData?.id}
+                onDateSelect={(date) => {
+                  console.log("Selected date:", date);
+                  // Handle date selection if needed
+                }}
+              />
             </div>
           </CardBody>
         </Card>
@@ -47,24 +97,7 @@ const DashboardPage = () => {
         </Card>
 
         <Card className="w-full">
-          <CardHeader className="flex flex-row items-center justify-between px-6 py-4">
-            <h4 className="text-lg font-medium">Users</h4>
-            <Users className="h-5 w-5 text-gray-600" />
-          </CardHeader>
-          <CardBody className="space-y-4">
-            <div className="w-full">
-              <p className="text-2xl font-bold">5,678</p>
-              <p className="text-sm text-gray-500">Active Users</p>
-            </div>
-            <div className="w-full space-y-2">
-              {['John Doe', 'Jane Smith', 'Bob Johnson'].map((user, index) => (
-                <div key={index} className="w-full flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
-                  <div className="h-8 w-8 rounded-full bg-gray-200" />
-                  <p className="text-sm">{user}</p>
-                </div>
-              ))}
-            </div>
-          </CardBody>
+          <WatchlistCarousel />
         </Card>
       </div>
     </div>

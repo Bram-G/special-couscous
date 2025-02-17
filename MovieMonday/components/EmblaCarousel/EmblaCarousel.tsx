@@ -47,7 +47,7 @@ const EmblaCarousel: React.FC<PropType> = (props) => {
       <div className="embla__viewport" ref={emblaRef}>
         <div className="embla__container">
           {popMovies.map((movie, index) => (
-            <div className="embla__slide w-1/3 flex flex-col">
+            <div key={movie.id} className="embla__slide w-1/3 flex flex-col">
               <a href={`/movie/${movie.id}`}>
               <Image isBlurred width={240} src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}/>
               </a>
