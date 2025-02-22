@@ -1,6 +1,6 @@
 
 import react from 'react';
-import { Card, CardHeader, CardBody, Image } from '@nextui-org/react';
+import { Card, CardHeader, CardBody, Image } from "@heroui/react";
 import MovieCard from './MovieCard';
 import { useState, useEffect } from 'react';
 import Slider from "react-slick";

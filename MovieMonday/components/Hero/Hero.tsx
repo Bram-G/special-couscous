@@ -9,7 +9,7 @@ import {
   Link,
   Image,
   Button,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import "./Hero.css";
 
 interface Movie {

@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Card, CardBody, CardHeader } from "@nextui-org/react";
+import { Card, CardBody, CardHeader } from "@heroui/react";
 import { BarChart, Activity, Users } from "lucide-react";
 import DashboardCalendar from "./DashboardCalendar";
 import GroupManagement from "./GroupManagement";

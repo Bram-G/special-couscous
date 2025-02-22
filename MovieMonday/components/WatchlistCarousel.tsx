@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardBody, CardHeader, Button, Image } from "@nextui-org/react";
+import { Card, CardBody, CardHeader, Button, Image } from "@heroui/react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 

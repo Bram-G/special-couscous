@@ -9,7 +9,8 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
-} from "@nextui-org/react";
+  addToast,
+} from "@heroui/react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -24,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CrownIcon } from "lucide-react";
 import confetti from "canvas-confetti";
 
+
 interface DashboardCalendarProps {
   slidesPerView?: number;
   onDateSelect?: (date: Date) => void;
@@ -37,6 +39,11 @@ interface MovieMonday {
   pickerUserId: string;
   status: "not_created" | "pending" | "in-progress" | "completed";
   movieSelections: MovieSelection[];
+  eventDetails?: {
+    meals: string;
+    cocktails: string[];
+    notes: string;
+  };
   picker: {
     id: string;
     username: string;
@@ -49,6 +56,12 @@ interface MovieSelection {
   title: string;
   posterPath: string;
   isWinner: boolean;
+}
+
+interface EventDetails {
+  meals: string;
+  cocktails: string[];
+  notes: string;
 }
 
 interface EventDetails {
@@ -75,9 +88,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   const [movieMondayMap, setMovieMondayMap] = useState<
     Map<string, MovieMonday>
   >(new Map());
+  const [savingDetails, setSavingDetails] = useState(false);
   const [eventDetails, setEventDetails] = useState<EventDetails>({
     meals: "",
-    cocktails: "",
+    cocktails: [],
     notes: "",
   });
 
@@ -192,11 +206,79 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         setMovieMondayMap(
           new Map(movieMondayMap.set(date.toISOString(), data))
         );
+
+        // Set event details if they exist
+        if (data.eventDetails) {
+          setEventDetails({
+            meals: data.eventDetails.meals || "",
+            cocktails: data.eventDetails.cocktails || [],
+            notes: data.eventDetails.notes || "",
+          });
+        } else {
+          // Reset event details if none exist
+          setEventDetails({
+            meals: "",
+            cocktails: [],
+            notes: "",
+          });
+        }
       }
     } catch (error) {
       console.error("Error fetching movie monday details:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add function to handle saving event details
+  const handleSaveDetails = async () => {
+    if (!selectedMonday || !token) return;
+  
+    setSavingDetails(true);
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/movie-monday/${selectedMonday.id}/event-details`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            meals: eventDetails.meals,
+            cocktails: eventDetails.cocktails,
+            notes: eventDetails.notes,
+          }),
+        }
+      );
+  
+      if (!response.ok) {
+        throw new Error("Failed to save event details");
+      }
+  
+      // Show success toast
+      addToast({
+        title: "Success",
+        description: "Event details saved successfully",
+        variant: "solid",
+        promise: new Promise((resolve) => setTimeout(resolve, 2000)),
+      });
+  
+      // Refresh the movie monday data
+      if (selectedDate) {
+        await handleDateClick(selectedDate);
+      }
+    } catch (error) {
+      console.error("Error saving event details:", error);
+      // Show error toast
+      addToast({
+        title: "Error",
+        description: "Failed to save event details. Please try again.",
+        variant: "solid",
+        promise: new Promise((resolve) => setTimeout(resolve, 2000)),
+      });
+    } finally {
+      setSavingDetails(false);
     }
   };
 
@@ -318,7 +400,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   return (
-    <div className="space-y-4 w-full">
+    (<div className="space-y-4 w-full">
       {/* Calendar - Always visible */}
       <Card className="w-full p-4 sticky top-0 z-10">
         <div className="flex items-center justify-between gap-4">
@@ -361,7 +443,6 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           </Button>
         </div>
       </Card>
-
       {selectedDate && (
         <Card className="w-full">
           <div className="p-4 border-b">
@@ -379,7 +460,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
             </div>
           ) : selectedMonday?.status === "not_created" ? (
             /* If no Movie Monday exists, show create button */
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
+            (<div className="flex flex-col items-center justify-center h-64 gap-4">
               <p className="text-default-500">
                 No Movie Monday scheduled for this date
               </p>
@@ -399,10 +480,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                   Join or create a group to schedule Movie Mondays
                 </p>
               )}
-            </div>
+            </div>)
           ) : (
             /* If Movie Monday exists, show movies and event details */
-            <div className="flex gap-4 p-4">
+            (<div className="flex gap-4 p-4">
               {/* Movie Cards Section */}
               <div className="w-3/5 grid grid-cols-3 gap-4">
                 {[0, 1, 2].map((index) => {
@@ -478,7 +559,6 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                   );
                 })}
               </div>
-
               {/* Event Details Section - 40% width */}
               <div className="w-2/5">
                 <Card className="p-4">
@@ -550,22 +630,29 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                           }))
                         }
                         classNames={{
-                          inputWrapper: "h-12", // Make input smaller
+                          inputWrapper: "h-12",
                         }}
                       />
 
                       <Input
                         label="Cocktails"
-                        placeholder="What did you drink?"
-                        value={eventDetails.cocktails}
+                        placeholder="Enter cocktails (comma-separated)"
+                        value={
+                          Array.isArray(eventDetails.cocktails)
+                            ? eventDetails.cocktails.join(", ")
+                            : eventDetails.cocktails
+                        }
                         onChange={(e) =>
                           setEventDetails((prev) => ({
                             ...prev,
-                            cocktails: e.target.value,
+                            cocktails: e.target.value
+                              .split(",")
+                              .map((item) => item.trim())
+                              .filter(Boolean),
                           }))
                         }
                         classNames={{
-                          inputWrapper: "h-12", // Make input smaller
+                          inputWrapper: "h-12",
                         }}
                       />
 
@@ -580,7 +667,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                           }))
                         }
                         classNames={{
-                          input: "max-h-[80px]", // Limit textarea height
+                          input: "max-h-[80px]",
                         }}
                         minRows={2}
                         maxRows={3}
@@ -591,6 +678,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                           color="primary"
                           className="w-full"
                           startContent={<Save className="h-4 w-4" />}
+                          isLoading={savingDetails}
+                          onPress={handleSaveDetails}
+                          isDisabled={!selectedMonday?.id}
                         >
                           Save Details
                         </Button>
@@ -599,11 +689,11 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                   </div>
                 </Card>
               </div>
-            </div>
+            </div>)
           )}
         </Card>
       )}
-    </div>
+    </div>)
   );
 };
 

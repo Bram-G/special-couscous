@@ -8,7 +8,7 @@ import {
 import useEmblaCarousel from "embla-carousel-react";
 import "./embla.css";
 import { useEffect, useState } from "react";
-import { Card, CardHeader, CardBody, Image } from "@nextui-org/react";
+import { Card, CardHeader, CardBody, Image } from "@heroui/react";
 
 type PropType = {
   slides: number[];

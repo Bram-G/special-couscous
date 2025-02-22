@@ -6,7 +6,7 @@ import {
   CardBody,
   CardHeader,
   Divider,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import {
   EnvelopeIcon,
   LockClosedIcon,
