@@ -1,6 +1,4 @@
-import react from "react";
-import { Card, CardHeader, CardBody, Image } from "@heroui/react";
-import MovieCard from "./MovieCard";
+
 import { useState, useEffect } from "react";
 import { EmblaOptionsType } from "embla-carousel";
 import EmblaCarousel from "./EmblaCarousel/EmblaCarousel";

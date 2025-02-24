@@ -71,7 +71,14 @@ const AuthForm: React.FC = () => {
       }
   
       if (data.token) {
-        login(data.token);
+        // Set the token in localStorage first
+        localStorage.setItem('token', data.token);
+        
+        // Then update the auth context
+        await login(data.token);
+        
+        // Wait a brief moment to ensure context is updated
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // Check for redirect after login
         const redirectPath = localStorage.getItem('redirectAfterLogin');
@@ -98,11 +105,10 @@ const AuthForm: React.FC = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value.trim(), // Trim whitespace from inputs
+      [name]: value.trim(),
     }));
   };
 
-  // Basic form validation
   const isFormValid = () => {
     if (!formData.username || !formData.password) return false;
     if (!isLogin && !formData.email) return false;

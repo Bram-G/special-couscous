@@ -9,7 +9,6 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
-  addToast,
 } from "@heroui/react";
 import {
   ChevronLeft,
@@ -18,13 +17,13 @@ import {
   Trophy,
   Edit2,
   Save,
+  X,
+  Trash2,
 } from "lucide-react";
-
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { CrownIcon } from "lucide-react";
 import confetti from "canvas-confetti";
-
 
 interface DashboardCalendarProps {
   slidesPerView?: number;
@@ -69,7 +68,6 @@ interface EventDetails {
   cocktails: string;
   notes: string;
 }
-
 const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   slidesPerView = 6,
   onDateSelect,
@@ -90,6 +88,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   >(new Map());
   const [savingDetails, setSavingDetails] = useState(false);
   const [eventDetails, setEventDetails] = useState<EventDetails>({
+    meals: "",
+    cocktails: [],
+    notes: "",
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableDetails, setEditableDetails] = useState<EventDetails>({
     meals: "",
     cocktails: [],
     notes: "",
@@ -140,9 +144,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   };
 
-  // Your existing helper functions remain the same
   const initializeMondays = (): Date[] => {
     const today = new Date();
+    today.setHours(12, 0, 0, 0); // Set to noon
     const firstMonday = getNextMonday(today);
     const mondays: Date[] = [firstMonday];
 
@@ -156,8 +160,14 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   const getNextMonday = (date: Date): Date => {
+    // Create date with time set to noon to avoid timezone issues
     const nextMonday = new Date(date);
-    nextMonday.setDate(date.getDate() + ((7 - date.getDay() + 1) % 7 || 7));
+    nextMonday.setHours(12, 0, 0, 0);
+
+    // Calculate days until next Monday
+    const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
+    nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
+
     return nextMonday;
   };
 
@@ -186,11 +196,31 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     });
   };
 
+  const formatDateForAPI = (date: Date): string => {
+    return date.toISOString().split("T")[0];
+  };
+
   const handleDateClick = async (date: Date) => {
     setSelectedDate(date);
     setLoading(true);
     try {
-      const formattedDate = date.toISOString().split("T")[0];
+      // Log the date object and formatted string
+      console.log("Calendar date click:", {
+        originalDate: date,
+        dateToString: date.toString(),
+        dateToISO: date.toISOString(),
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        day: date.getDate(),
+      });
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const formattedDate = `${year}-${month}-${day}`;
+
+      console.log("Formatted date to send:", formattedDate);
+
       const response = await fetch(
         `http://localhost:8000/api/movie-monday/${formattedDate}`,
         {
@@ -202,12 +232,13 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
       if (response.ok) {
         const data = await response.json();
+        console.log("Response data:", data);
         setSelectedMonday(data);
         setMovieMondayMap(
           new Map(movieMondayMap.set(date.toISOString(), data))
         );
+        // ... rest of the function
 
-        // Set event details if they exist
         if (data.eventDetails) {
           setEventDetails({
             meals: data.eventDetails.meals || "",
@@ -215,7 +246,6 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
             notes: data.eventDetails.notes || "",
           });
         } else {
-          // Reset event details if none exist
           setEventDetails({
             meals: "",
             cocktails: [],
@@ -230,10 +260,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   };
 
-  // Add function to handle saving event details
   const handleSaveDetails = async () => {
     if (!selectedMonday || !token) return;
-  
+
     setSavingDetails(true);
     try {
       const response = await fetch(
@@ -251,11 +280,11 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           }),
         }
       );
-  
+
       if (!response.ok) {
         throw new Error("Failed to save event details");
       }
-  
+
       // Show success toast
       addToast({
         title: "Success",
@@ -263,7 +292,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         variant: "solid",
         promise: new Promise((resolve) => setTimeout(resolve, 2000)),
       });
-  
+
       // Refresh the movie monday data
       if (selectedDate) {
         await handleDateClick(selectedDate);
@@ -282,10 +311,41 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   };
 
+  const handleSaveAll = async () => {
+    if (!selectedMonday || !token) return;
+
+    setSavingDetails(true);
+    try {
+      // Save event details
+      await fetch(
+        `http://localhost:8000/api/movie-monday/${selectedMonday.id}/event-details`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editableDetails),
+        }
+      );
+
+      // Refresh data and exit edit mode
+      if (selectedDate) {
+        await handleDateClick(selectedDate);
+      }
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error saving details:", error);
+    } finally {
+      setSavingDetails(false);
+    }
+  };
+
   const getDateButtonStyle = (date: Date) => {
-    const movieMonday = movieMondayMap.get(date.toISOString());
+    const formattedDate = formatDateForAPI(date);
+    const movieMonday = movieMondayMap.get(formattedDate);
     const isSelected =
-      selectedDate && date.getTime() === selectedDate.getTime();
+      selectedDate && formatDateForAPI(selectedDate) === formattedDate;
 
     let variant = "light";
     let color = "default";
@@ -316,6 +376,17 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     setLoading(true);
 
     try {
+      // Create a new date object from the selected date
+      const selectedDate = new Date(date);
+      // Get just the date part in YYYY-MM-DD format
+      const dateString = selectedDate.toISOString().split("T")[0];
+
+      console.log("Creating MovieMonday for:", {
+        originalDate: date,
+        selectedDate: selectedDate,
+        dateString: dateString,
+      });
+
       const response = await fetch(
         "http://localhost:8000/api/movie-monday/create",
         {
@@ -326,7 +397,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           },
           credentials: "include",
           body: JSON.stringify({
-            date: date.toISOString(),
+            date: dateString, // Send just the YYYY-MM-DD string
             groupId: groupId,
           }),
         }
@@ -339,7 +410,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       }
 
       const data = await response.json();
-      handleDateClick(date);
+      await handleDateClick(date); // Refresh the data for this date
     } catch (error) {
       console.error("Error creating MovieMonday:", error);
     } finally {
@@ -348,7 +419,8 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   const getPickerForDate = (date: Date): string => {
-    const movieMonday = movieMondayMap.get(date.toISOString());
+    const formattedDate = formatDateForAPI(date);
+    const movieMonday = movieMondayMap.get(formattedDate);
     if (movieMonday && movieMonday.picker) {
       return movieMonday.picker.username;
     }
@@ -356,6 +428,32 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   const router = useRouter();
+
+  const handleRemoveMovie = async (movieSelectionId: number) => {
+    if (!selectedMonday || !token) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/movie-monday/${selectedMonday.id}/movies/${movieSelectionId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        // Refresh the movie monday data
+        if (selectedDate) {
+          handleDateClick(selectedDate);
+        }
+      }
+    } catch (error) {
+      console.error("Error removing movie:", error);
+    }
+  };
 
   const triggerConfetti = () => {
     confetti({
@@ -400,7 +498,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   return (
-    (<div className="space-y-4 w-full">
+    <div className="space-y-4 w-full">
       {/* Calendar - Always visible */}
       <Card className="w-full p-4 sticky top-0 z-10">
         <div className="flex items-center justify-between gap-4">
@@ -460,7 +558,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
             </div>
           ) : selectedMonday?.status === "not_created" ? (
             /* If no Movie Monday exists, show create button */
-            (<div className="flex flex-col items-center justify-center h-64 gap-4">
+            <div className="flex flex-col items-center justify-center h-64 gap-4">
               <p className="text-default-500">
                 No Movie Monday scheduled for this date
               </p>
@@ -480,10 +578,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                   Join or create a group to schedule Movie Mondays
                 </p>
               )}
-            </div>)
+            </div>
           ) : (
             /* If Movie Monday exists, show movies and event details */
-            (<div className="flex gap-4 p-4">
+            <div className="flex gap-4 p-4">
               {/* Movie Cards Section */}
               <div className="w-3/5 grid grid-cols-3 gap-4">
                 {[0, 1, 2].map((index) => {
@@ -520,34 +618,44 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                             <p className="text-white text-center font-medium mb-4">
                               {movie.title}
                             </p>
-                            {movie.isWinner ? (
-                              <Button
-                                color="warning"
-                                variant="light"
-                                isIconOnly
-                                className="text-yellow-400"
-                                onPress={() => handleSetWinner(movie.id)}
-                                startContent={<Trophy className="h-8 w-8" />}
-                              >
-                                <span className="sr-only">
-                                  Remove Winner Status
-                                </span>
-                              </Button>
-                            ) : (
-                              selectedMonday?.status !== "completed" && (
+                            <div className="flex gap-2">
+                              {movie.isWinner ? (
                                 <Button
                                   color="warning"
-                                  variant="solid"
+                                  variant="light"
+                                  isIconOnly
+                                  className="text-yellow-400"
                                   onPress={() => handleSetWinner(movie.id)}
-                                  className="bg-warning-500 hover:bg-warning-600"
-                                  startContent={
-                                    <CrownIcon className="h-4 w-4" />
-                                  }
+                                  startContent={<Trophy className="h-8 w-8" />}
                                 >
-                                  Set as Winner
+                                  <span className="sr-only">
+                                    Remove Winner Status
+                                  </span>
                                 </Button>
-                              )
-                            )}
+                              ) : (
+                                <>
+                                  <Button
+                                    color="warning"
+                                    variant="solid"
+                                    onPress={() => handleSetWinner(movie.id)}
+                                    className="bg-warning-500 hover:bg-warning-600"
+                                    startContent={
+                                      <CrownIcon className="h-4 w-4" />
+                                    }
+                                  >
+                                    Winner
+                                  </Button>
+                                  <Button
+                                    color="danger"
+                                    variant="light"
+                                    isIconOnly
+                                    onPress={() => handleRemoveMovie(movie.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -563,20 +671,64 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
               <div className="w-2/5">
                 <Card className="p-4">
                   <div className="flex flex-col h-full">
-                    <div className="flex justify-between items-center mb-2">
+                    <div className="flex justify-between items-center mb-4">
                       <h3 className="text-lg font-semibold">Event Details</h3>
                       <div className="flex items-center gap-2">
-                        {editingPicker ? (
+                        {!isEditing ? (
+                          <Button
+                            isIconOnly
+                            variant="light"
+                            onPress={() => {
+                              setIsEditing(true);
+                              setEditableDetails({
+                                meals:
+                                  selectedMonday?.eventDetails?.meals || "",
+                                cocktails:
+                                  selectedMonday?.eventDetails?.cocktails || [],
+                                notes:
+                                  selectedMonday?.eventDetails?.notes || "",
+                              });
+                            }}
+                            aria-label="Edit details"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Button
+                              color="danger"
+                              variant="light"
+                              onPress={() => setIsEditing(false)}
+                              startContent={<X className="h-4 w-4" />}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              color="primary"
+                              onPress={handleSaveAll}
+                              isLoading={savingDetails}
+                              startContent={<Save className="h-4 w-4" />}
+                            >
+                              Save All
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">Picker:</span>
+                        {isEditing ? (
                           <Dropdown>
                             <DropdownTrigger>
-                              <Button variant="light" className="capitalize">
+                              <Button variant="flat" className="capitalize">
                                 {selectedMonday?.picker?.username ||
                                   "Select Picker"}
                               </Button>
                             </DropdownTrigger>
                             <DropdownMenu
                               aria-label="Select picker"
-                              variant="flat"
                               selectionMode="single"
                               disallowEmptySelection
                               selectedKeys={
@@ -591,109 +743,107 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                               }}
                             >
                               {groupMembers?.map((member) => (
-                                <DropdownItem
-                                  key={member.id}
-                                  textValue={member.username}
-                                >
+                                <DropdownItem key={member.id}>
                                   {member.username}
                                 </DropdownItem>
                               ))}
                             </DropdownMenu>
                           </Dropdown>
                         ) : (
-                          <>
-                            <span>
-                              Picker: {selectedMonday?.picker?.username}
-                            </span>
-                            <Button
-                              isIconOnly
-                              variant="light"
-                              onPress={() => setEditingPicker(true)}
-                              aria-label="Edit picker"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                          </>
+                          <span>
+                            {selectedMonday?.picker?.username || "Not assigned"}
+                          </span>
                         )}
                       </div>
-                    </div>
 
-                    <div className="flex flex-col gap-2">
-                      <Input
-                        label="Meals"
-                        placeholder="What did you eat?"
-                        value={eventDetails.meals}
-                        onChange={(e) =>
-                          setEventDetails((prev) => ({
-                            ...prev,
-                            meals: e.target.value,
-                          }))
-                        }
-                        classNames={{
-                          inputWrapper: "h-12",
-                        }}
-                      />
+                      <div className="space-y-4">
+                        {isEditing ? (
+                          <>
+                            <Input
+                              label="Meals"
+                              placeholder="What did you eat?"
+                              value={editableDetails.meals}
+                              onChange={(e) =>
+                                setEditableDetails((prev) => ({
+                                  ...prev,
+                                  meals: e.target.value,
+                                }))
+                              }
+                            />
 
-                      <Input
-                        label="Cocktails"
-                        placeholder="Enter cocktails (comma-separated)"
-                        value={
-                          Array.isArray(eventDetails.cocktails)
-                            ? eventDetails.cocktails.join(", ")
-                            : eventDetails.cocktails
-                        }
-                        onChange={(e) =>
-                          setEventDetails((prev) => ({
-                            ...prev,
-                            cocktails: e.target.value
-                              .split(",")
-                              .map((item) => item.trim())
-                              .filter(Boolean),
-                          }))
-                        }
-                        classNames={{
-                          inputWrapper: "h-12",
-                        }}
-                      />
+                            <Input
+                              label="Cocktails"
+                              placeholder="Enter cocktails (comma-separated)"
+                              value={
+                                Array.isArray(editableDetails.cocktails)
+                                  ? editableDetails.cocktails.join(", ")
+                                  : editableDetails.cocktails
+                              }
+                              onChange={(e) =>
+                                setEditableDetails((prev) => ({
+                                  ...prev,
+                                  cocktails: e.target.value
+                                    .split(",")
+                                    .map((item) => item.trim())
+                                    .filter(Boolean),
+                                }))
+                              }
+                            />
 
-                      <Textarea
-                        label="Notes"
-                        placeholder="Any other details about the evening..."
-                        value={eventDetails.notes}
-                        onChange={(e) =>
-                          setEventDetails((prev) => ({
-                            ...prev,
-                            notes: e.target.value,
-                          }))
-                        }
-                        classNames={{
-                          input: "max-h-[80px]",
-                        }}
-                        minRows={2}
-                        maxRows={3}
-                      />
+                            <Textarea
+                              label="Notes"
+                              placeholder="Any other details about the evening..."
+                              value={editableDetails.notes}
+                              onChange={(e) =>
+                                setEditableDetails((prev) => ({
+                                  ...prev,
+                                  notes: e.target.value,
+                                }))
+                              }
+                              minRows={2}
+                              maxRows={3}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <h4 className="font-medium mb-1">Meals</h4>
+                              <p className="text-default-600">
+                                {selectedMonday?.eventDetails?.meals ||
+                                  "No meals recorded"}
+                              </p>
+                            </div>
 
-                      <div className="mt-auto pt-2">
-                        <Button
-                          color="primary"
-                          className="w-full"
-                          startContent={<Save className="h-4 w-4" />}
-                          isLoading={savingDetails}
-                          onPress={handleSaveDetails}
-                          isDisabled={!selectedMonday?.id}
-                        >
-                          Save Details
-                        </Button>
+                            <div>
+                              <h4 className="font-medium mb-1">Cocktails</h4>
+                              <p className="text-default-600">
+                                {selectedMonday?.eventDetails?.cocktails?.length
+                                  ? selectedMonday.eventDetails.cocktails.join(
+                                      ", "
+                                    )
+                                  : "No cocktails recorded"}
+                              </p>
+                            </div>
+
+                            <div>
+                              <h4 className="font-medium mb-1">Notes</h4>
+                              <p className="text-default-600">
+                                {selectedMonday?.eventDetails?.notes ||
+                                  "No notes recorded"}
+                              </p>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
                 </Card>
               </div>
-            </div>)
+            </div>
           )}
         </Card>
       )}
-    </div>)
+    </div>
   );
 };
 

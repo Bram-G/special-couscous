@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import {
   Navbar as NextUINavbar,
   NavbarContent,
@@ -9,35 +9,31 @@ import {
   NavbarMenuItem,
 } from "@heroui/navbar";
 import { Button } from "@heroui/button";
-import { Link } from "@heroui/link";
+import {Link} from "@heroui/link";
 import { link as linkStyles } from "@heroui/theme";
 import NextLink from "next/link";
 import clsx from "clsx";
 import { siteConfig } from "@/config/site";
 import { ThemeSwitch } from "@/components/theme-switch";
-import {
-  TwitterIcon,
-  GithubIcon,
-  DiscordIcon,
-  Logo,
-} from "@/components/icons";
-import { useAuth } from '@/contexts/AuthContext';
+import { TwitterIcon, GithubIcon, DiscordIcon, Logo } from "@/components/icons";
+import { useAuth } from "@/contexts/AuthContext";
+import { MovieSearch } from "@/components/MovieSearch";
 
 export const Navbar = () => {
   const { isAuthenticated, logout } = useAuth();
 
   // Keep static nav items separate from auth-dependent items
   const staticNavItems = siteConfig.navItems.filter(
-    item => item.label !== "Sign In" && item.label !== "Dashboard"
+    (item) => item.label !== "Sign In" && item.label !== "Dashboard"
   );
 
   const handleLogout = async () => {
     try {
       await logout();
       // Redirect to home page or login page after logout
-      window.location.href = '/';
+      window.location.href = "/";
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error("Logout failed:", error);
     }
   };
 
@@ -73,15 +69,9 @@ export const Navbar = () => {
         justify="end"
       >
         <NavbarItem className="hidden sm:flex gap-2">
-          <Link isExternal aria-label="Twitter" href={siteConfig.links.twitter}>
-            <TwitterIcon className="text-default-500" />
-          </Link>
-          <Link isExternal aria-label="Discord" href={siteConfig.links.discord}>
-            <DiscordIcon className="text-default-500" />
-          </Link>
-          <Link isExternal aria-label="Github" href={siteConfig.links.github}>
-            <GithubIcon className="text-default-500" />
-          </Link>
+          <NavbarItem className="hidden lg:flex">
+            <MovieSearch />
+          </NavbarItem>
           <ThemeSwitch />
         </NavbarItem>
 

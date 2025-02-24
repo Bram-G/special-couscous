@@ -1,7 +1,5 @@
 'use client'
-
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -11,123 +9,74 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  isAuthenticated: false,
+  isLoading: true,
+  token: null,
+  login: () => {},
+  logout: () => {},
+});
 
-const isTokenExpired = (token: string): boolean => {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp * 1000 < Date.now();
-  } catch {
-    return true;
-  }
-};
-
-const getTokenData = (token: string) => {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return null;
-  }
-};
-
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     const initializeAuth = async () => {
-      try {
-        const storedToken = localStorage.getItem('token');
-        
-        if (storedToken) {
-          // Check if token is expired
-          if (isTokenExpired(storedToken)) {
-            console.log('Token expired, logging out');
+      const storedToken = localStorage.getItem('token');
+      
+      if (storedToken) {
+        try {
+          // Verify token validity with your backend
+          const response = await fetch('http://localhost:8000/auth/verify', {
+            headers: {
+              'Authorization': `Bearer ${storedToken}`,
+            },
+          });
+
+          if (response.ok) {
+            setToken(storedToken);
+            setIsAuthenticated(true);
+          } else {
+            // If token is invalid, clear it
             localStorage.removeItem('token');
             setIsAuthenticated(false);
             setToken(null);
-          } else {
-            // Token is valid
-            setToken(storedToken);
-            setIsAuthenticated(true);
-            
-            // Optional: Log token data for debugging
-            const tokenData = getTokenData(storedToken);
-            console.log('Token valid until:', new Date(tokenData?.exp * 1000).toLocaleString());
           }
-        } else {
-          setIsAuthenticated(false);
-          setToken(null);
+        } catch (error) {
+          console.error('Error verifying token:', error);
+          // On error, assume token is still valid to prevent unnecessary logouts
+          setToken(storedToken);
+          setIsAuthenticated(true);
         }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
+      } else {
         setIsAuthenticated(false);
         setToken(null);
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
 
     initializeAuth();
-
-    // Set up token expiration check interval
-    const checkTokenInterval = setInterval(() => {
-      const currentToken = localStorage.getItem('token');
-      if (currentToken && isTokenExpired(currentToken)) {
-        console.log('Token expired during session, logging out');
-        logout();
-      }
-    }, 60000); // Check every minute
-
-    return () => clearInterval(checkTokenInterval);
-  }, [router]);
+  }, []);
 
   const login = (newToken: string) => {
-    // Validate token before storing
-    if (!newToken || isTokenExpired(newToken)) {
-      console.error('Invalid or expired token provided');
-      return;
-    }
-
     localStorage.setItem('token', newToken);
     setToken(newToken);
     setIsAuthenticated(true);
-
-    // Check for redirect after login
-    const redirectPath = localStorage.getItem('redirectAfterLogin');
-    if (redirectPath) {
-      localStorage.removeItem('redirectAfterLogin');
-      router.push(redirectPath);
-    }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('redirectAfterLogin'); // Clean up any pending redirects
     setToken(null);
     setIsAuthenticated(false);
-    router.push('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      isAuthenticated, 
-      isLoading, 
-      token,
-      login, 
-      logout 
-    }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };
+
+export const useAuth = () => useContext(AuthContext);

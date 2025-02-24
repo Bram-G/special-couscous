@@ -26,6 +26,9 @@ interface GroupMember {
   username: string;
   email: string;
 }
+interface GroupManagementProps {
+  onGroupUpdate?: () => void;
+}
 
 interface Group {
   id: string;
@@ -36,7 +39,7 @@ interface Group {
 
 type ConfirmActionType = "leave" | "remove" | null;
 
-const GroupManagement = () => {
+const GroupManagement: React.FC<GroupManagementProps> = (props) => {
   const [group, setGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
@@ -131,6 +134,10 @@ const copyToClipboard = async () => {
       setShowCreateModal(false);
       setGroupName("");
       setGroup(data);
+
+      if (props.onGroupUpdate) {
+        props.onGroupUpdate();
+      }
     } catch (error) {
       console.error("Error creating group:", error);
     }
@@ -151,6 +158,11 @@ const copyToClipboard = async () => {
 
       // Refresh the group data or redirect if needed
       setGroup(null);
+
+      if (props.onGroupUpdate) {
+        props.onGroupUpdate();
+      }
+
     } catch (error) {
       console.error("Error leaving group:", error);
     }
@@ -171,6 +183,11 @@ const copyToClipboard = async () => {
       });
 
       await fetchUserGroup();
+
+      if (props.onGroupUpdate) {
+        props.onGroupUpdate();
+      }
+
     } catch (error) {
       console.error("Error removing member:", error);
     }
@@ -204,6 +221,11 @@ const copyToClipboard = async () => {
       setShowInviteModal(false);
       setInviteEmail("");
       await fetchUserGroup();
+
+      if (props.onGroupUpdate) {
+        props.onGroupUpdate();
+      }
+
     } catch (error) {
       console.error("Error inviting user:", error);
     }
