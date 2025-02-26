@@ -9,6 +9,7 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
+  Tooltip,
 } from "@heroui/react";
 import {
   ChevronLeft,
@@ -19,6 +20,7 @@ import {
   Save,
   X,
   Trash2,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,13 +65,8 @@ interface EventDetails {
   notes: string;
 }
 
-interface EventDetails {
-  meals: string;
-  cocktails: string;
-  notes: string;
-}
 const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
-  slidesPerView = 6,
+  slidesPerView = 5,
   onDateSelect,
   groupMembers = [],
   groupId,
@@ -98,6 +95,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     cocktails: [],
     notes: "",
   });
+  // Add state for animations
+  const [animationDirection, setAnimationDirection] = useState<'left' | 'right' | null>(null);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   useEffect(() => {
     const dates = initializeMondays();
@@ -171,22 +171,62 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     return nextMonday;
   };
 
+  // Function to jump to a specific month/year
+  const jumpToMonth = (year: number, month: number) => {
+    const today = new Date();
+    // Find the first Monday of the specified month
+    const firstDay = new Date(year, month, 1);
+    const daysUntilMonday = (8 - firstDay.getDay()) % 7;
+    const firstMonday = new Date(year, month, 1 + daysUntilMonday);
+    
+    // If it's in the future, start with the current month's first Monday
+    if (firstMonday > today) {
+      const currentFirstMonday = getNextMonday(today);
+      const newDates = [];
+      for (let i = 0; i < slidesPerView; i++) {
+        const newDate = new Date(currentFirstMonday);
+        newDate.setDate(currentFirstMonday.getDate() + i * 7);
+        newDates.push(newDate);
+      }
+      setMondayDates(newDates);
+    } else {
+      // Otherwise, create dates starting from that month's first Monday
+      const newDates = [];
+      for (let i = 0; i < slidesPerView; i++) {
+        const newDate = new Date(firstMonday);
+        newDate.setDate(firstMonday.getDate() + i * 7);
+        newDates.push(newDate);
+      }
+      setMondayDates(newDates);
+    }
+    setShowMonthPicker(false);
+  };
+
+  // Navigation with animation
   const handlePrevious = () => {
+    setAnimationDirection('right');
     const newDates = mondayDates.map((date) => {
       const newDate = new Date(date);
       newDate.setDate(date.getDate() - 7 * slidesPerView);
       return newDate;
     });
-    setMondayDates(newDates);
+    setTimeout(() => {
+      setMondayDates(newDates);
+      setAnimationDirection(null);
+    }, 50);
   };
 
   const handleNext = () => {
+    setAnimationDirection('left');
     const newDates = mondayDates.map((date) => {
       const newDate = new Date(date);
       newDate.setDate(date.getDate() + 7 * slidesPerView);
       return newDate;
     });
-    setMondayDates(newDates);
+    setTimeout(() => {
+      setMondayDates(newDates);
+      setAnimationDirection(null);
+    }, 50);
   };
 
   const formatDate = (date: Date): string => {
@@ -204,22 +244,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     setSelectedDate(date);
     setLoading(true);
     try {
-      // Log the date object and formatted string
-      console.log("Calendar date click:", {
-        originalDate: date,
-        dateToString: date.toString(),
-        dateToISO: date.toISOString(),
-        year: date.getFullYear(),
-        month: date.getMonth() + 1,
-        day: date.getDate(),
-      });
-
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
       const formattedDate = `${year}-${month}-${day}`;
-
-      console.log("Formatted date to send:", formattedDate);
 
       const response = await fetch(
         `http://localhost:8000/api/movie-monday/${formattedDate}`,
@@ -232,12 +260,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
       if (response.ok) {
         const data = await response.json();
-        console.log("Response data:", data);
         setSelectedMonday(data);
         setMovieMondayMap(
           new Map(movieMondayMap.set(date.toISOString(), data))
         );
-        // ... rest of the function
 
         if (data.eventDetails) {
           setEventDetails({
@@ -285,27 +311,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         throw new Error("Failed to save event details");
       }
 
-      // Show success toast
-      addToast({
-        title: "Success",
-        description: "Event details saved successfully",
-        variant: "solid",
-        promise: new Promise((resolve) => setTimeout(resolve, 2000)),
-      });
-
       // Refresh the movie monday data
       if (selectedDate) {
         await handleDateClick(selectedDate);
       }
     } catch (error) {
       console.error("Error saving event details:", error);
-      // Show error toast
-      addToast({
-        title: "Error",
-        description: "Failed to save event details. Please try again.",
-        variant: "solid",
-        promise: new Promise((resolve) => setTimeout(resolve, 2000)),
-      });
     } finally {
       setSavingDetails(false);
     }
@@ -341,30 +352,49 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   };
 
-  const getDateButtonStyle = (date: Date) => {
+  // Add markers for month change
+  const isMonthStart = (date: Date, index: number, dates: Date[]) => {
+    if (index === 0) return true;
+    const prevDate = dates[index - 1];
+    return date.getMonth() !== prevDate.getMonth() || date.getFullYear() !== prevDate.getFullYear();
+  };
+
+  const getDateButtonStatus = (date: Date) => {
     const formattedDate = formatDateForAPI(date);
-    const movieMonday = movieMondayMap.get(formattedDate);
+    const movieMonday = Array.from(movieMondayMap.entries()).find(
+      ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate
+    )?.[1];
+    
     const isSelected =
       selectedDate && formatDateForAPI(selectedDate) === formattedDate;
 
-    let variant = "light";
-    let color = "default";
-
-    if (isSelected) {
-      variant = "solid";
+    if (!movieMonday || movieMonday.status === 'not_created') {
+      return {
+        status: 'empty',
+        variant: isSelected ? "solid" : "light",
+        color: isSelected ? "primary" : "default"
+      };
     }
 
-    if (movieMonday) {
-      if (movieMonday.status === "completed") {
-        color = "success";
-      } else if (movieMonday.status === "in-progress") {
-        color = "primary";
-      } else if (movieMonday.status === "pending") {
-        color = "warning";
-      }
+    if (movieMonday.status === "completed") {
+      return {
+        status: 'completed',
+        variant: isSelected ? "solid" : "light",
+        color: "success"
+      };
+    } else if (movieMonday.status === "in-progress") {
+      return {
+        status: 'in-progress',
+        variant: isSelected ? "solid" : "light",
+        color: "primary"
+      };
+    } else {
+      return {
+        status: 'pending',
+        variant: isSelected ? "solid" : "light",
+        color: "warning"
+      };
     }
-
-    return { variant, color };
   };
 
   const handleCreateMovieMonday = async (date: Date) => {
@@ -380,12 +410,6 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       const selectedDate = new Date(date);
       // Get just the date part in YYYY-MM-DD format
       const dateString = selectedDate.toISOString().split("T")[0];
-
-      console.log("Creating MovieMonday for:", {
-        originalDate: date,
-        selectedDate: selectedDate,
-        dateString: dateString,
-      });
 
       const response = await fetch(
         "http://localhost:8000/api/movie-monday/create",
@@ -416,15 +440,6 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const getPickerForDate = (date: Date): string => {
-    const formattedDate = formatDateForAPI(date);
-    const movieMonday = movieMondayMap.get(formattedDate);
-    if (movieMonday && movieMonday.picker) {
-      return movieMonday.picker.username;
-    }
-    return "";
   };
 
   const router = useRouter();
@@ -496,57 +511,208 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       console.error("Error setting winner:", error);
     }
   };
+  
+  // Pre-fetch data for all visible dates
+  useEffect(() => {
+    const fetchAllDates = async () => {
+      if (!token) return;
+      
+      const promises = mondayDates.map(async (date) => {
+        try {
+          const formattedDate = formatDateForAPI(date);
+          const response = await fetch(
+            `http://localhost:8000/api/movie-monday/${formattedDate}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            setMovieMondayMap(prev => new Map(prev.set(date.toISOString(), data)));
+          }
+        } catch (error) {
+          console.error(`Error fetching data for ${date}:`, error);
+        }
+      });
+      
+      await Promise.all(promises);
+    };
+    
+    fetchAllDates();
+  }, [mondayDates, token]);
+
+  // Generate list of months for dropdown
+  const generateMonthOptions = () => {
+    const months = [];
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    
+    // Add months from current year and previous year
+    for (let year = currentYear; year >= currentYear - 2; year--) {
+      for (let month = 11; month >= 0; month--) {
+        if (year === currentYear && month > currentDate.getMonth()) {
+          continue; // Skip future months
+        }
+        months.push({ year, month });
+      }
+    }
+    
+    return months;
+  };
+
+  const monthOptions = generateMonthOptions();
 
   return (
     <div className="space-y-4 w-full">
-      {/* Calendar - Always visible */}
-      <Card className="w-full p-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between gap-4">
+      {/* Calendar Header - Navigation */}
+      <Card className="w-full p-4 sticky top-0 z-10 overflow-hidden">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <CalendarIcon className="h-5 w-5 mr-2" />
+            <h3 className="text-lg font-semibold">Movie Monday Calendar</h3>
+          </div>
+          
+          <div>
+            {/* Month/Year Dropdown */}
+            <Dropdown isOpen={showMonthPicker} onOpenChange={setShowMonthPicker}>
+              <DropdownTrigger>
+                <Button 
+                  variant="flat" 
+                  className="text-sm"
+                >
+                  Jump to Month
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu 
+                aria-label="Select month" 
+                className="max-h-96 overflow-y-auto"
+                onAction={(key) => {
+                  const [year, month] = key.toString().split('-').map(Number);
+                  jumpToMonth(year, month);
+                }}
+              >
+                {monthOptions.map(({year, month}) => (
+                  <DropdownItem 
+                    key={`${year}-${month}`}
+                    className="text-sm"
+                  >
+                    {new Date(year, month, 1).toLocaleDateString('default', {
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </DropdownItem>
+                ))}
+              </DropdownMenu>
+            </Dropdown>
+          </div>
+        </div>
+
+        {/* Calendar with side navigation */}
+        <div className="flex items-center">
+          {/* Left Arrow */}
           <Button
             isIconOnly
             variant="light"
             onPress={handlePrevious}
-            className="min-w-unit-10"
+            aria-label="Previous weeks"
+            className="min-w-unit-12 h-16"
           >
             <ChevronLeft className="h-6 w-6" />
           </Button>
 
-          <div className="flex flex-1 justify-between flex-wrap">
-            {mondayDates.map((date) => {
-              const buttonStyle = getDateButtonStyle(date);
-              return (
-                <Button
-                  key={date.toISOString()}
-                  variant={buttonStyle.variant}
-                  color={buttonStyle.color}
-                  onPress={() => handleDateClick(date)}
-                  className="min-w-unit-20 flex flex-col justify-between gap-0"
-                >
-                  <span className="text-xs text-default-900">
-                    {getPickerForDate(date)}
-                  </span>
-                  <span>{formatDate(date)}</span>
-                </Button>
-              );
-            })}
+          <div className="flex-1 flex flex-col">
+            {/* Month labels - with increased spacing */}
+            <div className="flex mb-6 relative pt-2"> 
+              {mondayDates.map((date, idx) => {
+                if (isMonthStart(date, idx, mondayDates)) {
+                  // Calculate width based on how many dates in this month
+                  const monthDatesCount = mondayDates.slice(idx).findIndex(d => 
+                    d.getMonth() !== date.getMonth() || d.getFullYear() !== date.getFullYear()
+                  );
+                  const width = monthDatesCount === -1 
+                    ? (mondayDates.length - idx) / mondayDates.length * 100 
+                    : monthDatesCount / mondayDates.length * 100;
+                  
+                  return (
+                    <div 
+                      key={`month-${date.toISOString()}`} 
+                      className="text-sm font-medium text-default-600 absolute"
+                      style={{ left: `${(idx / mondayDates.length) * 100}%`, width: `${width}%` }}
+                    >
+                      {date.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
+
+            {/* Calendar Days in single row */}
+            <div className={`flex w-full transition-transform duration-300 ${
+              animationDirection === 'left' ? 'translate-x-[-3%] opacity-50' : 
+              animationDirection === 'right' ? 'translate-x-[3%] opacity-50' : ''
+            }`}>
+              {mondayDates.map((date, index) => {
+                const dateStatus = getDateButtonStatus(date);
+                let statusDescription = "No event scheduled";
+                
+                if (dateStatus.status === 'completed') {
+                  statusDescription = "Event completed";
+                } else if (dateStatus.status === 'in-progress') {
+                  statusDescription = "Event in progress";
+                } else if (dateStatus.status === 'pending') {
+                  statusDescription = "Event pending";
+                }
+                
+                // Add month separator
+                const isNewMonth = isMonthStart(date, index, mondayDates);
+                
+                return (
+                  <div key={date.toISOString()} className="flex-1 flex">
+                    {isNewMonth && index > 0 && (
+                      <div className="w-px bg-default-300 self-stretch mx-1"></div>
+                    )}
+                    <Tooltip content={statusDescription}>
+                      <Button
+                        variant={dateStatus.variant}
+                        color={dateStatus.color}
+                        onPress={() => handleDateClick(date)}
+                        className="h-16 w-full flex flex-col items-center justify-center"
+                      >
+                        <span className="text-sm">
+                          {date.toLocaleDateString('default', { weekday: 'short' })}
+                        </span>
+                        <span className="text-lg font-bold">{date.getDate()}</span>
+                      </Button>
+                    </Tooltip>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
+          {/* Right Arrow */}
           <Button
             isIconOnly
             variant="light"
             onPress={handleNext}
-            className="min-w-unit-10"
+            aria-label="Next weeks"
+            className="min-w-unit-12 h-16"
           >
             <ChevronRight className="h-6 w-6" />
           </Button>
         </div>
       </Card>
+
       {selectedDate && (
         <Card className="w-full">
           <div className="p-4 border-b">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">
-                Movies for {selectedDate.toLocaleDateString()}
+                Movies for {selectedDate.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
               </h3>
             </div>
           </div>
