@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { CrownIcon } from "lucide-react";
+import { CrownIcon, Utensils, Wine, FileText } from "lucide-react";
 import confetti from "canvas-confetti";
 
 interface DashboardCalendarProps {
@@ -96,7 +96,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     notes: "",
   });
   // Add state for animations
-  const [animationDirection, setAnimationDirection] = useState<'left' | 'right' | null>(null);
+  const [animationDirection, setAnimationDirection] = useState<
+    "left" | "right" | null
+  >(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   useEffect(() => {
@@ -178,7 +180,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     const firstDay = new Date(year, month, 1);
     const daysUntilMonday = (8 - firstDay.getDay()) % 7;
     const firstMonday = new Date(year, month, 1 + daysUntilMonday);
-    
+
     // If it's in the future, start with the current month's first Monday
     if (firstMonday > today) {
       const currentFirstMonday = getNextMonday(today);
@@ -204,7 +206,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
   // Navigation with animation
   const handlePrevious = () => {
-    setAnimationDirection('right');
+    setAnimationDirection("right");
     const newDates = mondayDates.map((date) => {
       const newDate = new Date(date);
       newDate.setDate(date.getDate() - 7 * slidesPerView);
@@ -217,7 +219,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   const handleNext = () => {
-    setAnimationDirection('left');
+    setAnimationDirection("left");
     const newDates = mondayDates.map((date) => {
       const newDate = new Date(date);
       newDate.setDate(date.getDate() + 7 * slidesPerView);
@@ -356,7 +358,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   const isMonthStart = (date: Date, index: number, dates: Date[]) => {
     if (index === 0) return true;
     const prevDate = dates[index - 1];
-    return date.getMonth() !== prevDate.getMonth() || date.getFullYear() !== prevDate.getFullYear();
+    return (
+      date.getMonth() !== prevDate.getMonth() ||
+      date.getFullYear() !== prevDate.getFullYear()
+    );
   };
 
   const getDateButtonStatus = (date: Date) => {
@@ -364,35 +369,35 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     const movieMonday = Array.from(movieMondayMap.entries()).find(
       ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate
     )?.[1];
-    
+
     const isSelected =
       selectedDate && formatDateForAPI(selectedDate) === formattedDate;
 
-    if (!movieMonday || movieMonday.status === 'not_created') {
+    if (!movieMonday || movieMonday.status === "not_created") {
       return {
-        status: 'empty',
+        status: "empty",
         variant: isSelected ? "solid" : "light",
-        color: isSelected ? "primary" : "default"
+        color: isSelected ? "primary" : "default",
       };
     }
 
     if (movieMonday.status === "completed") {
       return {
-        status: 'completed',
+        status: "completed",
         variant: isSelected ? "solid" : "light",
-        color: "success"
+        color: "success",
       };
     } else if (movieMonday.status === "in-progress") {
       return {
-        status: 'in-progress',
+        status: "in-progress",
         variant: isSelected ? "solid" : "light",
-        color: "primary"
+        color: "primary",
       };
     } else {
       return {
-        status: 'pending',
+        status: "pending",
         variant: isSelected ? "solid" : "light",
-        color: "warning"
+        color: "warning",
       };
     }
   };
@@ -511,12 +516,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       console.error("Error setting winner:", error);
     }
   };
-  
+
   // Pre-fetch data for all visible dates
   useEffect(() => {
     const fetchAllDates = async () => {
       if (!token) return;
-      
+
       const promises = mondayDates.map(async (date) => {
         try {
           const formattedDate = formatDateForAPI(date);
@@ -528,19 +533,21 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
               },
             }
           );
-          
+
           if (response.ok) {
             const data = await response.json();
-            setMovieMondayMap(prev => new Map(prev.set(date.toISOString(), data)));
+            setMovieMondayMap(
+              (prev) => new Map(prev.set(date.toISOString(), data))
+            );
           }
         } catch (error) {
           console.error(`Error fetching data for ${date}:`, error);
         }
       });
-      
+
       await Promise.all(promises);
     };
-    
+
     fetchAllDates();
   }, [mondayDates, token]);
 
@@ -549,7 +556,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     const months = [];
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
-    
+
     // Add months from current year and previous year
     for (let year = currentYear; year >= currentYear - 2; year--) {
       for (let month = 11; month >= 0; month--) {
@@ -559,7 +566,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         months.push({ year, month });
       }
     }
-    
+
     return months;
   };
 
@@ -574,34 +581,31 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
             <CalendarIcon className="h-5 w-5 mr-2" />
             <h3 className="text-lg font-semibold">Movie Monday Calendar</h3>
           </div>
-          
+
           <div>
             {/* Month/Year Dropdown */}
-            <Dropdown isOpen={showMonthPicker} onOpenChange={setShowMonthPicker}>
+            <Dropdown
+              isOpen={showMonthPicker}
+              onOpenChange={setShowMonthPicker}
+            >
               <DropdownTrigger>
-                <Button 
-                  variant="flat" 
-                  className="text-sm"
-                >
+                <Button variant="flat" className="text-sm">
                   Jump to Month
                 </Button>
               </DropdownTrigger>
-              <DropdownMenu 
-                aria-label="Select month" 
+              <DropdownMenu
+                aria-label="Select month"
                 className="max-h-96 overflow-y-auto"
                 onAction={(key) => {
-                  const [year, month] = key.toString().split('-').map(Number);
+                  const [year, month] = key.toString().split("-").map(Number);
                   jumpToMonth(year, month);
                 }}
               >
-                {monthOptions.map(({year, month}) => (
-                  <DropdownItem 
-                    key={`${year}-${month}`}
-                    className="text-sm"
-                  >
-                    {new Date(year, month, 1).toLocaleDateString('default', {
-                      month: 'long',
-                      year: 'numeric'
+                {monthOptions.map(({ year, month }) => (
+                  <DropdownItem key={`${year}-${month}`} className="text-sm">
+                    {new Date(year, month, 1).toLocaleDateString("default", {
+                      month: "long",
+                      year: "numeric",
                     })}
                   </DropdownItem>
                 ))}
@@ -612,7 +616,54 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
         {/* Calendar with side navigation */}
         <div className="flex items-center">
-          {/* Left Arrow */}
+          
+
+          <div className="flex-1 flex flex-col">
+            {/* Month labels - with increased spacing */}
+            <div className="flex  mb-2 w-full justify-center ">
+
+            
+            <div className="flex mb-6 relative pt-2 w-5/6 justify-between  ">
+              {mondayDates.map((date, idx) => {
+                if (isMonthStart(date, idx, mondayDates)) {
+                  // Calculate width based on how many dates in this month
+                  const monthDatesCount = mondayDates
+                    .slice(idx)
+                    .findIndex(
+                      (d) =>
+                        d.getMonth() !== date.getMonth() ||
+                        d.getFullYear() !== date.getFullYear()
+                    );
+                  const width =
+                    monthDatesCount === -1
+                      ? ((mondayDates.length - idx) / mondayDates.length) * 100
+                      : (monthDatesCount / mondayDates.length) * 100;
+
+                  return (
+                    <div
+                      key={`month-${date.toISOString()}`}
+                      className="text-sm font-medium text-default-600 absolute"
+                      style={{
+                        left: `${(idx / mondayDates.length) * 100}%`,
+                        width: `${width}%`,
+                      }}
+                    >
+                      {date.toLocaleDateString("default", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                      <div className="h-px bg-gray-300 w-[95%] mx-auto mt-1"></div>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
+            </div>
+
+            {/* Calendar Days in single row */}
+            <div className="flex items-center justify-between">
+              {/* Left Arrow */}
           <Button
             isIconOnly
             variant="light"
@@ -622,54 +673,31 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           >
             <ChevronLeft className="h-6 w-6" />
           </Button>
-
-          <div className="flex-1 flex flex-col">
-            {/* Month labels - with increased spacing */}
-            <div className="flex mb-6 relative pt-2"> 
-              {mondayDates.map((date, idx) => {
-                if (isMonthStart(date, idx, mondayDates)) {
-                  // Calculate width based on how many dates in this month
-                  const monthDatesCount = mondayDates.slice(idx).findIndex(d => 
-                    d.getMonth() !== date.getMonth() || d.getFullYear() !== date.getFullYear()
-                  );
-                  const width = monthDatesCount === -1 
-                    ? (mondayDates.length - idx) / mondayDates.length * 100 
-                    : monthDatesCount / mondayDates.length * 100;
-                  
-                  return (
-                    <div 
-                      key={`month-${date.toISOString()}`} 
-                      className="text-sm font-medium text-default-600 absolute"
-                      style={{ left: `${(idx / mondayDates.length) * 100}%`, width: `${width}%` }}
-                    >
-                      {date.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
-                    </div>
-                  );
-                }
-                return null;
-              })}
-            </div>
-
-            {/* Calendar Days in single row */}
-            <div className={`flex w-full transition-transform duration-300 ${
-              animationDirection === 'left' ? 'translate-x-[-3%] opacity-50' : 
-              animationDirection === 'right' ? 'translate-x-[3%] opacity-50' : ''
-            }`}>
+            
+            <div
+              className={`flex w-full transition-transform duration-300 m-2 w-5/6 ${
+                animationDirection === "left"
+                  ? "translate-x-[-3%] opacity-50"
+                  : animationDirection === "right"
+                    ? "translate-x-[3%] opacity-50"
+                    : ""
+              }`}
+            >
               {mondayDates.map((date, index) => {
                 const dateStatus = getDateButtonStatus(date);
                 let statusDescription = "No event scheduled";
-                
-                if (dateStatus.status === 'completed') {
+
+                if (dateStatus.status === "completed") {
                   statusDescription = "Event completed";
-                } else if (dateStatus.status === 'in-progress') {
+                } else if (dateStatus.status === "in-progress") {
                   statusDescription = "Event in progress";
-                } else if (dateStatus.status === 'pending') {
+                } else if (dateStatus.status === "pending") {
                   statusDescription = "Event pending";
                 }
-                
+
                 // Add month separator
                 const isNewMonth = isMonthStart(date, index, mondayDates);
-                
+
                 return (
                   <div key={date.toISOString()} className="flex-1 flex">
                     {isNewMonth && index > 0 && (
@@ -683,18 +711,20 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                         className="h-16 w-full flex flex-col items-center justify-center"
                       >
                         <span className="text-sm">
-                          {date.toLocaleDateString('default', { weekday: 'short' })}
+                          {date.toLocaleDateString("default", {
+                            weekday: "short",
+                          })}
                         </span>
-                        <span className="text-lg font-bold">{date.getDate()}</span>
+                        <span className="text-lg font-bold">
+                          {date.getDate()}
+                        </span>
                       </Button>
                     </Tooltip>
                   </div>
                 );
               })}
             </div>
-          </div>
-
-          {/* Right Arrow */}
+            {/* Right Arrow */}
           <Button
             isIconOnly
             variant="light"
@@ -704,6 +734,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           >
             <ChevronRight className="h-6 w-6" />
           </Button>
+            </div>
+          </div>
+
+          
         </div>
       </Card>
 
@@ -712,7 +746,13 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           <div className="p-4 border-b">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">
-                Movies for {selectedDate.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                Movies for{" "}
+                {selectedDate.toLocaleDateString("default", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })}
               </h3>
             </div>
           </div>
@@ -835,9 +875,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
               </div>
               {/* Event Details Section - 40% width */}
               <div className="w-2/5">
-                <Card className="p-4">
+                <Card className="p-4 h-full">
                   <div className="flex flex-col h-full">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex justify-between items-center mb-2">
                       <h3 className="text-lg font-semibold">Event Details</h3>
                       <div className="flex items-center gap-2">
                         {!isEditing ? (
@@ -972,31 +1012,53 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                           </>
                         ) : (
                           <>
-                            <div>
-                              <h4 className="font-medium mb-1">Meals</h4>
-                              <p className="text-default-600">
-                                {selectedMonday?.eventDetails?.meals ||
-                                  "No meals recorded"}
-                              </p>
+                            <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
+                              <div className="text-primary flex items-center">
+                                <Utensils className="h-6 w-6" />
+                              </div>
+                              <div className="text-left ml-2 flex-1">
+                                <h4 className="font-medium text-primary-600 text-sm">
+                                  Meals
+                                </h4>
+                                <p className="text-default-700 text-sm">
+                                  {selectedMonday?.eventDetails?.meals ||
+                                    "No meals recorded yet"}
+                                </p>
+                              </div>
                             </div>
 
-                            <div>
-                              <h4 className="font-medium mb-1">Cocktails</h4>
-                              <p className="text-default-600">
-                                {selectedMonday?.eventDetails?.cocktails?.length
-                                  ? selectedMonday.eventDetails.cocktails.join(
-                                      ", "
-                                    )
-                                  : "No cocktails recorded"}
-                              </p>
+                            <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
+                              <div className="text-secondary flex items-center">
+                                <Wine className="h-6 w-6" />
+                              </div>
+                              <div className="text-left ml-2 flex-1">
+                                <h4 className="font-medium text-secondary-600 text-sm">
+                                  Cocktails
+                                </h4>
+                                <p className="text-default-700 text-sm">
+                                  {selectedMonday?.eventDetails?.cocktails
+                                    ?.length
+                                    ? selectedMonday.eventDetails.cocktails.join(
+                                        ", "
+                                      )
+                                    : "No cocktails recorded yet"}
+                                </p>
+                              </div>
                             </div>
 
-                            <div>
-                              <h4 className="font-medium mb-1">Notes</h4>
-                              <p className="text-default-600">
-                                {selectedMonday?.eventDetails?.notes ||
-                                  "No notes recorded"}
-                              </p>
+                            <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
+                              <div className="text-warning flex items-center">
+                                <FileText className="h-6 w-6" />
+                              </div>
+                              <div className="text-left ml-2 flex-1">
+                                <h4 className="font-medium text-warning-600 text-sm">
+                                  Notes
+                                </h4>
+                                <p className="text-default-700 text-sm">
+                                  {selectedMonday?.eventDetails?.notes ||
+                                    "No notes recorded yet"}
+                                </p>
+                              </div>
                             </div>
                           </>
                         )}
