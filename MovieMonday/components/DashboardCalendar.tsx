@@ -616,128 +616,123 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
         {/* Calendar with side navigation */}
         <div className="flex items-center">
-          
-
           <div className="flex-1 flex flex-col">
             {/* Month labels - with increased spacing */}
             <div className="flex  mb-2 w-full justify-center ">
+              <div className="flex mb-6 relative pt-2 w-5/6 justify-between  ">
+                {mondayDates.map((date, idx) => {
+                  if (isMonthStart(date, idx, mondayDates)) {
+                    // Calculate width based on how many dates in this month
+                    const monthDatesCount = mondayDates
+                      .slice(idx)
+                      .findIndex(
+                        (d) =>
+                          d.getMonth() !== date.getMonth() ||
+                          d.getFullYear() !== date.getFullYear()
+                      );
+                    const width =
+                      monthDatesCount === -1
+                        ? ((mondayDates.length - idx) / mondayDates.length) *
+                          100
+                        : (monthDatesCount / mondayDates.length) * 100;
 
-            
-            <div className="flex mb-6 relative pt-2 w-5/6 justify-between  ">
-              {mondayDates.map((date, idx) => {
-                if (isMonthStart(date, idx, mondayDates)) {
-                  // Calculate width based on how many dates in this month
-                  const monthDatesCount = mondayDates
-                    .slice(idx)
-                    .findIndex(
-                      (d) =>
-                        d.getMonth() !== date.getMonth() ||
-                        d.getFullYear() !== date.getFullYear()
+                    return (
+                      <div
+                        key={`month-${date.toISOString()}`}
+                        className="text-sm font-medium text-default-600 absolute"
+                        style={{
+                          left: `${(idx / mondayDates.length) * 100}%`,
+                          width: `${width}%`,
+                        }}
+                      >
+                        {date.toLocaleDateString("default", {
+                          month: "long",
+                          year: "numeric",
+                        })}
+                        <div className="h-px bg-gray-300 w-[95%] mx-auto mt-1"></div>
+                      </div>
                     );
-                  const width =
-                    monthDatesCount === -1
-                      ? ((mondayDates.length - idx) / mondayDates.length) * 100
-                      : (monthDatesCount / mondayDates.length) * 100;
-
-                  return (
-                    <div
-                      key={`month-${date.toISOString()}`}
-                      className="text-sm font-medium text-default-600 absolute"
-                      style={{
-                        left: `${(idx / mondayDates.length) * 100}%`,
-                        width: `${width}%`,
-                      }}
-                    >
-                      {date.toLocaleDateString("default", {
-                        month: "long",
-                        year: "numeric",
-                      })}
-                      <div className="h-px bg-gray-300 w-[95%] mx-auto mt-1"></div>
-                    </div>
-                  );
-                }
-                return null;
-              })}
-            </div>
+                  }
+                  return null;
+                })}
+              </div>
             </div>
 
             {/* Calendar Days in single row */}
             <div className="flex items-center justify-between">
               {/* Left Arrow */}
-          <Button
-            isIconOnly
-            variant="light"
-            onPress={handlePrevious}
-            aria-label="Previous weeks"
-            className="min-w-unit-12 h-16"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
-            
-            <div
-              className={`flex w-full transition-transform duration-300 m-2 w-5/6 ${
-                animationDirection === "left"
-                  ? "translate-x-[-3%] opacity-50"
-                  : animationDirection === "right"
-                    ? "translate-x-[3%] opacity-50"
-                    : ""
-              }`}
-            >
-              {mondayDates.map((date, index) => {
-                const dateStatus = getDateButtonStatus(date);
-                let statusDescription = "No event scheduled";
+              <Button
+                isIconOnly
+                variant="light"
+                onPress={handlePrevious}
+                aria-label="Previous weeks"
+                className="min-w-unit-12 h-16"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Button>
 
-                if (dateStatus.status === "completed") {
-                  statusDescription = "Event completed";
-                } else if (dateStatus.status === "in-progress") {
-                  statusDescription = "Event in progress";
-                } else if (dateStatus.status === "pending") {
-                  statusDescription = "Event pending";
-                }
+              <div
+                className={`flex w-full transition-transform duration-300 m-2 w-5/6 ${
+                  animationDirection === "left"
+                    ? "translate-x-[-3%] opacity-50"
+                    : animationDirection === "right"
+                      ? "translate-x-[3%] opacity-50"
+                      : ""
+                }`}
+              >
+                {mondayDates.map((date, index) => {
+                  const dateStatus = getDateButtonStatus(date);
+                  let statusDescription = "No event scheduled";
 
-                // Add month separator
-                const isNewMonth = isMonthStart(date, index, mondayDates);
+                  if (dateStatus.status === "completed") {
+                    statusDescription = "Event completed";
+                  } else if (dateStatus.status === "in-progress") {
+                    statusDescription = "Event in progress";
+                  } else if (dateStatus.status === "pending") {
+                    statusDescription = "Event pending";
+                  }
 
-                return (
-                  <div key={date.toISOString()} className="flex-1 flex">
-                    {isNewMonth && index > 0 && (
-                      <div className="w-px bg-default-300 self-stretch mx-1"></div>
-                    )}
-                    <Tooltip content={statusDescription}>
-                      <Button
-                        variant={dateStatus.variant}
-                        color={dateStatus.color}
-                        onPress={() => handleDateClick(date)}
-                        className="h-16 w-full flex flex-col items-center justify-center"
-                      >
-                        <span className="text-sm">
-                          {date.toLocaleDateString("default", {
-                            weekday: "short",
-                          })}
-                        </span>
-                        <span className="text-lg font-bold">
-                          {date.getDate()}
-                        </span>
-                      </Button>
-                    </Tooltip>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Right Arrow */}
-          <Button
-            isIconOnly
-            variant="light"
-            onPress={handleNext}
-            aria-label="Next weeks"
-            className="min-w-unit-12 h-16"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
+                  // Add month separator
+                  const isNewMonth = isMonthStart(date, index, mondayDates);
+
+                  return (
+                    <div key={date.toISOString()} className="flex-1 flex">
+                      {isNewMonth && index > 0 && (
+                        <div className="w-px bg-default-300 self-stretch mx-1"></div>
+                      )}
+                      <Tooltip content={statusDescription}>
+                        <Button
+                          variant={dateStatus.variant}
+                          color={dateStatus.color}
+                          onPress={() => handleDateClick(date)}
+                          className="h-16 w-full flex flex-col items-center justify-center"
+                        >
+                          <span className="text-sm">
+                            {date.toLocaleDateString("default", {
+                              weekday: "short",
+                            })}
+                          </span>
+                          <span className="text-lg font-bold">
+                            {date.getDate()}
+                          </span>
+                        </Button>
+                      </Tooltip>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Right Arrow */}
+              <Button
+                isIconOnly
+                variant="light"
+                onPress={handleNext}
+                aria-label="Next weeks"
+                className="min-w-unit-12 h-16"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </Button>
             </div>
           </div>
-
-          
         </div>
       </Card>
 
@@ -799,29 +794,34 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                   return (
                     <Card
                       key={index}
-                      className={`w-full h-80 relative group ${
+                      className={`w-full h-80 relative group overflow-hidden ${
                         movie?.isWinner
                           ? "ring-2 ring-yellow-400 shadow-lg shadow-yellow-400/50"
                           : ""
                       }`}
                     >
                       {movie ? (
-                        <div
-                          className="relative h-full cursor-pointer"
-                          onClick={() => handleMovieClick(movie.tmdbMovieId)}
-                        >
-                          <Image
-                            src={`https://image.tmdb.org/t/p/w500${movie.posterPath}`}
-                            alt={movie.title}
-                            className="object-cover w-full h-full"
-                          />
+                        <div className="relative h-full">
+                          {/* Movie poster area that will navigate to the movie page */}
                           <div
-                            className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 z-10"
-                            onClick={(e: React.MouseEvent) =>
-                              e.stopPropagation()
-                            }
+                            className="absolute inset-0 z-0 cursor-pointer"
+                            onClick={() => handleMovieClick(movie.tmdbMovieId)}
                           >
-                            <p className="text-white text-center font-medium mb-4">
+                            <Image
+                              src={`https://image.tmdb.org/t/p/w500${movie.posterPath}`}
+                              alt={movie.title}
+                              className="object-cover w-full h-full"
+                            />
+                          </div>
+
+                          {/* Action panel that slides up from the bottom on hover */}
+                          <div
+                            className="absolute bottom-0 left-0 right-0 bg-black/80 
+                          transform translate-y-full group-hover:translate-y-0 
+                          transition-transform duration-300 ease-in-out z-10
+                          flex flex-col items-center justify-center p-3 h-1/3"
+                          >
+                            <p className="text-white text-center font-medium mb-2 truncate w-full">
                               {movie.title}
                             </p>
                             <div className="flex gap-2">
@@ -849,7 +849,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                       <CrownIcon className="h-4 w-4" />
                                     }
                                   >
-                                    Winner
+                                    
                                   </Button>
                                   <Button
                                     color="danger"
@@ -863,6 +863,15 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                               )}
                             </div>
                           </div>
+
+                          {/* Winner indicator */}
+                          {movie.isWinner && (
+                            <div className="absolute top-2 right-2 z-20">
+                              <div className="bg-yellow-500 text-white rounded-full p-1">
+                                <Trophy className="h-5 w-5" />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="h-full flex items-center justify-center">
