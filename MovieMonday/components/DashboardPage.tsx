@@ -6,6 +6,7 @@ import GroupManagement from './GroupManagement';
 import WatchlistCarousel from './WatchlistCarousel';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import DashboardAnalyticsWidget from './DashboardAnalyticsWidget'
 
 interface GroupMember {
   id: string;
@@ -87,9 +88,13 @@ const DashboardPage = () => {
           </Card>
         </Card>
 
-        <Card className="w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <GroupManagement onGroupUpdate={handleGroupUpdate} />
-        </Card>
+          
+          
+           <DashboardAnalyticsWidget />;
+         
+        </div>
 
         <Card className="w-full">
           <WatchlistCarousel />
@@ -97,6 +102,6 @@ const DashboardPage = () => {
       </div>
     </div>
   );
-};
+}
 
 export default DashboardPage;
