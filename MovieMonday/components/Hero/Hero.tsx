@@ -1,113 +1,149 @@
-import React from "react";
-import { useEffect, useState } from "react";
-import {
-  Card,
-  CardHeader,
-  CardBody,
-  CardFooter,
-  Divider,
-  Link,
-  Image,
-  Button,
-} from "@heroui/react";
-import "./Hero.css";
+"use client";
+import React, { useEffect, useState } from "react";
+import { Button, Link } from "@heroui/react";
+import { ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-interface Movie {
-  id: number;
-  backdrop_path: string;
-  poster_path: string;
-  title: string;
-  release_date: string;
-  vote_average: number;
-}
-
-export default function Hero() {
-  const [popMovies5, setPopMovies5] = useState<Movie[]>([]);
-
-  function fetchPopMovies() {
-    fetch(
-      `https://api.themoviedb.org/3/movie/popular?api_key=${process.env.NEXT_PUBLIC_API_Key}`
-    )
-      .then((res) => res.json())
-      .then((data: { results: Movie[] }) => {
-        console.log(data.results);
-        const top5 = data.results.slice(0, 5);
-        setPopMovies5(top5);
-        console.log(top5);
-      });
-  }
-
+const CustomHero = () => {
+  const [trendingMovies, setTrendingMovies] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  
   useEffect(() => {
-    fetchPopMovies();
+    // Fetch trending movies
+    fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${process.env.NEXT_PUBLIC_API_Key}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setTrendingMovies(data.results.slice(0, 5));
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error("Error fetching trending movies:", err);
+        setIsLoading(false);
+      });
   }, []);
 
-  const [currentMovieIndex, setCurrentMovieIndex] = useState(0);
+  useEffect(() => {
+    // Auto-cycle through background images every 5 seconds
+    if (trendingMovies.length === 0) return;
+    
+    const interval = setInterval(() => {
+      setCurrentIndex(prevIndex => (prevIndex + 1) % trendingMovies.length);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [trendingMovies]);
 
-  const handleNextSlide = () => {
-    setCurrentMovieIndex((prevIndex) => (prevIndex + 1) % popMovies5.length);
-  };
-
-  const handlePrevSlide = () => {
-    setCurrentMovieIndex((prevIndex) =>
-      prevIndex === 0 ? popMovies5.length - 1 : prevIndex - 1
+  if (isLoading) {
+    return (
+      <div className="w-full h-[600px] bg-default-100 flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
     );
-  };
+  }
 
-  return (
-    <section>
-      <div
-        className="w-full bg-cover bg-center relative heroImageBG"
-        style={{
-          backgroundImage: `url(https://image.tmdb.org/t/p/original/${popMovies5[currentMovieIndex]?.backdrop_path})`,
-        }}
-        onClick={() =>
-          (window.location.href = `/movie/${popMovies5[currentMovieIndex]?.id}`)
-        }
-      >
-        <button
-          className="absolute top-1/2 left-2 transform -translate-y-1/2 text-white rounded-full p-2 NextPrevButton"
-          onClick={(e) => {
-            e.stopPropagation();
-            handlePrevSlide();
-          }}
-        >
-          <svg aria-hidden="true" fill="#ffffff" height="50px" width="50px" viewBox="0 0 512 512" transform="matrix(-1, 0, 0, 1, 0, 0)">
-            <path xmlns="http://www.w3.org/2000/svg" d="M256,0C114.62,0,0,114.62,0,256s114.62,256,256,256s256-114.62,256-256S397.38,0,256,0z M256,486.4 C128.956,486.4,25.6,383.044,25.6,256S128.956,25.6,256,25.6S486.4,128.956,486.4,256S383.044,486.4,256,486.4z"/>
-            <path xmlns="http://www.w3.org/2000/svg" d="M341.854,246.955l-128-128.009c-5.001-5.001-13.099-5.001-18.099,0c-5.001,5-5.001,13.099,0,18.099L314.701,256 L195.746,374.946c-5.001,5-5.001,13.099,0,18.099c2.5,2.509,5.777,3.755,9.054,3.755c3.277,0,6.554-1.246,9.054-3.746l128-128 C346.854,260.053,346.854,251.955,341.854,246.955z"/>
-          </svg>
-        </button>
-        <button
-          className="absolute top-1/2 right-2 transform -translate-y-1/2 text-white rounded-full p-2 NextPrevButton"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleNextSlide();
-          }}
-        >
-          <svg aria-hidden="true" fill="#ffffff" height="50px" width="50px" viewBox="0 0 512 512">
-            <path xmlns="http://www.w3.org/2000/svg" d="M256,0C114.62,0,0,114.62,0,256s114.62,256,256,256s256-114.62,256-256S397.38,0,256,0z M256,486.4 C128.956,486.4,25.6,383.044,25.6,256S128.956,25.6,256,25.6S486.4,128.956,486.4,256S383.044,486.4,256,486.4z"/>
-            <path xmlns="http://www.w3.org/2000/svg" d="M341.854,246.955l-128-128.009c-5.001-5.001-13.099-5.001-18.099,0c-5.001,5-5.001,13.099,0,18.099L314.701,256 L195.746,374.946c-5.001,5-5.001,13.099,0,18.099c2.5,2.509,5.777,3.755,9.054,3.755c3.277,0,6.554-1.246,9.054-3.746l128-128 C346.854,260.053,346.854,251.955,341.854,246.955z"/>
-          </svg>
-        </button>
-        <img
-          className="absolute bottom-4 left-20 w-40 object-cover posterImageHero"
-          src={`https://image.tmdb.org/t/p/w200/${popMovies5[currentMovieIndex]?.poster_path}`}
-          alt={popMovies5[currentMovieIndex]?.title}
-        />
-        <div className="absolute bottom-4 left-64 text-white text-2xl heroText">
-          <div className="HeroInfo ">
-            {popMovies5[currentMovieIndex]?.title}
-          </div>
-          <div className="HeroInfoSmall ">
-            {new Date(
-              popMovies5[currentMovieIndex]?.release_date
-            ).toLocaleString("default", {
-              month: "long",
-              year: "numeric",
-            })}{" "}
-            | {popMovies5[currentMovieIndex]?.vote_average.toFixed(1)} ★
-          </div>
+  if (trendingMovies.length === 0) {
+    return (
+      <div className="w-full h-[600px] bg-default-100 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Welcome to Movie Monday</h2>
+          <p>Discover and share movies with friends every week</p>
         </div>
       </div>
-    </section>
+    );
+  }
+
+  const currentMovie = trendingMovies[currentIndex];
+  
+  return (
+    <div className="relative w-full h-[600px] overflow-hidden">
+      {/* Background image */}
+      <AnimatePresence mode="wait">
+        <motion.div 
+          key={currentMovie.id}
+          className="absolute inset-0 w-full h-full"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1 }}
+        >
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ 
+              backgroundImage: `url(https://image.tmdb.org/t/p/original${currentMovie.backdrop_path})`,
+              filter: 'brightness(0.7)'
+            }}
+          />
+        </motion.div>
+      </AnimatePresence>
+      
+      {/* Solid color overlay (1/3 of the container) */}
+      <div 
+        className="absolute inset-0 z-10"
+        style={{
+          background: 'linear-gradient(to right, rgba(var(--background), 0.9) 33%, rgba(var(--background), 0.1) 100%)'
+        }}
+      ></div>
+      
+      {/* Content */}
+      <div className="relative z-20 container mx-auto px-6 h-full flex items-center">
+        <div className="w-full max-w-xl">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <h1 className="text-5xl font-bold mb-2">Movie Monday</h1>
+            
+            {/* Movie title with animation */}
+            <AnimatePresence mode="wait">
+              <motion.h2 
+                key={currentMovie.id}
+                className="text-2xl font-medium text-primary mb-6"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.5 }}
+              >
+                Featuring: {currentMovie.title}
+              </motion.h2>
+            </AnimatePresence>
+            
+            <p className="text-lg mb-6 text-default-600">
+              Movie Monday is a weekly tradition that brings friends together to enjoy cinema.
+              Each week, group members take turns selecting films, creating a shared experience
+              that builds community and exposes everyone to new genres and perspectives.
+            </p>
+            
+            <p className="text-lg mb-8 text-default-600">
+              Our platform makes it easy to organize your Movie Monday group,
+              track what you've watched, and discover new films to enjoy together.
+            </p>
+            
+            <Button 
+              color="primary" 
+              size="lg"
+              endContent={<ArrowRight className="h-4 w-4" />}
+              as={Link}
+              href="/dashboard"
+            >
+              Start Your Group
+            </Button>
+          </motion.div>
+        </div>
+      </div>
+      
+      {/* Simple indicator dots */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-20 flex space-x-2">
+        {trendingMovies.map((_, idx) => (
+          <div 
+            key={idx} 
+            className={`w-2 h-2 rounded-full ${idx === currentIndex ? 'bg-primary' : 'bg-default-200'}`}
+          />
+        ))}
+      </div>
+    </div>
   );
-}
+};
+
+export default CustomHero;
