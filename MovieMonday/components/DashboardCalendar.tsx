@@ -848,9 +848,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                     startContent={
                                       <CrownIcon className="h-4 w-4" />
                                     }
-                                  >
-                                    
-                                  </Button>
+                                  ></Button>
                                   <Button
                                     color="danger"
                                     variant="light"
@@ -984,6 +982,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                   meals: e.target.value,
                                 }))
                               }
+                              startContent={
+                                <Utensils className="text-primary h-4 w-4" />
+                              }
                             />
 
                             <Input
@@ -1003,6 +1004,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                     .filter(Boolean),
                                 }))
                               }
+                              startContent={
+                                <Wine className="text-secondary h-4 w-4" />
+                              }
                             />
 
                             <Textarea
@@ -1017,6 +1021,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                               }
                               minRows={2}
                               maxRows={3}
+                              startContent={
+                                <FileText className="text-warning h-4 w-4" />
+                              }
                             />
                           </>
                         ) : (

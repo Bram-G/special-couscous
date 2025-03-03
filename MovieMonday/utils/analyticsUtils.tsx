@@ -1,405 +1,388 @@
-// MovieMonday/utils/analyticsUtils.tsx
+// MovieMonday/utils/analyticsUtils.ts
 
-// Type definitions
 export interface MovieMonday {
   id: number;
   date: string;
-  pickerUserId: string;
   status: string;
+  pickerUserId: string;
   movieSelections: MovieSelection[];
   picker: {
     id: string;
     username: string;
   };
-  eventDetails?: {
-    meals: string;
-    cocktails: string[];
-    notes: string;
-  };
+  eventDetails?: EventDetails;
 }
 
-export interface MovieSelection {
+interface EventDetails {
+  meals: string;
+  cocktails: string[];
+  notes: string;
+}
+
+interface MovieSelection {
   id: number;
   tmdbMovieId: number;
   title: string;
   posterPath: string;
   isWinner: boolean;
-  genres?: string[]; // Array of genre names
-  releaseYear?: number;
-  director?: string; // Main director name
-  directors?: { id: number; name: string }[]; // All directors
-  actors?: { id: number; name: string; character?: string }[]; // Cast
+  genres: string[];
+  releaseYear: number;
+  director?: string;
+  directors?: { id: number; name: string }[];
+  actors?: { id: number; name: string; character: string }[];
+  cast?: { actorId: number; name: string; character: string }[];
+  crew?: { personId: number; name: string; job: string }[];
 }
 
-// Function to fetch analytics data directly from the backend
-export async function fetchAnalyticsData(token: string) {
-  try {
-    const response = await fetch('http://localhost:8000/api/movie-monday/analytics', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch analytics data');
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching analytics:', error);
-    return null;
-  }
+export interface GenreAnalytics {
+  genreDistribution: { name: string; value: number }[];
+  genreWins: { name: string; value: number }[];
+  totalUniqueGenres: number;
+  totalGenres: number;
 }
 
-// Genre Analytics
-export function getGenreAnalytics(data: MovieMonday[]) {
-  // Initialize counts
-  const genreCounts: Record<string, { count: number; wins: number }> = {};
+export interface DirectorAnalytics {
+  topDirectors: { name: string; value: number }[];
+  topWinningDirectors: { name: string; value: number }[];
+  totalUniqueDirectors: number;
+  totalDirectors: number;
+}
+
+export interface WinRateAnalytics {
+  mostWins: { name: string; value: number }[];
+  mostLosses: { name: string; value: number }[];
+}
+
+// Alias for backwards compatibility
+export type WinLossAnalytics = WinRateAnalytics;
+
+export interface PickerAnalytics {
+  pickerStats: {
+    id: string;
+    name: string;
+    selections: number;
+    wins: number;
+  }[];
+  totalPickers: number;
+  mostSuccessful: {
+    id: string;
+    name: string;
+    selections: number;
+    wins: number;
+  } | null;
+}
+
+export interface TimeAnalytics {
+  monthlyMovies: { name: string; value: number }[];
+  monthlyWinners: { name: string; value: number }[];
+  totalMoviesWatched: number;
+}
+
+export interface ActorAnalytics {
+  topActors: { name: string; value: number }[];
+  topWinningActors: { name: string; value: number }[];
+  topLosingActors: { name: string; value: number }[]; // New metric
+  totalUniqueActors: number;
+  totalActors: number;
+}
+
+// Get genre distribution and wins
+export function getGenreAnalytics(movieMondays: MovieMonday[]): GenreAnalytics {
+  const genreCounts: Record<string, number> = {};
+  const genreWins: Record<string, number> = {};
   let totalGenres = 0;
   
-  // Process each movie
-  data.forEach(mm => {
-    mm.movieSelections.forEach(movie => {
-      // Check if genres exists and is an array
-      const genres = Array.isArray(movie.genres) ? movie.genres : [];
-      
-      genres.forEach(genre => {
-        if (!genreCounts[genre]) {
-          genreCounts[genre] = { count: 0, wins: 0 };
-        }
-        genreCounts[genre].count++;
-        totalGenres++;
-        
-        if (movie.isWinner) {
-          genreCounts[genre].wins++;
-        }
-      });
+  movieMondays.forEach(movieMonday => {
+    movieMonday.movieSelections.forEach(movie => {
+      if (movie.genres && Array.isArray(movie.genres)) {
+        movie.genres.forEach(genre => {
+          genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+          totalGenres++;
+          
+          if (movie.isWinner) {
+            genreWins[genre] = (genreWins[genre] || 0) + 1;
+          }
+        });
+      }
     });
   });
   
-  // Format for chart display
-  const genreDistribution = Object.entries(genreCounts)
-    .map(([name, { count, wins }]) => ({
-      name,
-      value: count,
-      wins,
-      winRate: count > 0 ? (wins / count * 100) : 0
-    }))
-    .sort((a, b) => b.value - a.value);
-  
   return {
-    genreDistribution,
+    genreDistribution: Object.entries(genreCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
+    genreWins: Object.entries(genreWins)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
     totalUniqueGenres: Object.keys(genreCounts).length,
     totalGenres
   };
 }
 
-// Actor Analytics
-export function getActorAnalytics(data: MovieMonday[]) {
-  // Initialize counts
-  const actorCounts: Record<string, { id: number; count: number; wins: number }> = {};
+// Get actor distribution and wins
+export function getActorAnalytics(movieMondays: MovieMonday[]): ActorAnalytics {
+  const actorCounts: Record<string, number> = {};
+  const actorWins: Record<string, number> = {};
+  const actorLosses: Record<string, number> = {}; // Track losses separately
   let totalActors = 0;
   
-  // Process each movie
-  data.forEach(mm => {
-    mm.movieSelections.forEach(movie => {
-      // Check if actors exists and is an array
-      const actors = Array.isArray(movie.actors) ? movie.actors : [];
-      
-      actors.forEach(actor => {
-        if (!actorCounts[actor.name]) {
-          actorCounts[actor.name] = { id: actor.id, count: 0, wins: 0 };
-        }
-        actorCounts[actor.name].count++;
-        totalActors++;
+  movieMondays.forEach(movieMonday => {
+    // Only consider Movie Mondays with a winner selected
+    const hasWinner = movieMonday.movieSelections.some(m => m.isWinner);
+    
+    if (hasWinner) {
+      movieMonday.movieSelections.forEach(movie => {
+        // Handle different data structures for actors
+        const actors = movie.actors || (movie.cast ? movie.cast.map(c => ({ 
+          id: c.actorId, 
+          name: c.name 
+        })) : []);
         
-        if (movie.isWinner) {
-          actorCounts[actor.name].wins++;
-        }
+        actors.forEach(actor => {
+          if (actor.name) {
+            actorCounts[actor.name] = (actorCounts[actor.name] || 0) + 1;
+            totalActors++;
+            
+            if (movie.isWinner) {
+              actorWins[actor.name] = (actorWins[actor.name] || 0) + 1;
+            } else {
+              // If this movie was rejected, count as a loss for the actor
+              actorLosses[actor.name] = (actorLosses[actor.name] || 0) + 1;
+            }
+          }
+        });
       });
-    });
+    }
   });
   
-  // Format for chart display
-  const topActors = Object.entries(actorCounts)
-    .map(([name, { id, count, wins }]) => ({
-      name,
-      id,
-      value: count, // For chart compatibility
-      count,
-      wins,
-      winRate: count > 0 ? (wins / count * 100) : 0
-    }))
-    .sort((a, b) => b.count - a.count);
-  
   return {
-    topActors,
+    topActors: Object.entries(actorCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
+    topWinningActors: Object.entries(actorWins)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
+    topLosingActors: Object.entries(actorLosses)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
     totalUniqueActors: Object.keys(actorCounts).length,
     totalActors
   };
 }
 
-// Director Analytics
-export function getDirectorAnalytics(data: MovieMonday[]) {
-  // Initialize counts
-  const directorCounts: Record<string, { id: number; count: number; wins: number }> = {};
+// Get director distribution and wins
+export function getDirectorAnalytics(movieMondays: MovieMonday[]): DirectorAnalytics {
+  const directorCounts: Record<string, number> = {};
+  const directorWins: Record<string, number> = {};
   let totalDirectors = 0;
   
-  // Process each movie
-  data.forEach(mm => {
-    mm.movieSelections.forEach(movie => {
-      // Check for director - either use directors array or the director string
-      if (Array.isArray(movie.directors) && movie.directors.length > 0) {
-        movie.directors.forEach(director => {
-          if (!directorCounts[director.name]) {
-            directorCounts[director.name] = { id: director.id, count: 0, wins: 0 };
-          }
-          directorCounts[director.name].count++;
+  movieMondays.forEach(movieMonday => {
+    movieMonday.movieSelections.forEach(movie => {
+      // Handle different data structures for directors
+      let directors: { id: number, name: string }[] = [];
+      
+      if (movie.directors) {
+        directors = movie.directors;
+      } else if (movie.crew) {
+        directors = movie.crew
+          .filter(p => p.job === 'Director')
+          .map(d => ({ id: d.personId, name: d.name }));
+      } else if (movie.director) {
+        directors = [{ id: 0, name: movie.director }];
+      }
+      
+      directors.forEach(director => {
+        if (director.name) {
+          directorCounts[director.name] = (directorCounts[director.name] || 0) + 1;
           totalDirectors++;
           
           if (movie.isWinner) {
-            directorCounts[director.name].wins++;
+            directorWins[director.name] = (directorWins[director.name] || 0) + 1;
           }
-        });
-      } else if (movie.director) {
-        const dirName = movie.director;
-        if (!directorCounts[dirName]) {
-          directorCounts[dirName] = { id: 0, count: 0, wins: 0 };
         }
-        directorCounts[dirName].count++;
-        totalDirectors++;
-        
-        if (movie.isWinner) {
-          directorCounts[dirName].wins++;
-        }
-      }
+      });
     });
   });
   
-  // Format for chart display
-  const topDirectors = Object.entries(directorCounts)
-    .map(([name, { id, count, wins }]) => ({
-      name,
-      id,
-      value: count, // For chart compatibility
-      count,
-      wins,
-      winRate: count > 0 ? (wins / count * 100) : 0
-    }))
-    .sort((a, b) => b.count - a.count);
-  
   return {
-    topDirectors,
+    topDirectors: Object.entries(directorCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
+    topWinningDirectors: Object.entries(directorWins)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
     totalUniqueDirectors: Object.keys(directorCounts).length,
     totalDirectors
   };
 }
 
-// Win Rate Analytics
-export function getWinRateAnalytics(data: MovieMonday[]) {
-  // Track movie selections and their win/loss status
+// Get absolute win/loss counts (not percentages)
+export function getWinRateAnalytics(movieMondays: MovieMonday[]): WinRateAnalytics {
   const movieStats: Record<string, { 
     id: number;
-    name: string;
-    selections: number;
     wins: number;
-    winRate: number;
-    lossRate: number;
+    losses: number;
+    selections: number; 
   }> = {};
   
-  // Process each movie
-  data.forEach(mm => {
-    mm.movieSelections.forEach(movie => {
-      const key = `${movie.tmdbMovieId}`;
-      
-      if (!movieStats[key]) {
-        movieStats[key] = {
-          id: movie.tmdbMovieId,
-          name: movie.title,
-          selections: 0,
-          wins: 0,
-          winRate: 0,
-          lossRate: 0
-        };
-      }
-      
-      // Only count movies that have been decided (i.e., not null isWinner)
-      if (movie.isWinner !== undefined && movie.isWinner !== null) {
+  movieMondays.forEach(movieMonday => {
+    // Only count movies from completed sessions (where a winner was chosen)
+    const hasWinner = movieMonday.movieSelections.some(m => m.isWinner);
+    
+    if (hasWinner) {
+      movieMonday.movieSelections.forEach(movie => {
+        const key = movie.title;
+        
+        if (!movieStats[key]) {
+          movieStats[key] = { 
+            id: movie.tmdbMovieId,
+            wins: 0, 
+            losses: 0,
+            selections: 0
+          };
+        }
+        
         movieStats[key].selections++;
         
         if (movie.isWinner) {
           movieStats[key].wins++;
+        } else {
+          movieStats[key].losses++;
         }
-      }
-    });
-  });
-  
-  // Calculate rates
-  Object.values(movieStats).forEach(movie => {
-    if (movie.selections > 0) {
-      movie.winRate = (movie.wins / movie.selections) * 100;
-      movie.lossRate = 100 - movie.winRate;
+      });
     }
   });
   
-  // Create sorted lists for most losses and highest win rates
-  const mostLosses = Object.values(movieStats)
-    .filter(movie => movie.selections >= 1) // Only include movies with at least 1 selection
-    .sort((a, b) => b.lossRate - a.lossRate);
-    
-  const highestWinRate = Object.values(movieStats)
-    .filter(movie => movie.selections >= 1) // Only include movies with at least 1 selection
-    .sort((a, b) => b.winRate - a.winRate);
+  const movieEntries = Object.entries(movieStats)
+    .map(([name, stats]) => ({
+      name,
+      id: stats.id,
+      wins: stats.wins,
+      losses: stats.losses,
+      selections: stats.selections
+    }));
   
   return {
-    mostLosses,
-    highestWinRate,
-    totalMovies: Object.keys(movieStats).length
+    mostWins: movieEntries
+      .filter(movie => movie.wins > 0)
+      .map(movie => ({ 
+        name: movie.name, 
+        value: movie.wins
+      }))
+      .sort((a, b) => b.value - a.value),
+    mostLosses: movieEntries
+      .filter(movie => movie.losses > 0)
+      .map(movie => ({ 
+        name: movie.name, 
+        value: movie.losses
+      }))
+      .sort((a, b) => b.value - a.value)
   };
 }
 
-// Time-based Analytics
-export function getTimeBasedAnalytics(data: MovieMonday[]) {
-  // Track movies by month
-  const monthlyData: Record<string, { 
-    count: number;
+// Get picker statistics
+export function getPickerAnalytics(movieMondays: MovieMonday[]): PickerAnalytics {
+  const pickerStats: Record<string, {
+    id: string;
+    selections: number;
+    wins: number;
+  }> = {};
+  
+  movieMondays.forEach(movieMonday => {
+    if (movieMonday.picker && movieMonday.picker.username) {
+      const pickerName = movieMonday.picker.username;
+      
+      if (!pickerStats[pickerName]) {
+        pickerStats[pickerName] = {
+          id: movieMonday.picker.id,
+          selections: 0,
+          wins: 0
+        };
+      }
+      
+      // Only count selections that had a chance to win
+      const decidedSelections = movieMonday.movieSelections.filter(
+        m => movieMonday.status === 'completed'
+      );
+      
+      pickerStats[pickerName].selections += decidedSelections.length;
+      
+      // Count wins
+      const winningSelections = decidedSelections.filter(m => m.isWinner);
+      pickerStats[pickerName].wins += winningSelections.length;
+    }
+  });
+  
+  const formattedStats = Object.entries(pickerStats)
+    .map(([name, stats]) => ({
+      id: stats.id,
+      name,
+      selections: stats.selections,
+      wins: stats.wins
+    }))
+    .sort((a, b) => b.wins - a.wins);
+  
+  const mostSuccessful = formattedStats.length > 0 ? formattedStats[0] : null;
+  
+  return {
+    pickerStats: formattedStats,
+    totalPickers: formattedStats.length,
+    mostSuccessful
+  };
+}
+
+// Get time-based analytics
+export function getTimeBasedAnalytics(movieMondays: MovieMonday[]): TimeAnalytics {
+  const monthlyData: Record<string, {
+    movieMondayCount: number; // Count of actual Movie Monday events
+    movies: number;
     winners: number;
   }> = {};
   
   let totalMoviesWatched = 0;
   
-  // Process each movie monday
-  data.forEach(mm => {
-    const date = new Date(mm.date);
+  movieMondays.forEach(movieMonday => {
+    const date = new Date(movieMonday.date);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     
     if (!monthlyData[monthKey]) {
-      monthlyData[monthKey] = { count: 0, winners: 0 };
+      monthlyData[monthKey] = {
+        movieMondayCount: 0,
+        movies: 0,
+        winners: 0
+      };
     }
     
-    mm.movieSelections.forEach(movie => {
-      totalMoviesWatched++;
-      monthlyData[monthKey].count++;
-      
-      if (movie.isWinner) {
-        monthlyData[monthKey].winners++;
-      }
-    });
+    // Count this Movie Monday event
+    monthlyData[monthKey].movieMondayCount++;
+    
+    // Also track movies for other metrics
+    const movieCount = movieMonday.movieSelections.length;
+    monthlyData[monthKey].movies += movieCount;
+    totalMoviesWatched += movieCount;
+    
+    // Count winners
+    const winnerCount = movieMonday.movieSelections.filter(m => m.isWinner).length;
+    monthlyData[monthKey].winners += winnerCount;
   });
   
-  // Format for chart display
-  const monthlyMovies = Object.entries(monthlyData)
-    .map(([name, data]) => ({
-      name,
-      value: data.count,
-      winners: data.winners
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name)); // Sort chronologically
+  // Sort by date (month)
+  const sortedMonths = Object.keys(monthlyData).sort();
   
   return {
-    monthlyMovies,
-    totalMonths: Object.keys(monthlyData).length,
-    totalMoviesWatched
+    movieMondaysByMonth: sortedMonths.map(month => ({
+      name: month,
+      value: monthlyData[month].movieMondayCount
+    })),
+    monthlyMovies: sortedMonths.map(month => ({
+      name: month,
+      value: monthlyData[month].movies
+    })),
+    monthlyWinners: sortedMonths.map(month => ({
+      name: month,
+      value: monthlyData[month].winners
+    })),
+    totalMoviesWatched,
+    totalMovieMondayCount: movieMondays.length
   };
-}
-
-// Picker Analytics
-export function getPickerAnalytics(data: MovieMonday[]) {
-  // Track picker success rates
-  const pickerStats: Record<string, { 
-    id: string;
-    name: string;
-    selections: number;
-    wins: number;
-    successRate: number;
-  }> = {};
-  
-  // Process each movie monday
-  data.forEach(mm => {
-    if (mm.picker) {
-      const pickerId = mm.picker.id;
-      const pickerName = mm.picker.username;
-      
-      if (!pickerStats[pickerId]) {
-        pickerStats[pickerId] = {
-          id: pickerId,
-          name: pickerName,
-          selections: 0,
-          wins: 0,
-          successRate: 0
-        };
-      }
-      
-      // Only count selections that have been decided
-      const decidedSelections = mm.movieSelections.filter(
-        movie => movie.isWinner !== undefined && movie.isWinner !== null
-      );
-      
-      if (decidedSelections.length > 0) {
-        pickerStats[pickerId].selections += decidedSelections.length;
-        
-        const pickerWins = decidedSelections.filter(movie => movie.isWinner);
-        pickerStats[pickerId].wins += pickerWins.length;
-      }
-    }
-  });
-  
-  // Calculate success rates
-  Object.values(pickerStats).forEach(picker => {
-    if (picker.selections > 0) {
-      picker.successRate = (picker.wins / picker.selections) * 100;
-    }
-  });
-  
-  // Sort by success rate
-  const pickerSuccessRates = Object.values(pickerStats)
-    .sort((a, b) => b.successRate - a.successRate);
-  
-  // Find most successful picker
-  const mostSuccessful = pickerSuccessRates.length > 0 ? pickerSuccessRates[0] : null;
-  
-  return {
-    pickerSuccessRates,
-    totalPickers: Object.keys(pickerStats).length,
-    mostSuccessful
-  };
-}
-
-// Function to get all analytics in one call
-export async function getAllAnalytics(token: string) {
-  try {
-    // First, try to get analytics from the backend
-    const apiData = await fetchAnalyticsData(token);
-    if (apiData) {
-      return apiData;
-    }
-    
-    // Fallback to calculating from raw movie data
-    const response = await fetch('http://localhost:8000/api/movie-monday/all', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch movie data');
-    }
-    
-    const data: MovieMonday[] = await response.json();
-    
-    // Generate all analytics
-    return {
-      genres: getGenreAnalytics(data),
-      actors: getActorAnalytics(data),
-      directors: getDirectorAnalytics(data),
-      winRates: getWinRateAnalytics(data),
-      timeData: getTimeBasedAnalytics(data),
-      pickers: getPickerAnalytics(data)
-    };
-  } catch (error) {
-    console.error('Error generating analytics:', error);
-    return null;
-  }
 }
