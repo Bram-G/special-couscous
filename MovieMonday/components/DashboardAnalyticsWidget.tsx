@@ -188,7 +188,7 @@ const DashboardAnalyticsWidget = () => {
           color="primary"
           variant="light"
           endContent={<ExternalLink className="h-4 w-4" />}
-          onPress={() => router.push(`/analytics?tab=${currentChart === 'genres' ? 'genres' : currentChart === 'directors' ? 'directors' : currentChart === 'events' ? 'trends' : 'actors'}`)}
+          onPress={() => router.push('/analytics?tab=overview')}
         >
           Full Analytics
         </Button>

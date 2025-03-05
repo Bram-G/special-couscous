@@ -172,33 +172,35 @@ export default function AnalyticsPage() {
       const genreData = hasData
         ? getGenreAnalytics(movieData).genreDistribution.slice(0, 5)
         : PLACEHOLDER_DATA.genres;
-
+    
       const actorData = hasData
         ? getActorAnalytics(movieData).topActors.slice(0, 5)
         : PLACEHOLDER_DATA.actors;
-
+    
       const timeData = hasData
         ? getTimeBasedAnalytics(movieData).monthlyMovies.slice(-6)
         : PLACEHOLDER_DATA.monthlyMovies;
-
+    
       const winRateData = hasData
         ? getWinRateAnalytics(movieData)
             .mostLosses.slice(0, 5)
             .map((item) => ({
               name: item.name,
-              value: item.lossRate,
+              value: item.selections - item.wins, // Use absolute values instead of rates
             }))
         : PLACEHOLDER_DATA.rejectedMovies;
-
+    
       return (
         <>
           {placeholderNote}
-
+    
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <AnalyticsCard
               title="Movies Watched Over Time"
-              linkTo={selectedKey === "overview" ? "#trends" : undefined}
+              linkTo="#"
               subtitle="Monthly movie count"
+              className="cursor-pointer"
+              onClick={() => setSelectedKey("trends")}
             >
               <LineChartComponent
                 data={timeData}
@@ -206,21 +208,25 @@ export default function AnalyticsPage() {
                 height={350}
               />
             </AnalyticsCard>
-
+    
             <AnalyticsCard
               title="Genre Breakdown"
-              linkTo={selectedKey === "overview" ? "#genres" : undefined}
+              linkTo="#"
               subtitle="Most watched genres"
+              className="cursor-pointer"
+              onClick={() => setSelectedKey("genres")}
             >
               <PieChartComponent data={genreData} height={350} />
             </AnalyticsCard>
           </div>
-
+    
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <AnalyticsCard
               title="Most Frequent Actors"
-              linkTo={selectedKey === "overview" ? "#actors" : undefined}
+              linkTo="#"
               subtitle="Actors that appear most often"
+              className="cursor-pointer"
+              onClick={() => setSelectedKey("actors")}
             >
               <BarChartComponent
                 data={actorData}
@@ -228,23 +234,25 @@ export default function AnalyticsPage() {
                 height={350}
               />
             </AnalyticsCard>
-
+    
             <AnalyticsCard
               title="Most Rejected Movies"
-              linkTo={selectedKey === "overview" ? "#movies" : undefined}
-              subtitle="Movies with highest loss rates"
+              linkTo="#"
+              subtitle="Movies with highest rejection counts"
+              className="cursor-pointer"
+              onClick={() => setSelectedKey("movies")}
             >
               <BarChartComponent
                 data={winRateData}
                 barColor="#f97316"
                 height={350}
+                dataKey="value" // Explicitly set the dataKey
               />
             </AnalyticsCard>
           </div>
         </>
       );
     };
-
     const renderActorsTab = () => {
       // Updated to show top actors and losing actors
       const actorData = hasData 
