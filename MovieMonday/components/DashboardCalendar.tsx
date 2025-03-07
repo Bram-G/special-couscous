@@ -32,7 +32,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CrownIcon } from "lucide-react";
 import confetti from "canvas-confetti";
 
-// Define specific type for button variants to avoid TypeScript errors
 type ButtonVariant = "shadow" | "flat" | "light" | "solid" | "bordered" | "faded" | "ghost";
 type ButtonColor = "primary" | "default" | "secondary" | "success" | "warning" | "danger";
 
@@ -143,26 +142,6 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
   // Fetch cocktail suggestions and preload date data when dates change
   useEffect(() => {
-    if (!token) return;
-
-    // Fetch cocktail suggestions
-    const fetchCocktailSuggestions = async () => {
-      try {
-        const response = await fetch(
-          "http://localhost:8000/api/movie-monday/cocktails",
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          setCocktailSuggestions(data);
-        }
-      } catch (error) {
-        console.error("Error fetching cocktail suggestions:", error);
-      }
-    };
 
     // Preload data for all visible dates
     const fetchAllDates = async () => {
@@ -188,9 +167,46 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       await Promise.all(promises);
     };
     
-    fetchCocktailSuggestions();
     fetchAllDates();
   }, [mondayDates, token]);
+
+  useEffect(() => {
+    if (!token) return;
+  
+    // Fetch cocktail suggestions
+    const fetchCocktailSuggestions = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:8000/api/movie-monday/cocktails",
+          {
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json"
+            }
+          }
+        );
+  
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Loaded cocktail suggestions:", data); // Debug log
+          
+          // Ensure data is an array before setting state
+          if (Array.isArray(data)) {
+            setCocktailSuggestions(data);
+          } else {
+            console.warn('Received non-array cocktail suggestions:', data);
+            setCocktailSuggestions([]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching cocktail suggestions:", error);
+        // Set to empty array on error
+        setCocktailSuggestions([]);
+      }
+    };
+  
+    fetchCocktailSuggestions();
+  }, [token]);
 
   // Helper function to get the next Monday
   const getNextMonday = (date: Date): Date => {
@@ -333,13 +349,21 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   const handleCocktailInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setNewCocktail(value);
-
+  
+    // Only show suggestions if there's input
     if (value.trim()) {
-      const filtered = cocktailSuggestions.filter(cocktail =>
-        cocktail.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredSuggestions(filtered);
-      setShowSuggestions(true);
+      // Make sure cocktailSuggestions is an array before filtering
+      if (Array.isArray(cocktailSuggestions)) {
+        const filtered = cocktailSuggestions.filter(cocktail =>
+          cocktail.toLowerCase().includes(value.toLowerCase())
+        );
+        setFilteredSuggestions(filtered);
+        setShowSuggestions(filtered.length > 0);
+      } else {
+        console.warn('cocktailSuggestions is not an array:', cocktailSuggestions);
+        setFilteredSuggestions([]);
+        setShowSuggestions(false);
+      }
     } else {
       setShowSuggestions(false);
     }

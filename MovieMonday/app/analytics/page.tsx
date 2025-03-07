@@ -2,7 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import { Spinner, Tabs, Tab, Card } from "@heroui/react";
-import { BarChart2, Users, Film, Clock, Award, Tv2, Utensils } from "lucide-react";
+import {
+  BarChart2,
+  Users,
+  Film,
+  Clock,
+  Award,
+  Tv2,
+  Utensils,
+} from "lucide-react";
 import { title } from "@/components/primitives";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/protectedRoute";
@@ -21,6 +29,7 @@ import {
   getWinRateAnalytics,
   getTimeBasedAnalytics,
   getPickerAnalytics,
+  getFoodDrinkAnalytics,
 } from "@/utils/analyticsUtils";
 
 // Placeholder data for initial render or when real data is unavailable
@@ -713,39 +722,134 @@ export default function AnalyticsPage() {
     };
 
     const renderFoodDrinksTab = () => {
+      // Define placeholder data first
+      const placeholderData = {
+        topCocktails: [
+          { name: "Moscow Mule", value: 5 },
+          { name: "Old Fashioned", value: 4 },
+          { name: "Margarita", value: 3 },
+          { name: "Mojito", value: 2 },
+          { name: "Negroni", value: 1 },
+        ],
+        topMeals: [
+          { name: "Pizza", value: 3 },
+          { name: "Tacos", value: 2 },
+          { name: "Pasta", value: 2 },
+          { name: "Burgers", value: 1 },
+          { name: "Sushi", value: 1 },
+        ],
+        topDesserts: [
+          { name: "Ice Cream", value: 3 },
+          { name: "Chocolate Cake", value: 2 },
+          { name: "Cookies", value: 2 },
+          { name: "Tiramisu", value: 1 },
+          { name: "Cheesecake", value: 1 },
+        ],
+        totalCocktails: 15,
+        totalMeals: 9,
+        totalDesserts: 9,
+      };
+
+      // Check if function exists
+      if (typeof getFoodDrinkAnalytics !== "function") {
+        console.error("getFoodDrinkAnalytics is not a function", {
+          getFoodDrinkAnalytics,
+        });
+
+        return (
+          <>
+            {placeholderNote}
+            <div className="bg-warning-100 text-warning-800 p-3 rounded mb-6">
+              <p className="text-sm">
+                <strong>Note:</strong> Unable to load food and drink analytics
+                function. Showing placeholder data instead.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <Card className="p-6 text-center">
+                <h3 className="text-2xl font-bold text-secondary">
+                  {placeholderData.totalCocktails}
+                </h3>
+                <p className="text-default-600">Total Cocktails</p>
+              </Card>
+
+              <Card className="p-6 text-center">
+                <h3 className="text-2xl font-bold text-primary">
+                  {placeholderData.totalMeals}
+                </h3>
+                <p className="text-default-600">Total Meals</p>
+              </Card>
+
+              <Card className="p-6 text-center">
+                <h3 className="text-2xl font-bold text-danger">
+                  {placeholderData.totalDesserts}
+                </h3>
+                <p className="text-default-600">Total Desserts</p>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <AnalyticsCard
+                title="Top Cocktails"
+                subtitle="Most popular cocktails served"
+              >
+                <PieChartComponent
+                  data={foodDrinkData.topCocktails}
+                  height={350}
+                  colors={[
+                    "#7C3AED",
+                    "#8B5CF6",
+                    "#A78BFA",
+                    "#C4B5FD",
+                    "#DDD6FE",
+                  ]}
+                  maxSlices={6}
+                />
+              </AnalyticsCard>
+
+              <AnalyticsCard
+                title="Popular Meals"
+                subtitle="Most frequent dinner choices"
+              >
+                <BarChartComponent
+                  data={foodDrinkData.topMeals}
+                  barColor="#0EA5E9"
+                  height={350}
+                  xAxisLabel="Meals"
+                  yAxisLabel="Frequency"
+                  maxBars={8}
+                />
+              </AnalyticsCard>
+            </div>
+
+            <AnalyticsCard
+              title="Dessert Favorites"
+              subtitle="Most commonly served desserts"
+            >
+              <div className="h-80">
+                <BarChartComponent
+                  data={foodDrinkData.topDesserts}
+                  barColor="#F43F5E"
+                  height={350}
+                  xAxisLabel="Desserts"
+                  yAxisLabel="Frequency"
+                  maxBars={10}
+                  scrollable
+                />
+              </div>
+            </AnalyticsCard>
+          </>
+        );
+      }
       const foodDrinkData = hasData
         ? getFoodDrinkAnalytics(movieData)
-        : {
-            topCocktails: [
-              { name: "Old Fashioned", value: 5 },
-              { name: "Margarita", value: 4 },
-              { name: "Negroni", value: 3 },
-              { name: "Manhattan", value: 2 },
-              { name: "Mojito", value: 2 }
-            ],
-            topMeals: [
-              { name: "Pizza", value: 3 },
-              { name: "Tacos", value: 2 },
-              { name: "Pasta", value: 2 },
-              { name: "Burgers", value: 1 },
-              { name: "Sushi", value: 1 }
-            ],
-            topDesserts: [
-              { name: "Ice Cream", value: 3 },
-              { name: "Chocolate Cake", value: 2 },
-              { name: "Cookies", value: 2 },
-              { name: "Tiramisu", value: 1 },
-              { name: "Cheesecake", value: 1 }
-            ],
-            totalCocktails: 16,
-            totalMeals: 9,
-            totalDesserts: 9
-          };
-    
+        : placeholderData;
+
       return (
         <>
           {placeholderNote}
-    
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-secondary">
@@ -753,14 +857,14 @@ export default function AnalyticsPage() {
               </h3>
               <p className="text-default-600">Total Cocktails</p>
             </Card>
-    
+
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-primary">
                 {foodDrinkData.totalMeals}
               </h3>
               <p className="text-default-600">Total Meals</p>
             </Card>
-    
+
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-danger">
                 {foodDrinkData.totalDesserts}
@@ -768,7 +872,7 @@ export default function AnalyticsPage() {
               <p className="text-default-600">Total Desserts</p>
             </Card>
           </div>
-    
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <AnalyticsCard
               title="Top Cocktails"
@@ -781,7 +885,7 @@ export default function AnalyticsPage() {
                 maxSlices={6}
               />
             </AnalyticsCard>
-    
+
             <AnalyticsCard
               title="Popular Meals"
               subtitle="Most frequent dinner choices"
@@ -796,7 +900,7 @@ export default function AnalyticsPage() {
               />
             </AnalyticsCard>
           </div>
-    
+
           <AnalyticsCard
             title="Dessert Favorites"
             subtitle="Most commonly served desserts"
