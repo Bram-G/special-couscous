@@ -23,8 +23,8 @@ import {
   Trash2,
   Calendar as CalendarIcon,
   Cake,
-  Utensils, 
-  Wine, 
+  Utensils,
+  Wine,
   FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -32,8 +32,21 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CrownIcon } from "lucide-react";
 import confetti from "canvas-confetti";
 
-type ButtonVariant = "shadow" | "flat" | "light" | "solid" | "bordered" | "faded" | "ghost";
-type ButtonColor = "primary" | "default" | "secondary" | "success" | "warning" | "danger";
+type ButtonVariant =
+  | "shadow"
+  | "flat"
+  | "light"
+  | "solid"
+  | "bordered"
+  | "faded"
+  | "ghost";
+type ButtonColor =
+  | "primary"
+  | "default"
+  | "secondary"
+  | "success"
+  | "warning"
+  | "danger";
 
 interface DashboardCalendarProps {
   slidesPerView?: number;
@@ -43,9 +56,9 @@ interface DashboardCalendarProps {
 }
 
 interface EventDetails {
-  meals: string;
+  meals: string[];
   cocktails: string[];
-  desserts: string; // Added desserts property
+  desserts: string[];
   notes: string;
 }
 
@@ -89,47 +102,61 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 }) => {
   const { token } = useAuth();
   const router = useRouter();
-  
+
   // State management
   const [mondayDates, setMondayDates] = useState<Date[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedMonday, setSelectedMonday] = useState<MovieMonday | null>(null);
+  const [selectedMonday, setSelectedMonday] = useState<MovieMonday | null>(
+    null
+  );
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [movieMondayMap, setMovieMondayMap] = useState<Map<string, MovieMonday>>(new Map());
+  const [movieMondayMap, setMovieMondayMap] = useState<
+    Map<string, MovieMonday>
+  >(new Map());
   const [savingDetails, setSavingDetails] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [newCocktail, setNewCocktail] = useState<string>("");
-  
+
   // Event details state
   const [eventDetails, setEventDetails] = useState<EventDetails>({
-    meals: "",
+    meals: [],
     cocktails: [],
-    desserts: "",
+    desserts: [],
     notes: "",
   });
-  
+
   const [editableDetails, setEditableDetails] = useState<EventDetails>({
-    meals: "",
+    meals: [],
     cocktails: [],
-    desserts: "",
+    desserts: [],
     notes: "",
   });
-  
+
   // Animation and UI state
-  const [animationDirection, setAnimationDirection] = useState<"left" | "right" | null>(null);
+  const [animationDirection, setAnimationDirection] = useState<
+    "left" | "right" | null
+  >(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
-  
+
   // Cocktail suggestions
   const [cocktailSuggestions, setCocktailSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
 
+  const [newMeal, setNewMeal] = useState<string>("");
+  const [newDessert, setNewDessert] = useState<string>("");
+  const [mealSuggestions, setMealSuggestions] = useState<string[]>([]);
+  const [dessertSuggestions, setDessertSuggestions] = useState<string[]>([]);
+  const [activeSuggestionType, setActiveSuggestionType] = useState<
+    "cocktail" | "meal" | "dessert" | null
+  >(null);
+
   // Initialize calendar and fetch data
   useEffect(() => {
     const dates = initializeMondays();
     setMondayDates(dates);
-    
+
     const today = new Date();
     const firstMonday = getNextMonday(today);
     handleDateClick(firstMonday);
@@ -142,7 +169,6 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
   // Fetch cocktail suggestions and preload date data when dates change
   useEffect(() => {
-
     // Preload data for all visible dates
     const fetchAllDates = async () => {
       const promises = mondayDates.map(async (date) => {
@@ -151,13 +177,15 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           const response = await fetch(
             `http://localhost:8000/api/movie-monday/${formattedDate}`,
             {
-              headers: { Authorization: `Bearer ${token}` }
+              headers: { Authorization: `Bearer ${token}` },
             }
           );
 
           if (response.ok) {
             const data = await response.json();
-            setMovieMondayMap(prev => new Map(prev.set(date.toISOString(), data)));
+            setMovieMondayMap(
+              (prev) => new Map(prev.set(date.toISOString(), data))
+            );
           }
         } catch (error) {
           console.error(`Error fetching data for ${date}:`, error);
@@ -166,46 +194,90 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
       await Promise.all(promises);
     };
-    
+
     fetchAllDates();
   }, [mondayDates, token]);
 
   useEffect(() => {
     if (!token) return;
-  
-    // Fetch cocktail suggestions
-    const fetchCocktailSuggestions = async () => {
+
+    // Fetch all suggestion types
+    const fetchSuggestions = async () => {
       try {
-        const response = await fetch(
+        // Fetch cocktail suggestions
+        const cocktailResponse = await fetch(
           "http://localhost:8000/api/movie-monday/cocktails",
           {
-            headers: { 
+            headers: {
               Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json"
-            }
+              "Content-Type": "application/json",
+            },
           }
         );
-  
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Loaded cocktail suggestions:", data); // Debug log
-          
-          // Ensure data is an array before setting state
+
+        if (cocktailResponse.ok) {
+          const data = await cocktailResponse.json();
+
           if (Array.isArray(data)) {
             setCocktailSuggestions(data);
           } else {
-            console.warn('Received non-array cocktail suggestions:', data);
+            console.warn("Received non-array cocktail suggestions:", data);
             setCocktailSuggestions([]);
           }
         }
+
+        // Fetch meal suggestions
+        const mealResponse = await fetch(
+          "http://localhost:8000/api/movie-monday/meals",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (mealResponse.ok) {
+          const data = await mealResponse.json();
+
+          if (Array.isArray(data)) {
+            setMealSuggestions(data);
+          } else {
+            console.warn("Received non-array meal suggestions:", data);
+            setMealSuggestions([]);
+          }
+        }
+
+        // Fetch dessert suggestions
+        const dessertResponse = await fetch(
+          "http://localhost:8000/api/movie-monday/desserts",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (dessertResponse.ok) {
+          const data = await dessertResponse.json();
+
+          if (Array.isArray(data)) {
+            setDessertSuggestions(data);
+          } else {
+            console.warn("Received non-array dessert suggestions:", data);
+            setDessertSuggestions([]);
+          }
+        }
       } catch (error) {
-        console.error("Error fetching cocktail suggestions:", error);
-        // Set to empty array on error
+        console.error("Error fetching suggestions:", error);
         setCocktailSuggestions([]);
+        setMealSuggestions([]);
+        setDessertSuggestions([]);
       }
     };
-  
-    fetchCocktailSuggestions();
+
+    fetchSuggestions();
   }, [token]);
 
   // Helper function to get the next Monday
@@ -252,7 +324,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   const handleDateClick = async (date: Date) => {
     setSelectedDate(date);
     setLoading(true);
-    
+
     try {
       // Format date as YYYY-MM-DD
       const year = date.getFullYear();
@@ -263,29 +335,39 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       const response = await fetch(
         `http://localhost:8000/api/movie-monday/${formattedDate}`,
         {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       if (response.ok) {
         const data = await response.json();
         setSelectedMonday(data);
-        setMovieMondayMap(new Map(movieMondayMap.set(date.toISOString(), data)));
+        setMovieMondayMap(
+          new Map(movieMondayMap.set(date.toISOString(), data))
+        );
 
         // Set event details based on response
         if (data.eventDetails) {
           setEventDetails({
-            meals: data.eventDetails.meals || "",
+            meals: Array.isArray(data.eventDetails.meals)
+              ? data.eventDetails.meals
+              : data.eventDetails.meals
+                ? [data.eventDetails.meals]
+                : [],
             cocktails: data.eventDetails.cocktails || [],
-            desserts: data.eventDetails.desserts || "",
+            desserts: Array.isArray(data.eventDetails.desserts)
+              ? data.eventDetails.desserts
+              : data.eventDetails.desserts
+                ? [data.eventDetails.desserts]
+                : [],
             notes: data.eventDetails.notes || "",
           });
         } else {
           // Reset event details if none exist
           setEventDetails({
-            meals: "",
+            meals: [],
             cocktails: [],
-            desserts: "",
+            desserts: [],
             notes: "",
           });
         }
@@ -304,7 +386,8 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate
     )?.[1];
 
-    const isSelected = selectedDate && formatDateForAPI(selectedDate) === formattedDate;
+    const isSelected =
+      selectedDate && formatDateForAPI(selectedDate) === formattedDate;
 
     if (!movieMonday || movieMonday.status === "not_created") {
       return {
@@ -345,28 +428,91 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     );
   };
 
-  // Handle cocktail input change with suggestions
-  const handleCocktailInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle input change with suggestions
+  const handleInputWithSuggestions = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "cocktail" | "meal" | "dessert",
+    suggestions: string[]
+  ) => {
     const value = e.target.value;
-    setNewCocktail(value);
-  
-    // Only show suggestions if there's input
+
+    // Update the appropriate state based on type
+    switch (type) {
+      case "cocktail":
+        setNewCocktail(value);
+        break;
+      case "meal":
+        setNewMeal(value);
+        break;
+      case "dessert":
+        setNewDessert(value);
+        break;
+    }
+
+    // Set the active suggestion type
+    setActiveSuggestionType(type);
+
+    // Filter and show suggestions if there's input
     if (value.trim()) {
-      // Make sure cocktailSuggestions is an array before filtering
-      if (Array.isArray(cocktailSuggestions)) {
-        const filtered = cocktailSuggestions.filter(cocktail =>
-          cocktail.toLowerCase().includes(value.toLowerCase())
+      if (Array.isArray(suggestions)) {
+        const filtered = suggestions.filter((item) =>
+          item.toLowerCase().includes(value.toLowerCase())
         );
         setFilteredSuggestions(filtered);
-        setShowSuggestions(filtered.length > 0);
       } else {
-        console.warn('cocktailSuggestions is not an array:', cocktailSuggestions);
+        console.warn(`${type} suggestions is not an array:`, suggestions);
         setFilteredSuggestions([]);
-        setShowSuggestions(false);
       }
     } else {
-      setShowSuggestions(false);
+      setFilteredSuggestions([]);
     }
+  };
+
+  // Specific handlers for each input type
+  const handleCocktailInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    handleInputWithSuggestions(e, "cocktail", cocktailSuggestions);
+  };
+
+  const handleMealInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputWithSuggestions(e, "meal", mealSuggestions);
+  };
+
+  const handleDessertInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputWithSuggestions(e, "dessert", dessertSuggestions);
+  };
+
+  const addItemToCategory = (type: "cocktail" | "meal" | "dessert", value: string) => {
+    if (!value.trim()) return;
+    
+    switch (type) {
+      case "cocktail":
+        setEditableDetails(prev => ({
+          ...prev,
+          cocktails: [...prev.cocktails, value.trim()]
+        }));
+        setNewCocktail("");
+        break;
+      case "meal":
+        setEditableDetails(prev => ({
+          ...prev,
+          meals: [...prev.meals, value.trim()]
+        }));
+        setNewMeal("");
+        break;
+      case "dessert":
+        setEditableDetails(prev => ({
+          ...prev,
+          desserts: [...prev.desserts, value.trim()]
+        }));
+        setNewDessert("");
+        break;
+    }
+    
+    // Clear filtered suggestions
+    setFilteredSuggestions([]);
+    setActiveSuggestionType(null);
   };
 
   // Create a new MovieMonday
@@ -542,12 +688,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   // Calendar navigation functions
   const handlePrevious = () => {
     setAnimationDirection("right");
-    const newDates = mondayDates.map(date => {
+    const newDates = mondayDates.map((date) => {
       const newDate = new Date(date);
       newDate.setDate(date.getDate() - 7 * slidesPerView);
       return newDate;
     });
-    
+
     setTimeout(() => {
       setMondayDates(newDates);
       setAnimationDirection(null);
@@ -556,12 +702,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
   const handleNext = () => {
     setAnimationDirection("left");
-    const newDates = mondayDates.map(date => {
+    const newDates = mondayDates.map((date) => {
       const newDate = new Date(date);
       newDate.setDate(date.getDate() + 7 * slidesPerView);
       return newDate;
     });
-    
+
     setTimeout(() => {
       setMondayDates(newDates);
       setAnimationDirection(null);
@@ -579,13 +725,13 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     // Create new dates array
     const newDates = [];
     const startDate = firstMonday > today ? getNextMonday(today) : firstMonday;
-    
+
     for (let i = 0; i < slidesPerView; i++) {
       const newDate = new Date(startDate);
       newDate.setDate(startDate.getDate() + i * 7);
       newDates.push(newDate);
     }
-    
+
     setMondayDates(newDates);
     setShowMonthPicker(false);
   };
@@ -596,7 +742,6 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
 
-    // Add months from current year and previous years
     for (let year = currentYear; year >= currentYear - 2; year--) {
       for (let month = 11; month >= 0; month--) {
         if (year === currentYear && month > currentDate.getMonth()) {
@@ -665,14 +810,17 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                     // Calculate width based on how many dates in this month
                     const monthDatesCount = mondayDates
                       .slice(idx)
-                      .findIndex(d => 
-                        d.getMonth() !== date.getMonth() || 
-                        d.getFullYear() !== date.getFullYear()
+                      .findIndex(
+                        (d) =>
+                          d.getMonth() !== date.getMonth() ||
+                          d.getFullYear() !== date.getFullYear()
                       );
-                      
-                    const width = monthDatesCount === -1
-                      ? ((mondayDates.length - idx) / mondayDates.length) * 100
-                      : (monthDatesCount / mondayDates.length) * 100;
+
+                    const width =
+                      monthDatesCount === -1
+                        ? ((mondayDates.length - idx) / mondayDates.length) *
+                          100
+                        : (monthDatesCount / mondayDates.length) * 100;
 
                     return (
                       <div
@@ -730,7 +878,6 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                     statusDescription = "Event pending";
                   }
 
-                  // Add month separator
                   const isNewMonth = isMonthStart(date, index, mondayDates);
 
                   return (
@@ -805,7 +952,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
               {groupId ? (
                 <Button
                   color="primary"
-                  onPress={() => selectedDate && handleCreateMovieMonday(selectedDate)}
+                  onPress={() =>
+                    selectedDate && handleCreateMovieMonday(selectedDate)
+                  }
                   startContent={<Plus className="h-4 w-4" />}
                   isLoading={loading}
                 >
@@ -823,9 +972,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
               {/* Movie Cards Section */}
               <div className="w-3/5 grid grid-cols-3 gap-4">
                 {[0, 1, 2].map((index) => {
-                  const movieSelections = selectedMonday?.movieSelections?.sort((a, b) => a.id - b.id) || [];
+                  const movieSelections =
+                    selectedMonday?.movieSelections?.sort(
+                      (a, b) => a.id - b.id
+                    ) || [];
                   const movie = movieSelections[index];
-                  
+
                   return (
                     <Card
                       key={index}
@@ -869,7 +1021,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                   onPress={() => handleSetWinner(movie.id)}
                                 >
                                   <Trophy className="h-8 w-8" />
-                                  <span className="sr-only">Remove Winner Status</span>
+                                  <span className="sr-only">
+                                    Remove Winner Status
+                                  </span>
                                 </Button>
                               ) : (
                                 <>
@@ -878,7 +1032,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                     variant="solid"
                                     onPress={() => handleSetWinner(movie.id)}
                                     className="bg-warning-500 hover:bg-warning-600"
-                                    startContent={<CrownIcon className="h-4 w-4" />}
+                                    startContent={
+                                      <CrownIcon className="h-4 w-4" />
+                                    }
                                   />
                                   <Button
                                     color="danger"
@@ -911,7 +1067,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                   );
                 })}
               </div>
-              
+
               {/* Event Details Section */}
               <div className="w-2/5">
                 <Card className="p-4 h-full">
@@ -927,10 +1083,24 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                             onPress={() => {
                               setIsEditing(true);
                               setEditableDetails({
-                                meals: selectedMonday?.eventDetails?.meals || "",
-                                cocktails: selectedMonday?.eventDetails?.cocktails || [],
-                                desserts: selectedMonday?.eventDetails?.desserts || "",
-                                notes: selectedMonday?.eventDetails?.notes || "",
+                                meals: Array.isArray(
+                                  selectedMonday?.eventDetails?.meals
+                                )
+                                  ? [...selectedMonday.eventDetails.meals]
+                                  : selectedMonday?.eventDetails?.meals
+                                    ? [selectedMonday.eventDetails.meals]
+                                    : [],
+                                cocktails:
+                                  selectedMonday?.eventDetails?.cocktails || [],
+                                desserts: Array.isArray(
+                                  selectedMonday?.eventDetails?.desserts
+                                )
+                                  ? [...selectedMonday.eventDetails.desserts]
+                                  : selectedMonday?.eventDetails?.desserts
+                                    ? [selectedMonday.eventDetails.desserts]
+                                    : [],
+                                notes:
+                                  selectedMonday?.eventDetails?.notes || "",
                               });
                             }}
                             aria-label="Edit details"
@@ -968,17 +1138,21 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                           <Dropdown>
                             <DropdownTrigger>
                               <Button variant="flat" className="capitalize">
-                                {selectedMonday?.picker?.username || "Select Picker"}
+                                {selectedMonday?.picker?.username ||
+                                  "Select Picker"}
                               </Button>
                             </DropdownTrigger>
                             <DropdownMenu
                               aria-label="Select picker"
                               selectionMode="single"
                               disallowEmptySelection
-                              selectedKeys={new Set([selectedMonday?.pickerUserId || ""])}
+                              selectedKeys={
+                                new Set([selectedMonday?.pickerUserId || ""])
+                              }
                               onSelectionChange={(keys) => {
                                 if (keys instanceof Set && keys.size > 0) {
-                                  const selected = Array.from(keys)[0].toString();
+                                  const selected =
+                                    Array.from(keys)[0].toString();
                                   handlePickerChange(selected);
                                 }
                               }}
@@ -1000,100 +1174,285 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                       {/* Event details - Edit mode */}
                       {isEditing ? (
                         <div className="space-y-4">
-                          {/* Dinner input */}
-                          <Input
-                            label="Dinner"
-                            placeholder="What meal did you serve?"
-                            value={editableDetails.meals}
-                            onChange={(e) =>
-                              setEditableDetails((prev) => ({
-                                ...prev,
-                                meals: e.target.value,
-                              }))
-                            }
-                            startContent={<Utensils className="text-primary h-4 w-4" />}
-                          />
-
-                          {/* Desserts input */}
-                          <Input
-                            label="Desserts"
-                            placeholder="What desserts did you serve?"
-                            value={editableDetails.desserts || ""}
-                            onChange={(e) =>
-                              setEditableDetails((prev) => ({
-                                ...prev,
-                                desserts: e.target.value,
-                              }))
-                            }
-                            startContent={<Cake className="text-danger h-4 w-4" />}
-                          />
-
-                          {/* Cocktail input with autocomplete */}
+                          {/* Dinner input with suggestions */}
                           <div className="space-y-2">
-                            <label className="text-sm font-medium">Cocktails</label>
+                            <label className="text-sm font-medium text-left block">
+                              Dinner
+                            </label>
                             <div className="flex gap-2">
                               <div className="relative flex-1">
                                 <Input
-                                  placeholder="Add a cocktail (press Enter to add)"
-                                  value={newCocktail}
-                                  onChange={handleCocktailInputChange}
+                                  placeholder="What meal did you serve? (press Enter after each)"
+                                  value={newMeal}
+                                  onChange={handleMealInputChange}
                                   onFocus={() => {
-                                    if (newCocktail.trim() && cocktailSuggestions.length) {
-                                      setShowSuggestions(true);
+                                    setActiveSuggestionType("meal");
+                                    if (newMeal.trim()) {
+                                      handleMealInputChange({
+                                        target: { value: newMeal },
+                                      } as React.ChangeEvent<HTMLInputElement>);
                                     }
                                   }}
                                   onBlur={() => {
-                                    setTimeout(() => setShowSuggestions(false), 200);
+                                    setTimeout(() => {
+                                      if (activeSuggestionType === "meal") {
+                                        setActiveSuggestionType(null);
+                                      }
+                                    }, 200);
                                   }}
                                   onKeyDown={(e) => {
-                                    if (e.key === "Enter" && newCocktail.trim()) {
+                                    if (e.key === "Enter" && newMeal.trim()) {
                                       e.preventDefault();
-                                      setEditableDetails((prev) => ({
-                                        ...prev,
-                                        cocktails: [...prev.cocktails, newCocktail.trim()],
-                                      }));
-                                      setNewCocktail("");
-                                      setShowSuggestions(false);
+                                      addItemToCategory("meal", newMeal);
                                     }
                                   }}
-                                  startContent={<Wine className="text-secondary h-4 w-4" />}
+                                  startContent={
+                                    <Utensils className="text-primary h-4 w-4" />
+                                  }
+                                />
+
+                                {/* Meal suggestions dropdown */}
+                                {activeSuggestionType === "meal" &&
+                                  filteredSuggestions.length > 0 && (
+                                    <div className="absolute z-50 mt-1 w-full bg-background border border-default-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                                      {filteredSuggestions.map(
+                                        (suggestion, index) => (
+                                          <div
+                                            key={index}
+                                            className="px-4 py-2 hover:bg-default-100 cursor-pointer"
+                                            onMouseDown={() => {
+                                              addItemToCategory(
+                                                "meal",
+                                                suggestion
+                                              );
+                                            }}
+                                          >
+                                            {suggestion}
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                  )}
+                              </div>
+
+                              {/* Add meal button */}
+                              <Button
+                                isIconOnly
+                                color="primary"
+                                onPress={() => {
+                                  if (newMeal.trim()) {
+                                    addItemToCategory("meal", newMeal);
+                                  }
+                                }}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+
+                            {/* Display meal chips */}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {Array.isArray(editableDetails.meals) &&
+                                editableDetails.meals.map((meal, index) => (
+                                  <Chip
+                                    key={`${meal}-${index}`}
+                                    onClose={() => {
+                                      setEditableDetails((prev) => ({
+                                        ...prev,
+                                        meals: Array.isArray(prev.meals)
+                                          ? prev.meals.filter(
+                                              (_, i) => i !== index
+                                            )
+                                          : [],
+                                      }));
+                                    }}
+                                    variant="flat"
+                                    color="primary"
+                                  >
+                                    {meal}
+                                  </Chip>
+                                ))}
+                            </div>
+                          </div>
+
+                          {/* Desserts input with suggestions */}
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-left block">
+                              Desserts
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <Input
+                                  placeholder="What desserts did you serve? (press Enter after each)"
+                                  value={newDessert}
+                                  onChange={handleDessertInputChange}
+                                  onFocus={() => {
+                                    setActiveSuggestionType("dessert");
+                                    if (newDessert.trim()) {
+                                      handleDessertInputChange({
+                                        target: { value: newDessert },
+                                      } as React.ChangeEvent<HTMLInputElement>);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    setTimeout(() => {
+                                      if (activeSuggestionType === "dessert") {
+                                        setActiveSuggestionType(null);
+                                      }
+                                    }, 200);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (
+                                      e.key === "Enter" &&
+                                      newDessert.trim()
+                                    ) {
+                                      e.preventDefault();
+                                      addItemToCategory("dessert", newDessert);
+                                    }
+                                  }}
+                                  startContent={
+                                    <Cake className="text-danger h-4 w-4" />
+                                  }
+                                />
+
+                                {/* Dessert suggestions dropdown */}
+                                {activeSuggestionType === "dessert" &&
+                                  filteredSuggestions.length > 0 && (
+                                    <div className="absolute z-50 mt-1 w-full bg-background border border-default-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                                      {filteredSuggestions.map(
+                                        (suggestion, index) => (
+                                          <div
+                                            key={index}
+                                            className="px-4 py-2 hover:bg-default-100 cursor-pointer"
+                                            onMouseDown={() => {
+                                              addItemToCategory(
+                                                "dessert",
+                                                suggestion
+                                              );
+                                            }}
+                                          >
+                                            {suggestion}
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                  )}
+                              </div>
+
+                              {/* Add dessert button */}
+                              <Button
+                                isIconOnly
+                                color="danger"
+                                onPress={() => {
+                                  if (newDessert.trim()) {
+                                    addItemToCategory("dessert", newDessert);
+                                  }
+                                }}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+
+                            {/* Display dessert chips */}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {Array.isArray(editableDetails.desserts) &&
+                                editableDetails.desserts.map(
+                                  (dessert, index) => (
+                                    <Chip
+                                      key={`${dessert}-${index}`}
+                                      onClose={() => {
+                                        setEditableDetails((prev) => ({
+                                          ...prev,
+                                          desserts: Array.isArray(prev.desserts)
+                                            ? prev.desserts.filter(
+                                                (_, i) => i !== index
+                                              )
+                                            : [],
+                                        }));
+                                      }}
+                                      variant="flat"
+                                      color="danger"
+                                    >
+                                      {dessert}
+                                    </Chip>
+                                  )
+                                )}
+                            </div>
+                          </div>
+
+                          {/* Cocktail input with autocomplete */}
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-left block">
+                              Cocktails
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <Input
+                                  placeholder="Add a cocktail (press Enter after each)"
+                                  value={newCocktail}
+                                  onChange={handleCocktailInputChange}
+                                  onFocus={() => {
+                                    setActiveSuggestionType("cocktail");
+                                    if (newCocktail.trim()) {
+                                      handleCocktailInputChange({
+                                        target: { value: newCocktail },
+                                      } as React.ChangeEvent<HTMLInputElement>);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    setTimeout(() => {
+                                      if (activeSuggestionType === "cocktail") {
+                                        setActiveSuggestionType(null);
+                                      }
+                                    }, 200);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (
+                                      e.key === "Enter" &&
+                                      newCocktail.trim()
+                                    ) {
+                                      e.preventDefault();
+                                      addItemToCategory(
+                                        "cocktail",
+                                        newCocktail
+                                      );
+                                    }
+                                  }}
+                                  startContent={
+                                    <Wine className="text-secondary h-4 w-4" />
+                                  }
                                 />
 
                                 {/* Cocktail suggestions dropdown */}
-                                {showSuggestions && filteredSuggestions.length > 0 && (
-                                  <div className="absolute z-50 mt-1 w-full bg-background border border-default-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                                    {filteredSuggestions.map((suggestion, index) => (
-                                      <div
-                                        key={index}
-                                        className="px-4 py-2 hover:bg-default-100 cursor-pointer"
-                                        onMouseDown={() => {
-                                          setEditableDetails((prev) => ({
-                                            ...prev,
-                                            cocktails: [...prev.cocktails, suggestion],
-                                          }));
-                                          setNewCocktail("");
-                                          setShowSuggestions(false);
-                                        }}
-                                      >
-                                        {suggestion}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                {activeSuggestionType === "cocktail" &&
+                                  filteredSuggestions.length > 0 && (
+                                    <div className="absolute z-50 mt-1 w-full bg-background border border-default-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                                      {filteredSuggestions.map(
+                                        (suggestion, index) => (
+                                          <div
+                                            key={index}
+                                            className="px-4 py-2 hover:bg-default-100 cursor-pointer"
+                                            onMouseDown={() => {
+                                              addItemToCategory(
+                                                "cocktail",
+                                                suggestion
+                                              );
+                                            }}
+                                          >
+                                            {suggestion}
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                  )}
                               </div>
-                              
+
                               {/* Add cocktail button */}
                               <Button
                                 isIconOnly
                                 color="secondary"
                                 onPress={() => {
                                   if (newCocktail.trim()) {
-                                    setEditableDetails((prev) => ({
-                                      ...prev,
-                                      cocktails: [...prev.cocktails, newCocktail.trim()],
-                                    }));
-                                    setNewCocktail("");
-                                    setShowSuggestions(false);
+                                    addItemToCategory("cocktail", newCocktail);
                                   }
                                 }}
                               >
@@ -1103,39 +1462,27 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
                             {/* Display cocktail chips */}
                             <div className="flex flex-wrap gap-2 mt-2">
-                              {editableDetails.cocktails.map((cocktail, index) => (
-                                <Chip
-                                  key={`${cocktail}-${index}`}
-                                  onClose={() => {
-                                    setEditableDetails(prev => ({
-                                      ...prev,
-                                      cocktails: prev.cocktails.filter((_, i) => i !== index)
-                                    }));
-                                  }}
-                                  variant="flat"
-                                  color="secondary"
-                                >
-                                  {cocktail}
-                                </Chip>
-                              ))}
+                              {editableDetails.cocktails.map(
+                                (cocktail, index) => (
+                                  <Chip
+                                    key={`${cocktail}-${index}`}
+                                    onClose={() => {
+                                      setEditableDetails((prev) => ({
+                                        ...prev,
+                                        cocktails: prev.cocktails.filter(
+                                          (_, i) => i !== index
+                                        ),
+                                      }));
+                                    }}
+                                    variant="flat"
+                                    color="secondary"
+                                  >
+                                    {cocktail}
+                                  </Chip>
+                                )
+                              )}
                             </div>
                           </div>
-
-                          {/* Notes textarea */}
-                          <Textarea
-                            label="Notes"
-                            placeholder="Any other details about the evening..."
-                            value={editableDetails.notes}
-                            onChange={(e) =>
-                              setEditableDetails((prev) => ({
-                                ...prev,
-                                notes: e.target.value,
-                              }))
-                            }
-                            minRows={2}
-                            maxRows={3}
-                            startContent={<FileText className="text-warning h-4 w-4" />}
-                          />
                         </div>
                       ) : (
                         /* Event details - Display mode */
@@ -1149,9 +1496,29 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                               <h4 className="font-medium text-primary-600 text-sm">
                                 Dinner
                               </h4>
-                              <p className="text-default-700 text-sm">
-                                {selectedMonday?.eventDetails?.meals || "No meal recorded yet"}
-                              </p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {Array.isArray(
+                                  selectedMonday?.eventDetails?.meals
+                                ) &&
+                                selectedMonday?.eventDetails?.meals.length ? (
+                                  selectedMonday.eventDetails.meals.map(
+                                    (meal, index) => (
+                                      <Chip
+                                        key={`${meal}-${index}`}
+                                        size="sm"
+                                        variant="flat"
+                                        color="primary"
+                                      >
+                                        {meal}
+                                      </Chip>
+                                    )
+                                  )
+                                ) : (
+                                  <p className="text-default-700 text-sm">
+                                    No meal recorded yet
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -1164,9 +1531,30 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                               <h4 className="font-medium text-danger-600 text-sm">
                                 Desserts
                               </h4>
-                              <p className="text-default-700 text-sm">
-                                {selectedMonday?.eventDetails?.desserts || "No desserts recorded yet"}
-                              </p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {Array.isArray(
+                                  selectedMonday?.eventDetails?.desserts
+                                ) &&
+                                selectedMonday?.eventDetails?.desserts
+                                  .length ? (
+                                  selectedMonday.eventDetails.desserts.map(
+                                    (dessert, index) => (
+                                      <Chip
+                                        key={`${dessert}-${index}`}
+                                        size="sm"
+                                        variant="flat"
+                                        color="danger"
+                                      >
+                                        {dessert}
+                                      </Chip>
+                                    )
+                                  )
+                                ) : (
+                                  <p className="text-default-700 text-sm">
+                                    No desserts recorded yet
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -1180,17 +1568,20 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                 Cocktails
                               </h4>
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {selectedMonday?.eventDetails?.cocktails?.length ? (
-                                  selectedMonday.eventDetails.cocktails.map((cocktail, index) => (
-                                    <Chip
-                                      key={`${cocktail}-${index}`}
-                                      size="sm"
-                                      variant="flat"
-                                      color="secondary"
-                                    >
-                                      {cocktail}
-                                    </Chip>
-                                  ))
+                                {selectedMonday?.eventDetails?.cocktails
+                                  ?.length ? (
+                                  selectedMonday.eventDetails.cocktails.map(
+                                    (cocktail, index) => (
+                                      <Chip
+                                        key={`${cocktail}-${index}`}
+                                        size="sm"
+                                        variant="flat"
+                                        color="secondary"
+                                      >
+                                        {cocktail}
+                                      </Chip>
+                                    )
+                                  )
                                 ) : (
                                   <p className="text-default-700 text-sm">
                                     No cocktails recorded yet
@@ -1210,7 +1601,8 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                 Notes
                               </h4>
                               <p className="text-default-700 text-sm">
-                                {selectedMonday?.eventDetails?.notes || "No notes recorded yet"}
+                                {selectedMonday?.eventDetails?.notes ||
+                                  "No notes recorded yet"}
                               </p>
                             </div>
                           </div>
