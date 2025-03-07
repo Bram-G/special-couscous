@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Spinner, Tabs, Tab, Card } from "@heroui/react";
-import { BarChart2, Users, Film, Clock, Award, Tv2 } from "lucide-react";
+import { BarChart2, Users, Film, Clock, Award, Tv2, Utensils } from "lucide-react";
 import { title } from "@/components/primitives";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/protectedRoute";
@@ -10,7 +10,7 @@ import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { BarChartComponent } from "@/components/analytics/BarChartComponent";
 import { PieChartComponent } from "@/components/analytics/PieChartComponent";
 import { LineChartComponent } from "@/components/analytics/LineChartComponent";
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams } from "next/navigation";
 
 import { useRouter } from "next/navigation";
 import {
@@ -93,24 +93,31 @@ export default function AnalyticsPage() {
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<MovieMonday[]>([]);
-  
+
   // Use search params to handle tab navigation from dashboard
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get('tab');
-  
+  const tabParam = searchParams.get("tab");
+
   // Map URL parameter to tab key
   const getInitialTab = () => {
-    switch(tabParam) {
-      case 'genres': return 'genres';
-      case 'directors': return 'directors';
-      case 'actors': return 'actors';
-      case 'movies': return 'movies';
-      case 'pickers': return 'pickers';
-      case 'trends': return 'trends';
-      default: return 'overview';
+    switch (tabParam) {
+      case "genres":
+        return "genres";
+      case "directors":
+        return "directors";
+      case "actors":
+        return "actors";
+      case "movies":
+        return "movies";
+      case "pickers":
+        return "pickers";
+      case "trends":
+        return "trends";
+      default:
+        return "overview";
     }
   };
-  
+
   const [selectedKey, setSelectedKey] = useState<string>(getInitialTab());
 
   useEffect(() => {
@@ -172,15 +179,15 @@ export default function AnalyticsPage() {
       const genreData = hasData
         ? getGenreAnalytics(movieData).genreDistribution.slice(0, 5)
         : PLACEHOLDER_DATA.genres;
-    
+
       const actorData = hasData
         ? getActorAnalytics(movieData).topActors.slice(0, 5)
         : PLACEHOLDER_DATA.actors;
-    
+
       const timeData = hasData
         ? getTimeBasedAnalytics(movieData).monthlyMovies.slice(-6)
         : PLACEHOLDER_DATA.monthlyMovies;
-    
+
       const winRateData = hasData
         ? getWinRateAnalytics(movieData)
             .mostLosses.slice(0, 5)
@@ -189,11 +196,11 @@ export default function AnalyticsPage() {
               value: item.selections - item.wins, // Use absolute values instead of rates
             }))
         : PLACEHOLDER_DATA.rejectedMovies;
-    
+
       return (
         <>
           {placeholderNote}
-    
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <AnalyticsCard
               title="Movies Watched Over Time"
@@ -208,7 +215,7 @@ export default function AnalyticsPage() {
                 height={350}
               />
             </AnalyticsCard>
-    
+
             <AnalyticsCard
               title="Genre Breakdown"
               linkTo="#"
@@ -219,7 +226,7 @@ export default function AnalyticsPage() {
               <PieChartComponent data={genreData} height={350} />
             </AnalyticsCard>
           </div>
-    
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <AnalyticsCard
               title="Most Frequent Actors"
@@ -234,7 +241,7 @@ export default function AnalyticsPage() {
                 height={350}
               />
             </AnalyticsCard>
-    
+
             <AnalyticsCard
               title="Most Rejected Movies"
               linkTo="#"
@@ -255,23 +262,23 @@ export default function AnalyticsPage() {
     };
     const renderActorsTab = () => {
       // Updated to show top actors and losing actors
-      const actorData = hasData 
+      const actorData = hasData
         ? getActorAnalytics(movieData)
-        : { 
+        : {
             topActors: PLACEHOLDER_DATA.actors,
             topWinningActors: PLACEHOLDER_DATA.winningActors,
             topLosingActors: PLACEHOLDER_DATA.actors.map((item, i) => ({
-              name: `${item.name} ${i % 2 === 0 ? '👎' : ''}`,
-              value: Math.floor(item.value * 0.7)
+              name: `${item.name} ${i % 2 === 0 ? "👎" : ""}`,
+              value: Math.floor(item.value * 0.7),
             })),
-            totalUniqueActors: 15, 
-            totalActors: 25 
+            totalUniqueActors: 15,
+            totalActors: 25,
           };
-      
+
       return (
         <>
           {placeholderNote}
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-primary">
@@ -279,25 +286,27 @@ export default function AnalyticsPage() {
               </h3>
               <p className="text-default-600">Total Actor Appearances</p>
             </Card>
-            
+
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-primary">
                 {actorData.totalUniqueActors}
               </h3>
               <p className="text-default-600">Unique Actors</p>
             </Card>
-            
+
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-primary">
-                {actorData.topLosingActors.length > 0 ? actorData.topLosingActors[0].name : 'N/A'}
+                {actorData.topLosingActors.length > 0
+                  ? actorData.topLosingActors[0].name
+                  : "N/A"}
               </h3>
               <p className="text-default-600">Most Frequently Rejected Actor</p>
             </Card>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AnalyticsCard 
-              title="Actors in Rejected Movies" 
+            <AnalyticsCard
+              title="Actors in Rejected Movies"
               subtitle="Actors that appear most often in movies that lost voting"
             >
               <BarChartComponent
@@ -310,9 +319,9 @@ export default function AnalyticsPage() {
                 scrollable={true}
               />
             </AnalyticsCard>
-            
-            <AnalyticsCard 
-              title="Actors in Winning Movies" 
+
+            <AnalyticsCard
+              title="Actors in Winning Movies"
               subtitle="Actors that appear most often in movies that won voting"
             >
               <BarChartComponent
@@ -643,19 +652,19 @@ export default function AnalyticsPage() {
     };
 
     const renderTrendsTab = () => {
-      const timeData = hasData 
+      const timeData = hasData
         ? getTimeBasedAnalytics(movieData)
-        : { 
+        : {
             movieMondaysByMonth: PLACEHOLDER_DATA.monthlyMovies,
             monthlyMovies: PLACEHOLDER_DATA.monthlyMovies,
             totalMoviesWatched: 20,
-            totalMovieMondayCount: 10
+            totalMovieMondayCount: 10,
           };
-      
+
       return (
         <>
           {placeholderNote}
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-primary">
@@ -663,7 +672,7 @@ export default function AnalyticsPage() {
               </h3>
               <p className="text-default-600">Total Movies Watched</p>
             </Card>
-            
+
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-primary">
                 {timeData.totalMovieMondayCount}
@@ -671,10 +680,10 @@ export default function AnalyticsPage() {
               <p className="text-default-600">Total Movie Monday Events</p>
             </Card>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AnalyticsCard 
-              title="Movie Monday Events Over Time" 
+            <AnalyticsCard
+              title="Movie Monday Events Over Time"
               subtitle="Monthly events frequency"
             >
               <LineChartComponent
@@ -685,9 +694,9 @@ export default function AnalyticsPage() {
                 yAxisLabel="Number of Events"
               />
             </AnalyticsCard>
-            
-            <AnalyticsCard 
-              title="Movies Watched Over Time" 
+
+            <AnalyticsCard
+              title="Movies Watched Over Time"
               subtitle="Monthly movie viewing counts"
             >
               <LineChartComponent
@@ -702,6 +711,112 @@ export default function AnalyticsPage() {
         </>
       );
     };
+
+    const renderFoodDrinksTab = () => {
+      const foodDrinkData = hasData
+        ? getFoodDrinkAnalytics(movieData)
+        : {
+            topCocktails: [
+              { name: "Old Fashioned", value: 5 },
+              { name: "Margarita", value: 4 },
+              { name: "Negroni", value: 3 },
+              { name: "Manhattan", value: 2 },
+              { name: "Mojito", value: 2 }
+            ],
+            topMeals: [
+              { name: "Pizza", value: 3 },
+              { name: "Tacos", value: 2 },
+              { name: "Pasta", value: 2 },
+              { name: "Burgers", value: 1 },
+              { name: "Sushi", value: 1 }
+            ],
+            topDesserts: [
+              { name: "Ice Cream", value: 3 },
+              { name: "Chocolate Cake", value: 2 },
+              { name: "Cookies", value: 2 },
+              { name: "Tiramisu", value: 1 },
+              { name: "Cheesecake", value: 1 }
+            ],
+            totalCocktails: 16,
+            totalMeals: 9,
+            totalDesserts: 9
+          };
+    
+      return (
+        <>
+          {placeholderNote}
+    
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card className="p-6 text-center">
+              <h3 className="text-2xl font-bold text-secondary">
+                {foodDrinkData.totalCocktails}
+              </h3>
+              <p className="text-default-600">Total Cocktails</p>
+            </Card>
+    
+            <Card className="p-6 text-center">
+              <h3 className="text-2xl font-bold text-primary">
+                {foodDrinkData.totalMeals}
+              </h3>
+              <p className="text-default-600">Total Meals</p>
+            </Card>
+    
+            <Card className="p-6 text-center">
+              <h3 className="text-2xl font-bold text-danger">
+                {foodDrinkData.totalDesserts}
+              </h3>
+              <p className="text-default-600">Total Desserts</p>
+            </Card>
+          </div>
+    
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <AnalyticsCard
+              title="Top Cocktails"
+              subtitle="Most popular cocktails served"
+            >
+              <PieChartComponent
+                data={foodDrinkData.topCocktails}
+                height={350}
+                colors={["#7C3AED", "#8B5CF6", "#A78BFA", "#C4B5FD", "#DDD6FE"]}
+                maxSlices={6}
+              />
+            </AnalyticsCard>
+    
+            <AnalyticsCard
+              title="Popular Meals"
+              subtitle="Most frequent dinner choices"
+            >
+              <BarChartComponent
+                data={foodDrinkData.topMeals}
+                barColor="#0EA5E9"
+                height={350}
+                xAxisLabel="Meals"
+                yAxisLabel="Frequency"
+                maxBars={8}
+              />
+            </AnalyticsCard>
+          </div>
+    
+          <AnalyticsCard
+            title="Dessert Favorites"
+            subtitle="Most commonly served desserts"
+          >
+            <div className="h-80">
+              <BarChartComponent
+                data={foodDrinkData.topDesserts}
+                barColor="#F43F5E"
+                height={350}
+                xAxisLabel="Desserts"
+                yAxisLabel="Frequency"
+                maxBars={10}
+                scrollable
+              />
+            </div>
+          </AnalyticsCard>
+        </>
+      );
+    };
+
     // Return the appropriate tab content based on selected key
     switch (selectedKey) {
       case "overview":
@@ -718,6 +833,8 @@ export default function AnalyticsPage() {
         return renderPickersTab();
       case "trends":
         return renderTrendsTab();
+      case "food":
+        return renderFoodDrinksTab();
       default:
         return renderOverviewTab();
     }
@@ -737,14 +854,14 @@ export default function AnalyticsPage() {
           discover interesting trends about your movie watching habits.
         </p>
 
-        <Tabs 
-    aria-label="Analytics tabs" 
-    selectedKey={selectedKey}
-    onSelectionChange={(key) => setSelectedKey(key as string)}
-    classNames={{
-      tabList: "gap-4"
-    }}
-  >
+        <Tabs
+          aria-label="Analytics tabs"
+          selectedKey={selectedKey}
+          onSelectionChange={(key) => setSelectedKey(key as string)}
+          classNames={{
+            tabList: "gap-4",
+          }}
+        >
           <Tab
             key="overview"
             title={
@@ -823,6 +940,17 @@ export default function AnalyticsPage() {
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 <span>Trends</span>
+              </div>
+            }
+          >
+            {renderAnalyticsContent()}
+          </Tab>
+          <Tab
+            key="food"
+            title={
+              <div className="flex items-center gap-2">
+                <Utensils className="w-4 h-4" />
+                <span>Food & Drinks</span>
               </div>
             }
           >

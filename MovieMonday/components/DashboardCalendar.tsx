@@ -10,6 +10,7 @@ import {
   DropdownMenu,
   DropdownItem,
   Tooltip,
+  Chip,
 } from "@heroui/react";
 import {
   ChevronLeft,
@@ -21,17 +22,32 @@ import {
   X,
   Trash2,
   Calendar as CalendarIcon,
+  Cake,
+  Utensils, 
+  Wine, 
+  FileText,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { CrownIcon, Utensils, Wine, FileText } from "lucide-react";
+import { CrownIcon } from "lucide-react";
 import confetti from "canvas-confetti";
+
+// Define specific type for button variants to avoid TypeScript errors
+type ButtonVariant = "shadow" | "flat" | "light" | "solid" | "bordered" | "faded" | "ghost";
+type ButtonColor = "primary" | "default" | "secondary" | "success" | "warning" | "danger";
 
 interface DashboardCalendarProps {
   slidesPerView?: number;
   onDateSelect?: (date: Date) => void;
   groupMembers?: { id: string; username: string; email: string }[];
   groupId?: string;
+}
+
+interface EventDetails {
+  meals: string;
+  cocktails: string[];
+  desserts: string; // Added desserts property
+  notes: string;
 }
 
 interface MovieMonday {
@@ -43,6 +59,7 @@ interface MovieMonday {
   eventDetails?: {
     meals: string;
     cocktails: string[];
+    desserts?: string; // Made optional since it might not exist in older data
     notes: string;
   };
   picker: {
@@ -59,10 +76,10 @@ interface MovieSelection {
   isWinner: boolean;
 }
 
-interface EventDetails {
-  meals: string;
-  cocktails: string[];
-  notes: string;
+interface DateButtonStatus {
+  status: string;
+  variant: ButtonVariant;
+  color: ButtonColor;
 }
 
 const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
@@ -72,38 +89,48 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   groupId,
 }) => {
   const { token } = useAuth();
+  const router = useRouter();
+  
+  // State management
   const [mondayDates, setMondayDates] = useState<Date[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedMonday, setSelectedMonday] = useState<MovieMonday | null>(
-    null
-  );
+  const [selectedMonday, setSelectedMonday] = useState<MovieMonday | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [editingPicker, setEditingPicker] = useState(false);
-  const [movieMondayMap, setMovieMondayMap] = useState<
-    Map<string, MovieMonday>
-  >(new Map());
+  const [movieMondayMap, setMovieMondayMap] = useState<Map<string, MovieMonday>>(new Map());
   const [savingDetails, setSavingDetails] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [newCocktail, setNewCocktail] = useState<string>("");
+  
+  // Event details state
   const [eventDetails, setEventDetails] = useState<EventDetails>({
     meals: "",
     cocktails: [],
+    desserts: "",
     notes: "",
   });
-  const [isEditing, setIsEditing] = useState(false);
+  
   const [editableDetails, setEditableDetails] = useState<EventDetails>({
     meals: "",
     cocktails: [],
+    desserts: "",
     notes: "",
   });
-  // Add state for animations
-  const [animationDirection, setAnimationDirection] = useState<
-    "left" | "right" | null
-  >(null);
+  
+  // Animation and UI state
+  const [animationDirection, setAnimationDirection] = useState<"left" | "right" | null>(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  
+  // Cocktail suggestions
+  const [cocktailSuggestions, setCocktailSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
 
+  // Initialize calendar and fetch data
   useEffect(() => {
     const dates = initializeMondays();
     setMondayDates(dates);
+    
     const today = new Date();
     const firstMonday = getNextMonday(today);
     handleDateClick(firstMonday);
@@ -114,38 +141,69 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   }, [token]);
 
-  const handlePickerChange = async (newPickerId: string) => {
-    if (!selectedMonday || !token) return;
+  // Fetch cocktail suggestions and preload date data when dates change
+  useEffect(() => {
+    if (!token) return;
 
-    try {
-      const response = await fetch(
-        `http://localhost:8000/api/movie-monday/update-picker`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            date: selectedDate?.toISOString(),
-            movieMondayId: selectedMonday.id,
-            pickerUserId: newPickerId,
-          }),
-        }
-      );
+    // Fetch cocktail suggestions
+    const fetchCocktailSuggestions = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:8000/api/movie-monday/cocktails",
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
 
-      if (response.ok) {
-        // Refresh the entire movie monday data to ensure we have the latest state
-        if (selectedDate) {
-          await handleDateClick(selectedDate);
+        if (response.ok) {
+          const data = await response.json();
+          setCocktailSuggestions(data);
         }
-        setEditingPicker(false);
+      } catch (error) {
+        console.error("Error fetching cocktail suggestions:", error);
       }
-    } catch (error) {
-      console.error("Error updating picker:", error);
-    }
+    };
+
+    // Preload data for all visible dates
+    const fetchAllDates = async () => {
+      const promises = mondayDates.map(async (date) => {
+        try {
+          const formattedDate = formatDateForAPI(date);
+          const response = await fetch(
+            `http://localhost:8000/api/movie-monday/${formattedDate}`,
+            {
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            setMovieMondayMap(prev => new Map(prev.set(date.toISOString(), data)));
+          }
+        } catch (error) {
+          console.error(`Error fetching data for ${date}:`, error);
+        }
+      });
+
+      await Promise.all(promises);
+    };
+    
+    fetchCocktailSuggestions();
+    fetchAllDates();
+  }, [mondayDates, token]);
+
+  // Helper function to get the next Monday
+  const getNextMonday = (date: Date): Date => {
+    const nextMonday = new Date(date);
+    nextMonday.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+
+    const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
+    nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
+
+    return nextMonday;
   };
 
+  // Initialize Mondays for the calendar
   const initializeMondays = (): Date[] => {
     const today = new Date();
     today.setHours(12, 0, 0, 0); // Set to noon
@@ -161,76 +219,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     return mondays;
   };
 
-  const getNextMonday = (date: Date): Date => {
-    // Create date with time set to noon to avoid timezone issues
-    const nextMonday = new Date(date);
-    nextMonday.setHours(12, 0, 0, 0);
-
-    // Calculate days until next Monday
-    const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
-    nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
-
-    return nextMonday;
-  };
-
-  // Function to jump to a specific month/year
-  const jumpToMonth = (year: number, month: number) => {
-    const today = new Date();
-    // Find the first Monday of the specified month
-    const firstDay = new Date(year, month, 1);
-    const daysUntilMonday = (8 - firstDay.getDay()) % 7;
-    const firstMonday = new Date(year, month, 1 + daysUntilMonday);
-
-    // If it's in the future, start with the current month's first Monday
-    if (firstMonday > today) {
-      const currentFirstMonday = getNextMonday(today);
-      const newDates = [];
-      for (let i = 0; i < slidesPerView; i++) {
-        const newDate = new Date(currentFirstMonday);
-        newDate.setDate(currentFirstMonday.getDate() + i * 7);
-        newDates.push(newDate);
-      }
-      setMondayDates(newDates);
-    } else {
-      // Otherwise, create dates starting from that month's first Monday
-      const newDates = [];
-      for (let i = 0; i < slidesPerView; i++) {
-        const newDate = new Date(firstMonday);
-        newDate.setDate(firstMonday.getDate() + i * 7);
-        newDates.push(newDate);
-      }
-      setMondayDates(newDates);
-    }
-    setShowMonthPicker(false);
-  };
-
-  // Navigation with animation
-  const handlePrevious = () => {
-    setAnimationDirection("right");
-    const newDates = mondayDates.map((date) => {
-      const newDate = new Date(date);
-      newDate.setDate(date.getDate() - 7 * slidesPerView);
-      return newDate;
-    });
-    setTimeout(() => {
-      setMondayDates(newDates);
-      setAnimationDirection(null);
-    }, 50);
-  };
-
-  const handleNext = () => {
-    setAnimationDirection("left");
-    const newDates = mondayDates.map((date) => {
-      const newDate = new Date(date);
-      newDate.setDate(date.getDate() + 7 * slidesPerView);
-      return newDate;
-    });
-    setTimeout(() => {
-      setMondayDates(newDates);
-      setAnimationDirection(null);
-    }, 50);
-  };
-
+  // Format date for display
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -238,14 +227,18 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     });
   };
 
+  // Format date for API requests (YYYY-MM-DD)
   const formatDateForAPI = (date: Date): string => {
     return date.toISOString().split("T")[0];
   };
 
+  // Handle clicking on a date in the calendar
   const handleDateClick = async (date: Date) => {
     setSelectedDate(date);
     setLoading(true);
+    
     try {
+      // Format date as YYYY-MM-DD
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
@@ -254,29 +247,29 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       const response = await fetch(
         `http://localhost:8000/api/movie-monday/${formattedDate}`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
 
       if (response.ok) {
         const data = await response.json();
         setSelectedMonday(data);
-        setMovieMondayMap(
-          new Map(movieMondayMap.set(date.toISOString(), data))
-        );
+        setMovieMondayMap(new Map(movieMondayMap.set(date.toISOString(), data)));
 
+        // Set event details based on response
         if (data.eventDetails) {
           setEventDetails({
             meals: data.eventDetails.meals || "",
             cocktails: data.eventDetails.cocktails || [],
+            desserts: data.eventDetails.desserts || "",
             notes: data.eventDetails.notes || "",
           });
         } else {
+          // Reset event details if none exist
           setEventDetails({
             meals: "",
             cocktails: [],
+            desserts: "",
             notes: "",
           });
         }
@@ -288,90 +281,14 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   };
 
-  const handleSaveDetails = async () => {
-    if (!selectedMonday || !token) return;
-
-    setSavingDetails(true);
-    try {
-      const response = await fetch(
-        `http://localhost:8000/api/movie-monday/${selectedMonday.id}/event-details`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            meals: eventDetails.meals,
-            cocktails: eventDetails.cocktails,
-            notes: eventDetails.notes,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to save event details");
-      }
-
-      // Refresh the movie monday data
-      if (selectedDate) {
-        await handleDateClick(selectedDate);
-      }
-    } catch (error) {
-      console.error("Error saving event details:", error);
-    } finally {
-      setSavingDetails(false);
-    }
-  };
-
-  const handleSaveAll = async () => {
-    if (!selectedMonday || !token) return;
-
-    setSavingDetails(true);
-    try {
-      // Save event details
-      await fetch(
-        `http://localhost:8000/api/movie-monday/${selectedMonday.id}/event-details`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(editableDetails),
-        }
-      );
-
-      // Refresh data and exit edit mode
-      if (selectedDate) {
-        await handleDateClick(selectedDate);
-      }
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Error saving details:", error);
-    } finally {
-      setSavingDetails(false);
-    }
-  };
-
-  // Add markers for month change
-  const isMonthStart = (date: Date, index: number, dates: Date[]) => {
-    if (index === 0) return true;
-    const prevDate = dates[index - 1];
-    return (
-      date.getMonth() !== prevDate.getMonth() ||
-      date.getFullYear() !== prevDate.getFullYear()
-    );
-  };
-
-  const getDateButtonStatus = (date: Date) => {
+  // Determine status and appearance of date buttons
+  const getDateButtonStatus = (date: Date): DateButtonStatus => {
     const formattedDate = formatDateForAPI(date);
     const movieMonday = Array.from(movieMondayMap.entries()).find(
       ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate
     )?.[1];
 
-    const isSelected =
-      selectedDate && formatDateForAPI(selectedDate) === formattedDate;
+    const isSelected = selectedDate && formatDateForAPI(selectedDate) === formattedDate;
 
     if (!movieMonday || movieMonday.status === "not_created") {
       return {
@@ -402,6 +319,33 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   };
 
+  // Check if a date is the start of a month
+  const isMonthStart = (date: Date, index: number, dates: Date[]): boolean => {
+    if (index === 0) return true;
+    const prevDate = dates[index - 1];
+    return (
+      date.getMonth() !== prevDate.getMonth() ||
+      date.getFullYear() !== prevDate.getFullYear()
+    );
+  };
+
+  // Handle cocktail input change with suggestions
+  const handleCocktailInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewCocktail(value);
+
+    if (value.trim()) {
+      const filtered = cocktailSuggestions.filter(cocktail =>
+        cocktail.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredSuggestions(filtered);
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  // Create a new MovieMonday
   const handleCreateMovieMonday = async (date: Date) => {
     if (!token || !groupId) {
       console.error("Missing required data:", { token: !!token, groupId });
@@ -411,10 +355,8 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     setLoading(true);
 
     try {
-      // Create a new date object from the selected date
-      const selectedDate = new Date(date);
-      // Get just the date part in YYYY-MM-DD format
-      const dateString = selectedDate.toISOString().split("T")[0];
+      // Format date as YYYY-MM-DD
+      const dateString = date.toISOString().split("T")[0];
 
       const response = await fetch(
         "http://localhost:8000/api/movie-monday/create",
@@ -426,7 +368,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           },
           credentials: "include",
           body: JSON.stringify({
-            date: dateString, // Send just the YYYY-MM-DD string
+            date: dateString,
             groupId: groupId,
           }),
         }
@@ -438,8 +380,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         return;
       }
 
-      const data = await response.json();
-      await handleDateClick(date); // Refresh the data for this date
+      await handleDateClick(date); // Refresh data for this date
     } catch (error) {
       console.error("Error creating MovieMonday:", error);
     } finally {
@@ -447,8 +388,70 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   };
 
-  const router = useRouter();
+  // Save all event details
+  const handleSaveAll = async () => {
+    if (!selectedMonday || !token) return;
 
+    setSavingDetails(true);
+    try {
+      // Send updated event details to the server
+      const response = await fetch(
+        `http://localhost:8000/api/movie-monday/${selectedMonday.id}/event-details`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editableDetails),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to save event details");
+      }
+
+      // Refresh data and exit edit mode
+      if (selectedDate) {
+        await handleDateClick(selectedDate);
+      }
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error saving details:", error);
+    } finally {
+      setSavingDetails(false);
+    }
+  };
+
+  // Update the picker for a MovieMonday
+  const handlePickerChange = async (newPickerId: string) => {
+    if (!selectedMonday || !token) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/movie-monday/update-picker`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            movieMondayId: selectedMonday.id,
+            pickerUserId: newPickerId,
+          }),
+        }
+      );
+
+      if (response.ok && selectedDate) {
+        await handleDateClick(selectedDate); // Refresh data
+      }
+    } catch (error) {
+      console.error("Error updating picker:", error);
+    }
+  };
+
+  // Remove a movie from selections
   const handleRemoveMovie = async (movieSelectionId: number) => {
     if (!selectedMonday || !token) return;
 
@@ -464,29 +467,15 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         }
       );
 
-      if (response.ok) {
-        // Refresh the movie monday data
-        if (selectedDate) {
-          handleDateClick(selectedDate);
-        }
+      if (response.ok && selectedDate) {
+        handleDateClick(selectedDate); // Refresh data
       }
     } catch (error) {
       console.error("Error removing movie:", error);
     }
   };
 
-  const triggerConfetti = () => {
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-    });
-  };
-
-  const handleMovieClick = (movieId: number) => {
-    router.push(`/movie/${movieId}`);
-  };
-
+  // Set a movie as the winner
   const handleSetWinner = async (movieSelectionId: number) => {
     if (!selectedMonday || !token) return;
 
@@ -505,9 +494,13 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
       if (response.ok) {
         // Trigger confetti animation
-        triggerConfetti();
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
 
-        // Refresh the movie monday data
+        // Refresh data
         if (selectedDate) {
           handleDateClick(selectedDate);
         }
@@ -517,47 +510,69 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   };
 
-  // Pre-fetch data for all visible dates
-  useEffect(() => {
-    const fetchAllDates = async () => {
-      if (!token) return;
+  // Navigate to a movie's details page
+  const handleMovieClick = (movieId: number) => {
+    router.push(`/movie/${movieId}`);
+  };
 
-      const promises = mondayDates.map(async (date) => {
-        try {
-          const formattedDate = formatDateForAPI(date);
-          const response = await fetch(
-            `http://localhost:8000/api/movie-monday/${formattedDate}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
+  // Calendar navigation functions
+  const handlePrevious = () => {
+    setAnimationDirection("right");
+    const newDates = mondayDates.map(date => {
+      const newDate = new Date(date);
+      newDate.setDate(date.getDate() - 7 * slidesPerView);
+      return newDate;
+    });
+    
+    setTimeout(() => {
+      setMondayDates(newDates);
+      setAnimationDirection(null);
+    }, 50);
+  };
 
-          if (response.ok) {
-            const data = await response.json();
-            setMovieMondayMap(
-              (prev) => new Map(prev.set(date.toISOString(), data))
-            );
-          }
-        } catch (error) {
-          console.error(`Error fetching data for ${date}:`, error);
-        }
-      });
+  const handleNext = () => {
+    setAnimationDirection("left");
+    const newDates = mondayDates.map(date => {
+      const newDate = new Date(date);
+      newDate.setDate(date.getDate() + 7 * slidesPerView);
+      return newDate;
+    });
+    
+    setTimeout(() => {
+      setMondayDates(newDates);
+      setAnimationDirection(null);
+    }, 50);
+  };
 
-      await Promise.all(promises);
-    };
+  // Jump to a specific month
+  const jumpToMonth = (year: number, month: number) => {
+    const today = new Date();
+    // Find the first Monday of the specified month
+    const firstDay = new Date(year, month, 1);
+    const daysUntilMonday = (8 - firstDay.getDay()) % 7;
+    const firstMonday = new Date(year, month, 1 + daysUntilMonday);
 
-    fetchAllDates();
-  }, [mondayDates, token]);
+    // Create new dates array
+    const newDates = [];
+    const startDate = firstMonday > today ? getNextMonday(today) : firstMonday;
+    
+    for (let i = 0; i < slidesPerView; i++) {
+      const newDate = new Date(startDate);
+      newDate.setDate(startDate.getDate() + i * 7);
+      newDates.push(newDate);
+    }
+    
+    setMondayDates(newDates);
+    setShowMonthPicker(false);
+  };
 
-  // Generate list of months for dropdown
+  // Generate month options for dropdown
   const generateMonthOptions = () => {
     const months = [];
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
 
-    // Add months from current year and previous year
+    // Add months from current year and previous years
     for (let year = currentYear; year >= currentYear - 2; year--) {
       for (let month = 11; month >= 0; month--) {
         if (year === currentYear && month > currentDate.getMonth()) {
@@ -572,6 +587,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
   const monthOptions = generateMonthOptions();
 
+  // Render the component
   return (
     <div className="space-y-4 w-full">
       {/* Calendar Header - Navigation */}
@@ -617,24 +633,22 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         {/* Calendar with side navigation */}
         <div className="flex items-center">
           <div className="flex-1 flex flex-col">
-            {/* Month labels - with increased spacing */}
-            <div className="flex  mb-2 w-full justify-center ">
-              <div className="flex mb-6 relative pt-2 w-5/6 justify-between  ">
+            {/* Month labels with increased spacing */}
+            <div className="flex mb-2 w-full justify-center">
+              <div className="flex mb-6 relative pt-2 w-5/6 justify-between">
                 {mondayDates.map((date, idx) => {
                   if (isMonthStart(date, idx, mondayDates)) {
                     // Calculate width based on how many dates in this month
                     const monthDatesCount = mondayDates
                       .slice(idx)
-                      .findIndex(
-                        (d) =>
-                          d.getMonth() !== date.getMonth() ||
-                          d.getFullYear() !== date.getFullYear()
+                      .findIndex(d => 
+                        d.getMonth() !== date.getMonth() || 
+                        d.getFullYear() !== date.getFullYear()
                       );
-                    const width =
-                      monthDatesCount === -1
-                        ? ((mondayDates.length - idx) / mondayDates.length) *
-                          100
-                        : (monthDatesCount / mondayDates.length) * 100;
+                      
+                    const width = monthDatesCount === -1
+                      ? ((mondayDates.length - idx) / mondayDates.length) * 100
+                      : (monthDatesCount / mondayDates.length) * 100;
 
                     return (
                       <div
@@ -752,13 +766,14 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
             </div>
           </div>
 
-          {/* If loading, show spinner */}
+          {/* Content based on loading and data state */}
           {loading ? (
+            // Loading spinner
             <div className="flex justify-center items-center h-48">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
             </div>
           ) : selectedMonday?.status === "not_created" ? (
-            /* If no Movie Monday exists, show create button */
+            // Create MovieMonday button if none exists
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <p className="text-default-500">
                 No Movie Monday scheduled for this date
@@ -766,9 +781,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
               {groupId ? (
                 <Button
                   color="primary"
-                  onPress={() =>
-                    selectedDate && handleCreateMovieMonday(selectedDate)
-                  }
+                  onPress={() => selectedDate && handleCreateMovieMonday(selectedDate)}
                   startContent={<Plus className="h-4 w-4" />}
                   isLoading={loading}
                 >
@@ -781,16 +794,14 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
               )}
             </div>
           ) : (
-            /* If Movie Monday exists, show movies and event details */
+            // Movie and event details display
             <div className="flex gap-4 p-4">
               {/* Movie Cards Section */}
               <div className="w-3/5 grid grid-cols-3 gap-4">
                 {[0, 1, 2].map((index) => {
-                  const movieSelections =
-                    selectedMonday?.movieSelections?.sort(
-                      (a, b) => a.id - b.id
-                    ) || [];
+                  const movieSelections = selectedMonday?.movieSelections?.sort((a, b) => a.id - b.id) || [];
                   const movie = movieSelections[index];
+                  
                   return (
                     <Card
                       key={index}
@@ -802,7 +813,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                     >
                       {movie ? (
                         <div className="relative h-full">
-                          {/* Movie poster area that will navigate to the movie page */}
+                          {/* Movie poster area */}
                           <div
                             className="absolute inset-0 z-0 cursor-pointer"
                             onClick={() => handleMovieClick(movie.tmdbMovieId)}
@@ -814,12 +825,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                             />
                           </div>
 
-                          {/* Action panel that slides up from the bottom on hover */}
+                          {/* Action panel */}
                           <div
                             className="absolute bottom-0 left-0 right-0 bg-black/80 
-                          transform translate-y-full group-hover:translate-y-0 
-                          transition-transform duration-300 ease-in-out z-10
-                          flex flex-col items-center justify-center p-3 h-1/3"
+                                      transform translate-y-full group-hover:translate-y-0 
+                                      transition-transform duration-300 ease-in-out z-10
+                                      flex flex-col items-center justify-center p-3 h-1/3"
                           >
                             <p className="text-white text-center font-medium mb-2 truncate w-full">
                               {movie.title}
@@ -832,11 +843,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                   isIconOnly
                                   className="text-yellow-400"
                                   onPress={() => handleSetWinner(movie.id)}
-                                  startContent={<Trophy className="h-8 w-8" />}
                                 >
-                                  <span className="sr-only">
-                                    Remove Winner Status
-                                  </span>
+                                  <Trophy className="h-8 w-8" />
+                                  <span className="sr-only">Remove Winner Status</span>
                                 </Button>
                               ) : (
                                 <>
@@ -845,10 +854,8 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                                     variant="solid"
                                     onPress={() => handleSetWinner(movie.id)}
                                     className="bg-warning-500 hover:bg-warning-600"
-                                    startContent={
-                                      <CrownIcon className="h-4 w-4" />
-                                    }
-                                  ></Button>
+                                    startContent={<CrownIcon className="h-4 w-4" />}
+                                  />
                                   <Button
                                     color="danger"
                                     variant="light"
@@ -880,10 +887,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                   );
                 })}
               </div>
-              {/* Event Details Section - 40% width */}
+              
+              {/* Event Details Section */}
               <div className="w-2/5">
                 <Card className="p-4 h-full">
                   <div className="flex flex-col h-full">
+                    {/* Header with edit/save buttons */}
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="text-lg font-semibold">Event Details</h3>
                       <div className="flex items-center gap-2">
@@ -894,12 +903,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                             onPress={() => {
                               setIsEditing(true);
                               setEditableDetails({
-                                meals:
-                                  selectedMonday?.eventDetails?.meals || "",
-                                cocktails:
-                                  selectedMonday?.eventDetails?.cocktails || [],
-                                notes:
-                                  selectedMonday?.eventDetails?.notes || "",
+                                meals: selectedMonday?.eventDetails?.meals || "",
+                                cocktails: selectedMonday?.eventDetails?.cocktails || [],
+                                desserts: selectedMonday?.eventDetails?.desserts || "",
+                                notes: selectedMonday?.eventDetails?.notes || "",
                               });
                             }}
                             aria-label="Edit details"
@@ -930,27 +937,24 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                     </div>
 
                     <div className="flex flex-col gap-4">
+                      {/* Picker selection */}
                       <div className="flex justify-between items-center">
                         <span className="font-medium">Picker:</span>
                         {isEditing ? (
                           <Dropdown>
                             <DropdownTrigger>
                               <Button variant="flat" className="capitalize">
-                                {selectedMonday?.picker?.username ||
-                                  "Select Picker"}
+                                {selectedMonday?.picker?.username || "Select Picker"}
                               </Button>
                             </DropdownTrigger>
                             <DropdownMenu
                               aria-label="Select picker"
                               selectionMode="single"
                               disallowEmptySelection
-                              selectedKeys={
-                                new Set([selectedMonday?.pickerUserId || ""])
-                              }
+                              selectedKeys={new Set([selectedMonday?.pickerUserId || ""])}
                               onSelectionChange={(keys) => {
                                 if (keys instanceof Set && keys.size > 0) {
-                                  const selected =
-                                    Array.from(keys)[0].toString();
+                                  const selected = Array.from(keys)[0].toString();
                                   handlePickerChange(selected);
                                 }
                               }}
@@ -969,116 +973,225 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                         )}
                       </div>
 
-                      <div className="space-y-4">
-                        {isEditing ? (
-                          <>
-                            <Input
-                              label="Meals"
-                              placeholder="What did you eat?"
-                              value={editableDetails.meals}
-                              onChange={(e) =>
-                                setEditableDetails((prev) => ({
-                                  ...prev,
-                                  meals: e.target.value,
-                                }))
-                              }
-                              startContent={
-                                <Utensils className="text-primary h-4 w-4" />
-                              }
-                            />
+                      {/* Event details - Edit mode */}
+                      {isEditing ? (
+                        <div className="space-y-4">
+                          {/* Dinner input */}
+                          <Input
+                            label="Dinner"
+                            placeholder="What meal did you serve?"
+                            value={editableDetails.meals}
+                            onChange={(e) =>
+                              setEditableDetails((prev) => ({
+                                ...prev,
+                                meals: e.target.value,
+                              }))
+                            }
+                            startContent={<Utensils className="text-primary h-4 w-4" />}
+                          />
 
-                            <Input
-                              label="Cocktails"
-                              placeholder="Enter cocktails (comma-separated)"
-                              value={
-                                Array.isArray(editableDetails.cocktails)
-                                  ? editableDetails.cocktails.join(", ")
-                                  : editableDetails.cocktails
-                              }
-                              onChange={(e) =>
-                                setEditableDetails((prev) => ({
-                                  ...prev,
-                                  cocktails: e.target.value
-                                    .split(",")
-                                    .map((item) => item.trim())
-                                    .filter(Boolean),
-                                }))
-                              }
-                              startContent={
-                                <Wine className="text-secondary h-4 w-4" />
-                              }
-                            />
+                          {/* Desserts input */}
+                          <Input
+                            label="Desserts"
+                            placeholder="What desserts did you serve?"
+                            value={editableDetails.desserts || ""}
+                            onChange={(e) =>
+                              setEditableDetails((prev) => ({
+                                ...prev,
+                                desserts: e.target.value,
+                              }))
+                            }
+                            startContent={<Cake className="text-danger h-4 w-4" />}
+                          />
 
-                            <Textarea
-                              label="Notes"
-                              placeholder="Any other details about the evening..."
-                              value={editableDetails.notes}
-                              onChange={(e) =>
-                                setEditableDetails((prev) => ({
-                                  ...prev,
-                                  notes: e.target.value,
-                                }))
-                              }
-                              minRows={2}
-                              maxRows={3}
-                              startContent={
-                                <FileText className="text-warning h-4 w-4" />
-                              }
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
-                              <div className="text-primary flex items-center">
-                                <Utensils className="h-6 w-6" />
+                          {/* Cocktail input with autocomplete */}
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Cocktails</label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <Input
+                                  placeholder="Add a cocktail (press Enter to add)"
+                                  value={newCocktail}
+                                  onChange={handleCocktailInputChange}
+                                  onFocus={() => {
+                                    if (newCocktail.trim() && cocktailSuggestions.length) {
+                                      setShowSuggestions(true);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    setTimeout(() => setShowSuggestions(false), 200);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && newCocktail.trim()) {
+                                      e.preventDefault();
+                                      setEditableDetails((prev) => ({
+                                        ...prev,
+                                        cocktails: [...prev.cocktails, newCocktail.trim()],
+                                      }));
+                                      setNewCocktail("");
+                                      setShowSuggestions(false);
+                                    }
+                                  }}
+                                  startContent={<Wine className="text-secondary h-4 w-4" />}
+                                />
+
+                                {/* Cocktail suggestions dropdown */}
+                                {showSuggestions && filteredSuggestions.length > 0 && (
+                                  <div className="absolute z-50 mt-1 w-full bg-background border border-default-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                                    {filteredSuggestions.map((suggestion, index) => (
+                                      <div
+                                        key={index}
+                                        className="px-4 py-2 hover:bg-default-100 cursor-pointer"
+                                        onMouseDown={() => {
+                                          setEditableDetails((prev) => ({
+                                            ...prev,
+                                            cocktails: [...prev.cocktails, suggestion],
+                                          }));
+                                          setNewCocktail("");
+                                          setShowSuggestions(false);
+                                        }}
+                                      >
+                                        {suggestion}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                              <div className="text-left ml-2 flex-1">
-                                <h4 className="font-medium text-primary-600 text-sm">
-                                  Meals
-                                </h4>
-                                <p className="text-default-700 text-sm">
-                                  {selectedMonday?.eventDetails?.meals ||
-                                    "No meals recorded yet"}
-                                </p>
-                              </div>
+                              
+                              {/* Add cocktail button */}
+                              <Button
+                                isIconOnly
+                                color="secondary"
+                                onPress={() => {
+                                  if (newCocktail.trim()) {
+                                    setEditableDetails((prev) => ({
+                                      ...prev,
+                                      cocktails: [...prev.cocktails, newCocktail.trim()],
+                                    }));
+                                    setNewCocktail("");
+                                    setShowSuggestions(false);
+                                  }
+                                }}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
                             </div>
 
-                            <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
-                              <div className="text-secondary flex items-center">
-                                <Wine className="h-6 w-6" />
-                              </div>
-                              <div className="text-left ml-2 flex-1">
-                                <h4 className="font-medium text-secondary-600 text-sm">
-                                  Cocktails
-                                </h4>
-                                <p className="text-default-700 text-sm">
-                                  {selectedMonday?.eventDetails?.cocktails
-                                    ?.length
-                                    ? selectedMonday.eventDetails.cocktails.join(
-                                        ", "
-                                      )
-                                    : "No cocktails recorded yet"}
-                                </p>
-                              </div>
+                            {/* Display cocktail chips */}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {editableDetails.cocktails.map((cocktail, index) => (
+                                <Chip
+                                  key={`${cocktail}-${index}`}
+                                  onClose={() => {
+                                    setEditableDetails(prev => ({
+                                      ...prev,
+                                      cocktails: prev.cocktails.filter((_, i) => i !== index)
+                                    }));
+                                  }}
+                                  variant="flat"
+                                  color="secondary"
+                                >
+                                  {cocktail}
+                                </Chip>
+                              ))}
                             </div>
+                          </div>
 
-                            <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
-                              <div className="text-warning flex items-center">
-                                <FileText className="h-6 w-6" />
-                              </div>
-                              <div className="text-left ml-2 flex-1">
-                                <h4 className="font-medium text-warning-600 text-sm">
-                                  Notes
-                                </h4>
-                                <p className="text-default-700 text-sm">
-                                  {selectedMonday?.eventDetails?.notes ||
-                                    "No notes recorded yet"}
-                                </p>
+                          {/* Notes textarea */}
+                          <Textarea
+                            label="Notes"
+                            placeholder="Any other details about the evening..."
+                            value={editableDetails.notes}
+                            onChange={(e) =>
+                              setEditableDetails((prev) => ({
+                                ...prev,
+                                notes: e.target.value,
+                              }))
+                            }
+                            minRows={2}
+                            maxRows={3}
+                            startContent={<FileText className="text-warning h-4 w-4" />}
+                          />
+                        </div>
+                      ) : (
+                        /* Event details - Display mode */
+                        <div className="space-y-4">
+                          {/* Dinner display */}
+                          <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
+                            <div className="text-primary flex items-center">
+                              <Utensils className="h-6 w-6" />
+                            </div>
+                            <div className="text-left ml-2 flex-1">
+                              <h4 className="font-medium text-primary-600 text-sm">
+                                Dinner
+                              </h4>
+                              <p className="text-default-700 text-sm">
+                                {selectedMonday?.eventDetails?.meals || "No meal recorded yet"}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Desserts display */}
+                          <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
+                            <div className="text-danger flex items-center">
+                              <Cake className="h-6 w-6" />
+                            </div>
+                            <div className="text-left ml-2 flex-1">
+                              <h4 className="font-medium text-danger-600 text-sm">
+                                Desserts
+                              </h4>
+                              <p className="text-default-700 text-sm">
+                                {selectedMonday?.eventDetails?.desserts || "No desserts recorded yet"}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Cocktails display with chips */}
+                          <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
+                            <div className="text-secondary flex items-center">
+                              <Wine className="h-6 w-6" />
+                            </div>
+                            <div className="text-left ml-2 flex-1">
+                              <h4 className="font-medium text-secondary-600 text-sm">
+                                Cocktails
+                              </h4>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {selectedMonday?.eventDetails?.cocktails?.length ? (
+                                  selectedMonday.eventDetails.cocktails.map((cocktail, index) => (
+                                    <Chip
+                                      key={`${cocktail}-${index}`}
+                                      size="sm"
+                                      variant="flat"
+                                      color="secondary"
+                                    >
+                                      {cocktail}
+                                    </Chip>
+                                  ))
+                                ) : (
+                                  <p className="text-default-700 text-sm">
+                                    No cocktails recorded yet
+                                  </p>
+                                )}
                               </div>
                             </div>
-                          </>
-                        )}
-                      </div>
+                          </div>
+
+                          {/* Notes display */}
+                          <div className="flex items-center gap-2 py-1 px-2 rounded-md bg-default-50">
+                            <div className="text-warning flex items-center">
+                              <FileText className="h-6 w-6" />
+                            </div>
+                            <div className="text-left ml-2 flex-1">
+                              <h4 className="font-medium text-warning-600 text-sm">
+                                Notes
+                              </h4>
+                              <p className="text-default-700 text-sm">
+                                {selectedMonday?.eventDetails?.notes || "No notes recorded yet"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>

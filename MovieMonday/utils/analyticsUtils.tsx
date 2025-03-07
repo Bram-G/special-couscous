@@ -16,6 +16,7 @@ export interface MovieMonday {
 interface EventDetails {
   meals: string;
   cocktails: string[];
+  desserts: string[];
   notes: string;
 }
 
@@ -52,6 +53,73 @@ export interface WinRateAnalytics {
   mostWins: { name: string; value: number }[];
   mostLosses: { name: string; value: number }[];
 }
+
+export const getFoodDrinkAnalytics = (movieMondays: MovieMonday[]) => {
+  // Initialize counters for food and drinks
+  const cocktailCounts: Record<string, number> = {};
+  const mealCounts: Record<string, number> = {};
+  const dessertCounts: Record<string, number> = {};
+  
+  let totalCocktails = 0;
+  let totalMeals = 0;
+  let totalDesserts = 0;
+  
+  // Process all movie mondays with event details
+  movieMondays.forEach(mm => {
+    if (!mm.eventDetails) return;
+    
+    // Process cocktails
+    if (mm.eventDetails.cocktails && mm.eventDetails.cocktails.length) {
+      mm.eventDetails.cocktails.forEach(cocktail => {
+        const normalized = cocktail.trim().toLowerCase();
+        if (normalized) {
+          cocktailCounts[normalized] = (cocktailCounts[normalized] || 0) + 1;
+          totalCocktails++;
+        }
+      });
+    }
+    
+    // Process meals
+    if (mm.eventDetails.meals) {
+      const meal = mm.eventDetails.meals.trim();
+      if (meal) {
+        mealCounts[meal] = (mealCounts[meal] || 0) + 1;
+        totalMeals++;
+      }
+    }
+    
+    // Process desserts
+    if (mm.eventDetails.desserts) {
+      const dessert = mm.eventDetails.desserts.trim();
+      if (dessert) {
+        dessertCounts[dessert] = (dessertCounts[dessert] || 0) + 1;
+        totalDesserts++;
+      }
+    }
+  });
+  
+  // Format data for charts
+  const topCocktails = Object.entries(cocktailCounts)
+    .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
+    .sort((a, b) => b.value - a.value);
+    
+  const topMeals = Object.entries(mealCounts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+    
+  const topDesserts = Object.entries(dessertCounts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+  
+  return {
+    topCocktails,
+    topMeals,
+    topDesserts,
+    totalCocktails,
+    totalMeals,
+    totalDesserts
+  };
+};
 
 // Alias for backwards compatibility
 export type WinLossAnalytics = WinRateAnalytics;
