@@ -348,103 +348,99 @@ export function getPickerAnalytics(movieMondays: MovieMonday[]) {
  * Process event details for food and drink analytics
  */
 export function getFoodDrinkAnalytics(movieMondays: MovieMonday[]) {
-  // Initialize counters and collections
-  const cocktails: Record<string, number> = {};
-  const meals: Record<string, number> = {};
-  const desserts: Record<string, number> = {};
+  // Initialize counters and maps for food and drinks
+  const cocktailsMap = new Map<string, number>();
+  const mealsMap = new Map<string, number>();
+  const dessertsMap = new Map<string, number>();
+  
   let totalCocktails = 0;
   let totalMeals = 0;
   let totalDesserts = 0;
 
-  // Process movie mondays with event details
+  // Process all movie mondays
   movieMondays.forEach(mm => {
     if (!mm.eventDetails) return;
-    
-    // Process cocktails
+
+    // Process cocktails (ensuring we handle both array and string formats)
     if (mm.eventDetails.cocktails) {
-      let cocktailsList: string[] = [];
+      const cocktails = Array.isArray(mm.eventDetails.cocktails) 
+        ? mm.eventDetails.cocktails
+        : typeof mm.eventDetails.cocktails === 'string'
+          ? [mm.eventDetails.cocktails] 
+          : [];
       
-      // Handle both array and string format
-      if (Array.isArray(mm.eventDetails.cocktails)) {
-        cocktailsList = mm.eventDetails.cocktails;
-      } else if (typeof mm.eventDetails.cocktails === 'string') {
-        cocktailsList = mm.eventDetails.cocktails
-          .split(',')
-          .map(c => c.trim())
-          .filter(Boolean);
-      }
-      
-      cocktailsList.forEach(cocktail => {
-        if (cocktail && cocktail.trim()) {
-          const cocktailName = cocktail.trim();
-          cocktails[cocktailName] = (cocktails[cocktailName] || 0) + 1;
+      cocktails.forEach(cocktail => {
+        if (typeof cocktail === 'string' && cocktail.trim()) {
           totalCocktails++;
+          const cocktailName = cocktail.trim();
+          cocktailsMap.set(
+            cocktailName, 
+            (cocktailsMap.get(cocktailName) || 0) + 1
+          );
         }
       });
     }
 
-    // Process meals
-    if (mm.eventDetails.meals && mm.eventDetails.meals.trim()) {
-      // Split meals by commas or new lines if multiple are listed
-      const mealsList = mm.eventDetails.meals
-        .split(/[,\n]+/)
-        .map(m => m.trim())
-        .filter(Boolean);
+    // Process meals (ensuring we handle both array and string formats)
+    if (mm.eventDetails.meals) {
+      const meals = Array.isArray(mm.eventDetails.meals) 
+        ? mm.eventDetails.meals
+        : typeof mm.eventDetails.meals === 'string'
+          ? [mm.eventDetails.meals] 
+          : [];
       
-      if (mealsList.length > 0) {
-        mealsList.forEach(meal => {
-          meals[meal] = (meals[meal] || 0) + 1;
+      meals.forEach(meal => {
+        if (typeof meal === 'string' && meal.trim()) {
           totalMeals++;
-        });
-      } else {
-        // If no delimiters, treat as single meal
-        const mealName = mm.eventDetails.meals.trim();
-        meals[mealName] = (meals[mealName] || 0) + 1;
-        totalMeals++;
-      }
+          const mealName = meal.trim();
+          mealsMap.set(
+            mealName, 
+            (mealsMap.get(mealName) || 0) + 1
+          );
+        }
+      });
     }
 
-    // Process desserts
-    if (mm.eventDetails.desserts && mm.eventDetails.desserts.trim()) {
-      // Split desserts by commas or new lines if multiple are listed
-      const dessertsList = mm.eventDetails.desserts
-        .split(/[,\n]+/)
-        .map(d => d.trim())
-        .filter(Boolean);
+    // Process desserts (ensuring we handle both array and string formats)
+    if (mm.eventDetails.desserts) {
+      const desserts = Array.isArray(mm.eventDetails.desserts) 
+        ? mm.eventDetails.desserts
+        : typeof mm.eventDetails.desserts === 'string'
+          ? [mm.eventDetails.desserts] 
+          : [];
       
-      if (dessertsList.length > 0) {
-        dessertsList.forEach(dessert => {
-          desserts[dessert] = (desserts[dessert] || 0) + 1;
+      desserts.forEach(dessert => {
+        if (typeof dessert === 'string' && dessert.trim()) {
           totalDesserts++;
-        });
-      } else {
-        // If no delimiters, treat as single dessert
-        const dessertName = mm.eventDetails.desserts.trim();
-        desserts[dessertName] = (desserts[dessertName] || 0) + 1;
-        totalDesserts++;
-      }
+          const dessertName = dessert.trim();
+          dessertsMap.set(
+            dessertName, 
+            (dessertsMap.get(dessertName) || 0) + 1
+          );
+        }
+      });
     }
   });
 
-  // Format data for charts
-  const topCocktails = Object.entries(cocktails)
+  // Convert maps to sorted arrays for charting
+  const topCocktails = Array.from(cocktailsMap.entries())
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  const topMeals = Object.entries(meals)
+  const topMeals = Array.from(mealsMap.entries())
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
-
-  const topDesserts = Object.entries(desserts)
+    
+  const topDesserts = Array.from(dessertsMap.entries())
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
   return {
-    topCocktails,
-    topMeals,
-    topDesserts,
     totalCocktails,
     totalMeals,
-    totalDesserts
+    totalDesserts,
+    topCocktails,
+    topMeals,
+    topDesserts
   };
 }
