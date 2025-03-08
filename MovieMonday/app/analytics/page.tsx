@@ -32,6 +32,34 @@ import {
   getFoodDrinkAnalytics,
 } from "@/utils/analyticsUtils";
 
+function normalizeItemName(item) {
+  if (!item || typeof item !== 'string') return item;
+  
+  // Check if the item appears to be JSON stringified
+  if (item.startsWith('[') && item.endsWith(']')) {
+    try {
+      // Try to parse as JSON array
+      const parsed = JSON.parse(item);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Return the first non-empty element if it's an array
+        const validItems = parsed.filter(p => typeof p === 'string' && p.trim());
+        if (validItems.length > 0) {
+          return validItems[0];
+        }
+      }
+      // If it's somehow an empty array or invalid, return "None"
+      return "None";
+    } catch (e) {
+      // If it's not valid JSON, remove the brackets and quotes
+      return item.slice(1, -1).replace(/"/g, '');
+    }
+  }
+  
+  // If it's not JSON format, return as is
+  return item;
+}
+
+
 // Placeholder data for initial render or when real data is unavailable
 const PLACEHOLDER_DATA = {
   actors: [
@@ -749,13 +777,13 @@ export default function AnalyticsPage() {
         totalMeals: 9,
         totalDesserts: 9,
       };
-
+    
       // Check if function exists
       if (typeof getFoodDrinkAnalytics !== "function") {
         console.error("getFoodDrinkAnalytics is not a function", {
           getFoodDrinkAnalytics,
         });
-
+    
         return (
           <>
             {placeholderNote}
@@ -765,7 +793,7 @@ export default function AnalyticsPage() {
                 function. Showing placeholder data instead.
               </p>
             </div>
-
+    
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card className="p-6 text-center">
                 <h3 className="text-2xl font-bold text-secondary">
@@ -773,14 +801,14 @@ export default function AnalyticsPage() {
                 </h3>
                 <p className="text-default-600">Total Cocktails</p>
               </Card>
-
+    
               <Card className="p-6 text-center">
                 <h3 className="text-2xl font-bold text-primary">
                   {placeholderData.totalMeals}
                 </h3>
                 <p className="text-default-600">Total Meals</p>
               </Card>
-
+    
               <Card className="p-6 text-center">
                 <h3 className="text-2xl font-bold text-danger">
                   {placeholderData.totalDesserts}
@@ -788,14 +816,14 @@ export default function AnalyticsPage() {
                 <p className="text-default-600">Total Desserts</p>
               </Card>
             </div>
-
+    
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <AnalyticsCard
                 title="Top Cocktails"
                 subtitle="Most popular cocktails served"
               >
                 <PieChartComponent
-                  data={foodDrinkData.topCocktails}
+                  data={placeholderData.topCocktails}
                   height={350}
                   colors={[
                     "#7C3AED",
@@ -807,13 +835,13 @@ export default function AnalyticsPage() {
                   maxSlices={6}
                 />
               </AnalyticsCard>
-
+    
               <AnalyticsCard
                 title="Popular Meals"
                 subtitle="Most frequent dinner choices"
               >
                 <BarChartComponent
-                  data={foodDrinkData.topMeals}
+                  data={placeholderData.topMeals}
                   barColor="#0EA5E9"
                   height={350}
                   xAxisLabel="Meals"
@@ -822,14 +850,14 @@ export default function AnalyticsPage() {
                 />
               </AnalyticsCard>
             </div>
-
+    
             <AnalyticsCard
               title="Dessert Favorites"
               subtitle="Most commonly served desserts"
             >
               <div className="h-80">
                 <BarChartComponent
-                  data={foodDrinkData.topDesserts}
+                  data={placeholderData.topDesserts}
                   barColor="#F43F5E"
                   height={350}
                   xAxisLabel="Desserts"
@@ -842,14 +870,32 @@ export default function AnalyticsPage() {
           </>
         );
       }
-      const foodDrinkData = hasData
+      
+      // Get the food and drink data
+      let foodDrinkData = hasData
         ? getFoodDrinkAnalytics(movieData)
         : placeholderData;
-
+    
+      // Normalize names for display
+      const normalizedCocktails = foodDrinkData.topCocktails.map(item => ({
+        name: normalizeItemName(item.name),
+        value: item.value
+      }));
+      
+      const normalizedMeals = foodDrinkData.topMeals.map(item => ({
+        name: normalizeItemName(item.name),
+        value: item.value
+      }));
+      
+      const normalizedDesserts = foodDrinkData.topDesserts.map(item => ({
+        name: normalizeItemName(item.name),
+        value: item.value
+      }));
+    
       return (
         <>
           {placeholderNote}
-
+    
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-secondary">
@@ -857,14 +903,14 @@ export default function AnalyticsPage() {
               </h3>
               <p className="text-default-600">Total Cocktails</p>
             </Card>
-
+    
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-primary">
                 {foodDrinkData.totalMeals}
               </h3>
               <p className="text-default-600">Total Meals</p>
             </Card>
-
+    
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-danger">
                 {foodDrinkData.totalDesserts}
@@ -872,26 +918,26 @@ export default function AnalyticsPage() {
               <p className="text-default-600">Total Desserts</p>
             </Card>
           </div>
-
+    
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <AnalyticsCard
               title="Top Cocktails"
               subtitle="Most popular cocktails served"
             >
               <PieChartComponent
-                data={foodDrinkData.topCocktails}
+                data={normalizedCocktails}
                 height={350}
                 colors={["#7C3AED", "#8B5CF6", "#A78BFA", "#C4B5FD", "#DDD6FE"]}
                 maxSlices={6}
               />
             </AnalyticsCard>
-
+    
             <AnalyticsCard
               title="Popular Meals"
               subtitle="Most frequent dinner choices"
             >
               <BarChartComponent
-                data={foodDrinkData.topMeals}
+                data={normalizedMeals}
                 barColor="#0EA5E9"
                 height={350}
                 xAxisLabel="Meals"
@@ -900,14 +946,14 @@ export default function AnalyticsPage() {
               />
             </AnalyticsCard>
           </div>
-
+    
           <AnalyticsCard
             title="Dessert Favorites"
             subtitle="Most commonly served desserts"
           >
             <div className="h-80">
               <BarChartComponent
-                data={foodDrinkData.topDesserts}
+                data={normalizedDesserts}
                 barColor="#F43F5E"
                 height={350}
                 xAxisLabel="Desserts"

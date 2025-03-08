@@ -1,11 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardBody, CardHeader, Button, Spinner } from "@heroui/react";
-import { BarChart2, ExternalLink, Award, Film, Users } from "lucide-react";
+import { BarChart2, ExternalLink, Award, Film, Users, Wine } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { PieChartComponent } from './analytics/PieChartComponent';
 import { BarChartComponent } from './analytics/BarChartComponent';
-import { getGenreAnalytics, getWinRateAnalytics, getDirectorAnalytics, getActorAnalytics, getTimeBasedAnalytics, MovieMonday } from '@/utils/analyticsUtils';
+import { getGenreAnalytics, getWinRateAnalytics, getDirectorAnalytics, getActorAnalytics, getTimeBasedAnalytics, getFoodDrinkAnalytics, MovieMonday } from '@/utils/analyticsUtils';
+
+// Function to normalize item names for display - removes JSON notation
+function normalizeItemName(item) {
+  if (!item || typeof item !== 'string') return item;
+  
+  // Check if the item appears to be JSON stringified
+  if (item.startsWith('[') && item.endsWith(']')) {
+    try {
+      // Try to parse as JSON array
+      const parsed = JSON.parse(item);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Return the first non-empty element if it's an array
+        const validItems = parsed.filter(p => typeof p === 'string' && p.trim());
+        if (validItems.length > 0) {
+          return validItems[0];
+        }
+      }
+      // If it's somehow an empty array or invalid, return "None"
+      return "None";
+    } catch (e) {
+      // If it's not valid JSON, remove the brackets and quotes
+      return item.slice(1, -1).replace(/"/g, '');
+    }
+  }
+  
+  // If it's not JSON format, return as is
+  return item;
+}
 
 // Example placeholder data for when no real data is available
 const PLACEHOLDER_DATA = {
@@ -29,6 +57,13 @@ const PLACEHOLDER_DATA = {
     { name: "Batman & Robin", value: 2 },
     { name: "Twilight", value: 1 },
     { name: "Catwoman", value: 1 }
+  ],
+  cocktails: [
+    { name: "Margarita", value: 5 },
+    { name: "Old Fashioned", value: 4 },
+    { name: "Moscow Mule", value: 3 },
+    { name: "Mojito", value: 2 },
+    { name: "Negroni", value: 1 }
   ]
 };
 
@@ -37,7 +72,7 @@ const DashboardAnalyticsWidget = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<MovieMonday[]>([]);
-  const [currentChart, setCurrentChart] = useState<'genres' | 'directors' | 'losses' | 'events'>('genres');
+  const [currentChart, setCurrentChart] = useState<'genres' | 'directors' | 'losses' | 'events' | 'cocktails'>('genres');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -147,6 +182,31 @@ const DashboardAnalyticsWidget = () => {
           yAxisLabel="Events" // Add Y-axis label
         />
       );
+    } else if (currentChart === 'cocktails') {
+      // Get cocktail data and normalize the names
+      let cocktailData;
+      
+      if (hasData && typeof getFoodDrinkAnalytics === 'function') {
+        cocktailData = getFoodDrinkAnalytics(movieData).topCocktails
+          .map(item => ({
+            name: normalizeItemName(item.name),
+            value: item.value
+          }));
+      } else {
+        cocktailData = PLACEHOLDER_DATA.cocktails;
+      }
+      
+      return (
+        <PieChartComponent 
+          data={cocktailData} 
+          height={250}
+          emptyStateMessage="No cocktail data available yet"
+          maxSlices={5}
+          colors={["#7C3AED", "#8B5CF6", "#A78BFA", "#C4B5FD", "#DDD6FE"]}
+          hideLegend={false}
+          showPercent={true}
+        />
+      );
     } else {
       // Losses chart
       const actorLossesData = hasData 
@@ -176,7 +236,7 @@ const DashboardAnalyticsWidget = () => {
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
-          <BarChart2 className="text-primary h-5 w-5" /> {/* Add icon */}
+          <BarChart2 className="text-primary h-5 w-5" />
           <div>
             <h3 className="text-lg font-semibold">Your Movie Analytics</h3>
             <p className="text-sm text-default-500">
@@ -226,6 +286,14 @@ const DashboardAnalyticsWidget = () => {
             startContent={<Award className="h-4 w-4" />}
           >
             Movie Mondays
+          </Button>
+          <Button
+            variant={currentChart === 'cocktails' ? "solid" : "light"}
+            color={currentChart === 'cocktails' ? "primary" : "default"}
+            onPress={() => setCurrentChart('cocktails')}
+            startContent={<Wine className="h-4 w-4" />}
+          >
+            Cocktails
           </Button>
         </div>
         
