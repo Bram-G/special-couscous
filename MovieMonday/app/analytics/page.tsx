@@ -19,7 +19,7 @@ import { BarChartComponent } from "@/components/analytics/BarChartComponent";
 import { PieChartComponent } from "@/components/analytics/PieChartComponent";
 import { LineChartComponent } from "@/components/analytics/LineChartComponent";
 import { useSearchParams } from "next/navigation";
-
+import MovieDetailsModal from "@/components/analytics/MovieDetailsModal";
 import { useRouter } from "next/navigation";
 import {
   MovieMonday,
@@ -30,19 +30,27 @@ import {
   getTimeBasedAnalytics,
   getPickerAnalytics,
   getFoodDrinkAnalytics,
+  getMoviesByActor,
+  getMoviesByDirector,
+  getMoviesByGenre,
+  getMoviesByCocktail,
+  getMoviesByMeal,
+  getWinningMovies,
 } from "@/utils/analyticsUtils";
 
 function normalizeItemName(item) {
-  if (!item || typeof item !== 'string') return item;
-  
+  if (!item || typeof item !== "string") return item;
+
   // Check if the item appears to be JSON stringified
-  if (item.startsWith('[') && item.endsWith(']')) {
+  if (item.startsWith("[") && item.endsWith("]")) {
     try {
       // Try to parse as JSON array
       const parsed = JSON.parse(item);
       if (Array.isArray(parsed) && parsed.length > 0) {
         // Return the first non-empty element if it's an array
-        const validItems = parsed.filter(p => typeof p === 'string' && p.trim());
+        const validItems = parsed.filter(
+          (p) => typeof p === "string" && p.trim()
+        );
         if (validItems.length > 0) {
           return validItems[0];
         }
@@ -51,14 +59,13 @@ function normalizeItemName(item) {
       return "None";
     } catch (e) {
       // If it's not valid JSON, remove the brackets and quotes
-      return item.slice(1, -1).replace(/"/g, '');
+      return item.slice(1, -1).replace(/"/g, "");
     }
   }
-  
+
   // If it's not JSON format, return as is
   return item;
 }
-
 
 // Placeholder data for initial render or when real data is unavailable
 const PLACEHOLDER_DATA = {
@@ -130,6 +137,13 @@ export default function AnalyticsPage() {
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<MovieMonday[]>([]);
+  const [showMovieDetailsModal, setShowMovieDetailsModal] = useState(false);
+  const [selectedMovies, setSelectedMovies] = useState<any[]>([]);
+  const [selectedFilterValue, setSelectedFilterValue] = useState<string>("");
+  const [selectedFilterType, setSelectedFilterType] = useState<
+    "actor" | "director" | "genre" | "cocktail" | "meal"
+  >("actor");
+  const [modalTitle, setModalTitle] = useState<string>("");
 
   // Use search params to handle tab navigation from dashboard
   const searchParams = useSearchParams();
@@ -153,6 +167,93 @@ export default function AnalyticsPage() {
       default:
         return "overview";
     }
+  };
+
+  const handleChartItemClick = (
+    name: string,
+    type: "actor" | "director" | "genre" | "cocktail" | "meal",
+    chartContext?: "winning" | "losing" | "all"
+  ) => {
+    if (!name || !movieData.length) return;
+
+    let filteredMovies: any[] = [];
+    let title = "";
+    const winStatus =
+      chartContext === "winning"
+        ? true
+        : chartContext === "losing"
+          ? false
+          : undefined; // undefined means "don't filter by win status"
+
+    switch (type) {
+      case "actor":
+        filteredMovies = getMoviesByActor(movieData, name, winStatus);
+
+        if (chartContext === "winning") {
+          title = `Winning Movies featuring ${name}`;
+        } else if (chartContext === "losing") {
+          title = `Rejected Movies featuring ${name}`;
+        } else {
+          title = `Movies featuring ${name}`;
+        }
+        break;
+
+      case "director":
+        filteredMovies = getMoviesByDirector(movieData, name, winStatus);
+
+        if (chartContext === "winning") {
+          title = `Winning Movies directed by ${name}`;
+        } else if (chartContext === "losing") {
+          title = `Rejected Movies directed by ${name}`;
+        } else {
+          title = `Movies directed by ${name}`;
+        }
+        break;
+
+      case "genre":
+        filteredMovies = getMoviesByGenre(movieData, name, winStatus);
+
+        if (chartContext === "winning") {
+          title = `Winning ${name} Movies`;
+        } else if (chartContext === "losing") {
+          title = `Rejected ${name} Movies`;
+        } else {
+          title = `${name} Movies`;
+        }
+        break;
+
+      case "cocktail":
+        filteredMovies = getMoviesByCocktail(movieData, name);
+        title = `Movies watched while serving ${name}`;
+        break;
+
+      case "meal":
+        filteredMovies = getMoviesByMeal(movieData, name);
+        title = `Movies watched while eating ${name}`;
+        break;
+
+      default:
+        filteredMovies = [];
+        title = "Movie Details";
+    }
+
+    // If no movies found with the specified filter
+    if (filteredMovies.length === 0) {
+      if (chartContext === "winning") {
+        title = `No winning movies found for ${name}`;
+      } else if (chartContext === "losing") {
+        title = `No rejected movies found for ${name}`;
+      } else {
+        title = `No movies found for ${name}`;
+      }
+    }
+
+    // Update state to show modal with filtered movies
+    setSelectedMovies(filteredMovies);
+    setSelectedFilterValue(name);
+    setSelectedFilterType(type);
+    setModalTitle(title);
+    setShowMovieDetailsModal(true);
   };
 
   const [selectedKey, setSelectedKey] = useState<string>(getInitialTab());
@@ -352,6 +453,9 @@ export default function AnalyticsPage() {
                 height={350}
                 xAxisLabel="Actors"
                 yAxisLabel="Number of Rejections"
+                onBarClick={(name) =>
+                  handleChartItemClick(name, "actor", "losing")
+                }
                 maxBars={15}
                 scrollable={true}
               />
@@ -367,6 +471,9 @@ export default function AnalyticsPage() {
                 height={350}
                 xAxisLabel="Actors"
                 yAxisLabel="Number of Winning Movies"
+                onBarClick={(name) =>
+                  handleChartItemClick(name, "actor", "winning")
+                }
                 maxBars={15}
                 scrollable={true}
               />
@@ -427,6 +534,9 @@ export default function AnalyticsPage() {
                 height={350}
                 xAxisLabel="Directors"
                 yAxisLabel="Number of Movies"
+                onBarClick={(name) =>
+                  handleChartItemClick(name, "director", "winning")
+                }
                 maxBars={15} // Show top 15 directors
               />
             </AnalyticsCard>
@@ -441,6 +551,9 @@ export default function AnalyticsPage() {
                 height={350}
                 xAxisLabel="Directors"
                 yAxisLabel="Number of Winning Movies"
+                onBarClick={(name) =>
+                  handleChartItemClick(name, "director", "winning")
+                }
                 maxBars={15} // Show top 15 winning directors
               />
             </AnalyticsCard>
@@ -494,6 +607,9 @@ export default function AnalyticsPage() {
                 data={genreData.genreDistribution}
                 height={350}
                 maxSlices={8} // Show top 8 genres plus "Other"
+                onSliceClick={(name) =>
+                  handleChartItemClick(name, "genre", "winning")
+                }
               />
             </AnalyticsCard>
 
@@ -507,6 +623,9 @@ export default function AnalyticsPage() {
                 height={350}
                 xAxisLabel="Genres"
                 yAxisLabel="Number of Winning Movies"
+                onBarClick={(name) =>
+                  handleChartItemClick(name, "genre", "winning")
+                }
                 maxBars={10} // Show top 10 winning genres
               />
             </AnalyticsCard>
@@ -777,13 +896,13 @@ export default function AnalyticsPage() {
         totalMeals: 9,
         totalDesserts: 9,
       };
-    
+
       // Check if function exists
       if (typeof getFoodDrinkAnalytics !== "function") {
         console.error("getFoodDrinkAnalytics is not a function", {
           getFoodDrinkAnalytics,
         });
-    
+
         return (
           <>
             {placeholderNote}
@@ -793,7 +912,7 @@ export default function AnalyticsPage() {
                 function. Showing placeholder data instead.
               </p>
             </div>
-    
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card className="p-6 text-center">
                 <h3 className="text-2xl font-bold text-secondary">
@@ -801,14 +920,14 @@ export default function AnalyticsPage() {
                 </h3>
                 <p className="text-default-600">Total Cocktails</p>
               </Card>
-    
+
               <Card className="p-6 text-center">
                 <h3 className="text-2xl font-bold text-primary">
                   {placeholderData.totalMeals}
                 </h3>
                 <p className="text-default-600">Total Meals</p>
               </Card>
-    
+
               <Card className="p-6 text-center">
                 <h3 className="text-2xl font-bold text-danger">
                   {placeholderData.totalDesserts}
@@ -816,7 +935,7 @@ export default function AnalyticsPage() {
                 <p className="text-default-600">Total Desserts</p>
               </Card>
             </div>
-    
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <AnalyticsCard
                 title="Top Cocktails"
@@ -835,7 +954,7 @@ export default function AnalyticsPage() {
                   maxSlices={6}
                 />
               </AnalyticsCard>
-    
+
               <AnalyticsCard
                 title="Popular Meals"
                 subtitle="Most frequent dinner choices"
@@ -850,7 +969,7 @@ export default function AnalyticsPage() {
                 />
               </AnalyticsCard>
             </div>
-    
+
             <AnalyticsCard
               title="Dessert Favorites"
               subtitle="Most commonly served desserts"
@@ -870,32 +989,32 @@ export default function AnalyticsPage() {
           </>
         );
       }
-      
+
       // Get the food and drink data
       let foodDrinkData = hasData
         ? getFoodDrinkAnalytics(movieData)
         : placeholderData;
-    
+
       // Normalize names for display
-      const normalizedCocktails = foodDrinkData.topCocktails.map(item => ({
+      const normalizedCocktails = foodDrinkData.topCocktails.map((item) => ({
         name: normalizeItemName(item.name),
-        value: item.value
+        value: item.value,
       }));
-      
-      const normalizedMeals = foodDrinkData.topMeals.map(item => ({
+
+      const normalizedMeals = foodDrinkData.topMeals.map((item) => ({
         name: normalizeItemName(item.name),
-        value: item.value
+        value: item.value,
       }));
-      
-      const normalizedDesserts = foodDrinkData.topDesserts.map(item => ({
+
+      const normalizedDesserts = foodDrinkData.topDesserts.map((item) => ({
         name: normalizeItemName(item.name),
-        value: item.value
+        value: item.value,
       }));
-    
+
       return (
         <>
           {placeholderNote}
-    
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-secondary">
@@ -903,14 +1022,14 @@ export default function AnalyticsPage() {
               </h3>
               <p className="text-default-600">Total Cocktails</p>
             </Card>
-    
+
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-primary">
                 {foodDrinkData.totalMeals}
               </h3>
               <p className="text-default-600">Total Meals</p>
             </Card>
-    
+
             <Card className="p-6 text-center">
               <h3 className="text-2xl font-bold text-danger">
                 {foodDrinkData.totalDesserts}
@@ -918,7 +1037,7 @@ export default function AnalyticsPage() {
               <p className="text-default-600">Total Desserts</p>
             </Card>
           </div>
-    
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <AnalyticsCard
               title="Top Cocktails"
@@ -931,7 +1050,7 @@ export default function AnalyticsPage() {
                 maxSlices={6}
               />
             </AnalyticsCard>
-    
+
             <AnalyticsCard
               title="Popular Meals"
               subtitle="Most frequent dinner choices"
@@ -946,7 +1065,7 @@ export default function AnalyticsPage() {
               />
             </AnalyticsCard>
           </div>
-    
+
           <AnalyticsCard
             title="Dessert Favorites"
             subtitle="Most commonly served desserts"
@@ -1107,6 +1226,14 @@ export default function AnalyticsPage() {
             {renderAnalyticsContent()}
           </Tab>
         </Tabs>
+        <MovieDetailsModal
+          isOpen={showMovieDetailsModal}
+          onClose={() => setShowMovieDetailsModal(false)}
+          title={modalTitle}
+          movies={selectedMovies}
+          filterType={selectedFilterType}
+          filterValue={selectedFilterValue}
+        />
       </div>
     </ProtectedRoute>
   );

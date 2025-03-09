@@ -28,6 +28,7 @@ interface BarChartComponentProps {
   customTooltip?: React.FC<TooltipProps<any, any>>;
   maxBars?: number; // Maximum number of bars to display
   scrollable?: boolean; // Whether to make the chart horizontally scrollable
+  onBarClick?: (name: string) => void; // New callback for bar clicks
 }
 
 const CustomBarTooltip = ({ active, payload, label }: any) => {
@@ -58,6 +59,7 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
   customTooltip = CustomBarTooltip,
   maxBars = 10, // Default to 10 bars
   scrollable = false, // Default not scrollable
+  onBarClick,
 }) => {
   if (!data || data.length === 0) {
     return <EmptyState message={emptyStateMessage} />;
@@ -90,6 +92,13 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
     displayName: truncateName(item.name),
   }));
 
+  // Handle bar click
+  const handleClick = (data, index) => {
+    if (onBarClick && data.name) {
+      onBarClick(data.name);
+    }
+  };
+
   return (
     <div className={scrollable ? "overflow-x-auto" : ""}>
       <div style={{ width: scrollable ? chartWidth : "100%", height }}>
@@ -102,9 +111,8 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
               left: 20,
               bottom: 10,
             }}
+            onClick={onBarClick ? handleClick : undefined} // Add the click handler if provided
           >
-            {/* ... other chart elements */}
-
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
@@ -142,6 +150,12 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
               fill={barColor}
               radius={[4, 4, 0, 0]}
               maxBarSize={50} // Limit maximum bar width
+              className={onBarClick ? "cursor-pointer" : ""} // Add cursor pointer if clickable
+              onClick={(data) => {
+                if (onBarClick && data.name) {
+                  onBarClick(data.name);
+                }
+              }}
             />
           </BarChart>
         </ResponsiveContainer>

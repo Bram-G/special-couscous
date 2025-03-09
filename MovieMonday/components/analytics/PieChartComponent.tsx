@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Sector } from 'recharts';
 import { EmptyState } from './EmptyState';
 
@@ -14,9 +14,10 @@ interface PieChartComponentProps {
   height?: number;
   emptyStateMessage?: string;
   customTooltip?: React.FC<any>;
-  maxSlices?: number; // Control how many slices to show before grouping into "Other"
-  hideLegend?: boolean; // Option to hide the legend
-  showPercent?: boolean; // Option to show percentages on the chart
+  maxSlices?: number; 
+  hideLegend?: boolean; 
+  showPercent?: boolean; 
+  onSliceClick?: (name: string) => void;
 }
 
 const renderActiveShape = (props: any) => {
@@ -60,7 +61,8 @@ export const PieChartComponent: React.FC<PieChartComponentProps> = ({
   customTooltip,
   maxSlices = 5, // Default to showing 5 slices before grouping into "Other"
   hideLegend = false,
-  showPercent = false
+  showPercent = false,
+  onSliceClick
 }) => {
   const [activeIndex, setActiveIndex] = React.useState(-1);
 
@@ -96,6 +98,13 @@ export const PieChartComponent: React.FC<PieChartComponentProps> = ({
 
   const onPieLeave = () => {
     setActiveIndex(-1);
+  };
+
+  // Function to handle click on pie slice
+  const handleClick = (data, index) => {
+    if (onSliceClick && data.name) {
+      onSliceClick(data.name);
+    }
   };
 
   // Custom renderLabel function to show percentages
@@ -144,7 +153,9 @@ export const PieChartComponent: React.FC<PieChartComponentProps> = ({
             activeShape={renderActiveShape}
             onMouseEnter={onPieEnter}
             onMouseLeave={onPieLeave}
-            label={showPercent ? renderCustomizedLabel : false} // Show percentages if enabled
+            onClick={handleClick} // Add click handler
+            label={showPercent ? renderCustomizedLabel : false}
+            className={onSliceClick ? "cursor-pointer" : ""} // Add cursor pointer if clickable
           >
             {processedData.map((entry, index) => (
               <Cell 
@@ -155,7 +166,7 @@ export const PieChartComponent: React.FC<PieChartComponentProps> = ({
           </Pie>
           <Tooltip 
             content={customTooltip} 
-            wrapperStyle={{ zIndex: 100 }} // Ensure tooltip is above other elements
+            wrapperStyle={{ zIndex: 100 }}
           />
           {!hideLegend && (
             <Legend 
@@ -172,12 +183,18 @@ export const PieChartComponent: React.FC<PieChartComponentProps> = ({
                   })
                 )
               }
+              onClick={(entry) => {
+                // Handle legend click if callback is provided
+                if (onSliceClick && entry.value) {
+                  const itemName = entry.value.split(" (")[0]; // Extract name from "Name (10)" format
+                  onSliceClick(itemName);
+                }
+              }}
+              className={onSliceClick ? "cursor-pointer" : ""}
             />
           )}
-                </PieChart>
+        </PieChart>
       </ResponsiveContainer>
     </div>
   );
 };
-
-        

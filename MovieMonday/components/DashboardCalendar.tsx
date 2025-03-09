@@ -483,33 +483,36 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     handleInputWithSuggestions(e, "dessert", dessertSuggestions);
   };
 
-  const addItemToCategory = (type: "cocktail" | "meal" | "dessert", value: string) => {
+  const addItemToCategory = (
+    type: "cocktail" | "meal" | "dessert",
+    value: string
+  ) => {
     if (!value.trim()) return;
-    
+
     switch (type) {
       case "cocktail":
-        setEditableDetails(prev => ({
+        setEditableDetails((prev) => ({
           ...prev,
-          cocktails: [...prev.cocktails, value.trim()]
+          cocktails: [...prev.cocktails, value.trim()],
         }));
         setNewCocktail("");
         break;
       case "meal":
-        setEditableDetails(prev => ({
+        setEditableDetails((prev) => ({
           ...prev,
-          meals: [...prev.meals, value.trim()]
+          meals: [...prev.meals, value.trim()],
         }));
         setNewMeal("");
         break;
       case "dessert":
-        setEditableDetails(prev => ({
+        setEditableDetails((prev) => ({
           ...prev,
-          desserts: [...prev.desserts, value.trim()]
+          desserts: [...prev.desserts, value.trim()],
         }));
         setNewDessert("");
         break;
     }
-    
+
     // Clear filtered suggestions
     setFilteredSuggestions([]);
     setActiveSuggestionType(null);
@@ -663,12 +666,17 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       );
 
       if (response.ok) {
-        // Trigger confetti animation
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+        const data = await response.json();
+
+        // Only trigger confetti if the movie was set as a winner (not when removing winner status)
+        if (data.isWinner) {
+          // Trigger confetti animation
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+        }
 
         // Refresh data
         if (selectedDate) {
@@ -1004,48 +1012,37 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                           {/* Action panel */}
                           <div
                             className="absolute bottom-0 left-0 right-0 bg-black/80 
-                                      transform translate-y-full group-hover:translate-y-0 
-                                      transition-transform duration-300 ease-in-out z-10
-                                      flex flex-col items-center justify-center p-3 h-1/3"
+                        transform translate-y-full group-hover:translate-y-0 
+                        transition-transform duration-300 ease-in-out z-10
+                        flex flex-col items-center justify-center p-3 h-1/3"
                           >
                             <p className="text-white text-center font-medium mb-2 truncate w-full">
                               {movie.title}
                             </p>
                             <div className="flex gap-2">
-                              {movie.isWinner ? (
-                                <Button
-                                  color="warning"
-                                  variant="light"
-                                  isIconOnly
-                                  className="text-yellow-400"
-                                  onPress={() => handleSetWinner(movie.id)}
-                                >
-                                  <Trophy className="h-8 w-8" />
-                                  <span className="sr-only">
-                                    Remove Winner Status
-                                  </span>
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button
-                                    color="warning"
-                                    variant="solid"
-                                    onPress={() => handleSetWinner(movie.id)}
-                                    className="bg-warning-500 hover:bg-warning-600"
-                                    startContent={
-                                      <CrownIcon className="h-4 w-4" />
-                                    }
-                                  />
-                                  <Button
-                                    color="danger"
-                                    variant="light"
-                                    isIconOnly
-                                    onPress={() => handleRemoveMovie(movie.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
+                              <Button
+                                color={movie.isWinner ? "warning" : "primary"}
+                                variant={movie.isWinner ? "solid" : "solid"}
+                                onPress={() => handleSetWinner(movie.id)}
+                                className={
+                                  movie.isWinner
+                                    ? "bg-warning-500 hover:bg-warning-600"
+                                    : ""
+                                }
+                                startContent={<CrownIcon className="h-4 w-4" />}
+                              >
+                                {movie.isWinner
+                                  ? "Remove Win"
+                                  : "Set as Winner"}
+                              </Button>
+                              <Button
+                                color="danger"
+                                variant="light"
+                                isIconOnly
+                                onPress={() => handleRemoveMovie(movie.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
 

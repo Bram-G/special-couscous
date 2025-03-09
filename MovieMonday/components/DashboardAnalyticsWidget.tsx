@@ -1,11 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardBody, CardHeader, Button, Spinner } from "@heroui/react";
-import { BarChart2, ExternalLink, Award, Film, Users, Wine } from "lucide-react";
+import { BarChart2, ExternalLink, Award, Film, Users, Wine, Drama, Utensils } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { PieChartComponent } from './analytics/PieChartComponent';
 import { BarChartComponent } from './analytics/BarChartComponent';
-import { getGenreAnalytics, getWinRateAnalytics, getDirectorAnalytics, getActorAnalytics, getTimeBasedAnalytics, getFoodDrinkAnalytics, MovieMonday } from '@/utils/analyticsUtils';
+import { 
+  getGenreAnalytics, 
+  getWinRateAnalytics, 
+  getDirectorAnalytics, 
+  getActorAnalytics, 
+  getTimeBasedAnalytics, 
+  getFoodDrinkAnalytics, 
+  MovieMonday,
+  getMoviesByActor,
+  getMoviesByDirector,
+  getMoviesByGenre,
+  getMoviesByCocktail,
+  getMoviesByMeal 
+} from '@/utils/analyticsUtils';
+import MovieDetailsModal from './analytics/MovieDetailsModal';
 
 // Function to normalize item names for display - removes JSON notation
 function normalizeItemName(item) {
@@ -72,7 +86,14 @@ const DashboardAnalyticsWidget = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [movieData, setMovieData] = useState<MovieMonday[]>([]);
-  const [currentChart, setCurrentChart] = useState<'genres' | 'directors' | 'losses' | 'events' | 'cocktails'>('genres');
+  const [currentChart, setCurrentChart] = useState<'genres' | 'directors' | 'losses' | 'meals' | 'cocktails'>('genres');
+  
+  // Modal state
+  const [showMovieDetailsModal, setShowMovieDetailsModal] = useState(false);
+  const [selectedMovies, setSelectedMovies] = useState<any[]>([]);
+  const [selectedFilterValue, setSelectedFilterValue] = useState<string>('');
+  const [selectedFilterType, setSelectedFilterType] = useState<'actor' | 'director' | 'genre' | 'cocktail' | 'meal'>('genre');
+  const [modalTitle, setModalTitle] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -103,6 +124,73 @@ const DashboardAnalyticsWidget = () => {
 
     fetchData();
   }, [token]);
+
+  // Enhanced chart item click handler with context
+  const handleChartItemClick = (name: string, type: 'actor' | 'director' | 'genre' | 'cocktail' | 'meal', chartContext?: 'winning' | 'losing' | 'all') => {
+    if (!name || !movieData.length) return;
+    
+    let filteredMovies: any[] = [];
+    let title = '';
+    
+    // Set win status based on context
+    const winStatus = chartContext === 'winning' ? true : 
+                      chartContext === 'losing' ? false : 
+                      undefined;
+    
+    switch (type) {
+      case 'actor':
+        filteredMovies = getMoviesByActor(movieData, name, winStatus);
+        title = chartContext === 'winning' ? `Winning Movies featuring ${name}` :
+                chartContext === 'losing' ? `Rejected Movies featuring ${name}` :
+                `Movies featuring ${name}`;
+        break;
+        
+      case 'director':
+        filteredMovies = getMoviesByDirector(movieData, name, winStatus);
+        title = chartContext === 'winning' ? `Winning Movies directed by ${name}` :
+                chartContext === 'losing' ? `Rejected Movies directed by ${name}` :
+                `Movies directed by ${name}`;
+        break;
+        
+      case 'genre':
+        filteredMovies = getMoviesByGenre(movieData, name, winStatus);
+        title = chartContext === 'winning' ? `Winning ${name} Movies` :
+                chartContext === 'losing' ? `Rejected ${name} Movies` :
+                `${name} Movies`;
+        break;
+        
+      case 'cocktail':
+        filteredMovies = getMoviesByCocktail(movieData, name);
+        title = `Movies watched while serving ${name}`;
+        break;
+        
+      case 'meal':
+        filteredMovies = getMoviesByMeal(movieData, name);
+        title = `Movies watched while eating ${name}`;
+        break;
+        
+      default:
+        filteredMovies = [];
+        title = 'Movie Details';
+    }
+    
+    // If no movies found with the specified filter
+    if (filteredMovies.length === 0) {
+      if (chartContext === 'winning') {
+        title = `No winning movies found for ${name}`;
+      } else if (chartContext === 'losing') {
+        title = `No rejected movies found for ${name}`;
+      } else {
+        title = `No movies found for ${name}`;
+      }
+    }
+    
+    setSelectedMovies(filteredMovies);
+    setSelectedFilterValue(name);
+    setSelectedFilterType(type);
+    setModalTitle(title);
+    setShowMovieDetailsModal(true);
+  };
 
   const handleViewMore = (tab: string) => {
     router.push(`/analytics?tab=${tab}`);
@@ -135,9 +223,10 @@ const DashboardAnalyticsWidget = () => {
           data={genreData} 
           height={250}
           emptyStateMessage="Watch more movies to see genre breakdown"
-          maxSlices={4} // Limit to 4 slices plus "Other"
-          hideLegend={false} // Show legend to display names
+          maxSlices={10} // Limit to 10 slices plus "Other"
+          hideLegend={true} // Show legend to display names
           showPercent={true} // Show percentages in the chart
+          onSliceClick={(name) => handleChartItemClick(name, 'genre', 'all')}
         />
       );
     } else if (currentChart === 'directors') {
@@ -159,27 +248,39 @@ const DashboardAnalyticsWidget = () => {
           emptyStateMessage="More data needed to show director stats"
           maxBars={5}
           yAxisLabel="Movies Won" // Add Y-axis label
+          onBarClick={(name) => handleChartItemClick(name, 'director', 'winning')}
         />
       );
-    } else if (currentChart === 'events') {
-      const eventData = hasData 
-        ? getTimeBasedAnalytics(movieData).movieMondaysByMonth
-        : [
-            { name: "Jan 2024", value: 4 },
-            { name: "Feb 2024", value: 3 },
-            { name: "Mar 2024", value: 5 },
-            { name: "Apr 2024", value: 2 },
-            { name: "May 2024", value: 4 }
-          ];
+    } else if (currentChart === 'meals') {
+      // Get meal data and normalize the names
+      let mealData;
+      
+      if (hasData && typeof getFoodDrinkAnalytics === 'function') {
+        mealData = getFoodDrinkAnalytics(movieData).topMeals
+          .map(item => ({
+            name: normalizeItemName(item.name),
+            value: item.value
+          }));
+      } else {
+        mealData = [
+          { name: "Pizza", value: 4 },
+          { name: "Tacos", value: 3 },
+          { name: "Pasta", value: 3 },
+          { name: "Burgers", value: 2 },
+          { name: "Sushi", value: 2 }
+        ];
+      }
       
       return (
-        <BarChartComponent 
-          data={eventData.slice(-6)} // Last 6 months
-          barColor="#8b5cf6"
+        <PieChartComponent 
+          data={mealData} 
           height={250}
-          emptyStateMessage="More data needed to show movie events"
-          maxBars={6}
-          yAxisLabel="Events" // Add Y-axis label
+          emptyStateMessage="No meal data available yet"
+          maxSlices={10}
+          colors={["#0EA5E9", "#38BDF8", "#7DD3FC", "#BAE6FD", "#E0F2FE"]}
+          hideLegend={true}
+          showPercent={true}
+          onSliceClick={(name) => handleChartItemClick(name, 'meal')}
         />
       );
     } else if (currentChart === 'cocktails') {
@@ -201,10 +302,11 @@ const DashboardAnalyticsWidget = () => {
           data={cocktailData} 
           height={250}
           emptyStateMessage="No cocktail data available yet"
-          maxSlices={5}
+          maxSlices={10}
           colors={["#7C3AED", "#8B5CF6", "#A78BFA", "#C4B5FD", "#DDD6FE"]}
-          hideLegend={false}
+          hideLegend={true}
           showPercent={true}
+          onSliceClick={(name) => handleChartItemClick(name, 'cocktail')}
         />
       );
     } else {
@@ -221,12 +323,13 @@ const DashboardAnalyticsWidget = () => {
       
       return (
         <BarChartComponent 
-          data={actorLossesData.slice(0, 5)} 
+          data={actorLossesData.slice(0, 6)} 
           barColor="#f97316"
           height={250}
           emptyStateMessage="More data needed to show lost actors"
-          maxBars={5}
+          maxBars={6}
           yAxisLabel="Rejections" // Add Y-axis label
+          onBarClick={(name) => handleChartItemClick(name, 'actor', 'losing')}
         />
       );
     }
@@ -238,7 +341,7 @@ const DashboardAnalyticsWidget = () => {
         <div className="flex items-center gap-2">
           <BarChart2 className="text-primary h-5 w-5" />
           <div>
-            <h3 className="text-lg font-semibold">Your Movie Analytics</h3>
+            <p className="text-lg font-semibold text-start">Your Movie Analytics</p>
             <p className="text-sm text-default-500">
               Insights from your Movie Monday sessions
             </p>
@@ -255,13 +358,14 @@ const DashboardAnalyticsWidget = () => {
       </CardHeader>
       
       <CardBody>
-        <div className="flex gap-4 mb-4 overflow-x-auto pb-2">
+        <div className="flex gap-2 mb-4 overflow-x-none pb-2">
           <Button
             variant={currentChart === 'genres' ? "solid" : "light"}
             color={currentChart === 'genres' ? "primary" : "default"}
             onPress={() => setCurrentChart('genres')}
+            startContent={<Drama className="h-4 w-4" />}
           >
-            Genre Breakdown
+            Genre
           </Button>
           <Button
             variant={currentChart === 'directors' ? "solid" : "light"}
@@ -269,7 +373,7 @@ const DashboardAnalyticsWidget = () => {
             onPress={() => setCurrentChart('directors')}
             startContent={<Film className="h-4 w-4" />}
           >
-            Top Directors
+            Directors
           </Button>
           <Button
             variant={currentChart === 'losses' ? "solid" : "light"}
@@ -277,15 +381,7 @@ const DashboardAnalyticsWidget = () => {
             onPress={() => setCurrentChart('losses')}
             startContent={<Users className="h-4 w-4" />}
           >
-            Rejected Actors
-          </Button>
-          <Button
-            variant={currentChart === 'events' ? "solid" : "light"}
-            color={currentChart === 'events' ? "primary" : "default"}
-            onPress={() => setCurrentChart('events')}
-            startContent={<Award className="h-4 w-4" />}
-          >
-            Movie Mondays
+            Actors
           </Button>
           <Button
             variant={currentChart === 'cocktails' ? "solid" : "light"}
@@ -295,12 +391,30 @@ const DashboardAnalyticsWidget = () => {
           >
             Cocktails
           </Button>
+          <Button
+            variant={currentChart === 'meals' ? "solid" : "light"}
+            color={currentChart === 'meals' ? "primary" : "default"}
+            onPress={() => setCurrentChart('meals')}
+            startContent={<Utensils className="h-4 w-4" />}
+          >
+            Meals
+          </Button>
         </div>
         
         <div className="w-full">
           {renderChart()}
         </div>
       </CardBody>
+
+      {/* Movie Details Modal */}
+      <MovieDetailsModal
+        isOpen={showMovieDetailsModal}
+        onClose={() => setShowMovieDetailsModal(false)}
+        title={modalTitle}
+        movies={selectedMovies}
+        filterType={selectedFilterType}
+        filterValue={selectedFilterValue}
+      />
     </Card>
   );
 };
