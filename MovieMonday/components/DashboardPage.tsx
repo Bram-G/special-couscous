@@ -1,12 +1,12 @@
 'use client'
 import React, { useEffect, useState } from 'react';
-import { Card } from '@heroui/react';
+import { Card, Spinner } from '@heroui/react';
 import DashboardCalendar from './DashboardCalendar';
 import GroupManagement from './GroupManagement'; 
 import WatchlistCarousel from './WatchlistCarousel';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import DashboardAnalyticsWidget from './DashboardAnalyticsWidget'
+import DashboardAnalyticsWidget from './DashboardAnalyticsWidget';
 
 interface GroupMember {
   id: string;
@@ -68,7 +68,11 @@ const DashboardPage = () => {
   };
 
   if (isLoading || fetchingGroup) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Spinner size="lg" />
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
@@ -78,24 +82,29 @@ const DashboardPage = () => {
   return (
     <div className="w-full">
       <div className="w-full flex flex-col gap-6">
+        {/* Calendar Section */}
         <Card className="w-full">
-          <Card className="w-full">
-            <DashboardCalendar 
-              groupMembers={groupData?.members || []}
-              groupId={groupData?.id}
-              key={groupData?.id} // Add key to force re-render when group changes
-            />
-          </Card>
+          <DashboardCalendar 
+            groupMembers={groupData?.members || []}
+            groupId={groupData?.id}
+            key={groupData?.id} // Add key to force re-render when group changes
+          />
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <GroupManagement onGroupUpdate={handleGroupUpdate} />
+        {/* Group Management and Analytics Section - Updated Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Group Management takes 1/3 width (4 of 12 columns) */}
+          <div className="lg:col-span-4">
+            <GroupManagement onGroupUpdate={handleGroupUpdate} />
+          </div>
           
-          
-           <DashboardAnalyticsWidget />;
-         
+          {/* Analytics takes 2/3 width (8 of 12 columns) */}
+          <div className="lg:col-span-8">
+            <DashboardAnalyticsWidget />
+          </div>
         </div>
 
+        {/* Watchlist Section */}
         <Card className="w-full">
           <WatchlistCarousel />
         </Card>

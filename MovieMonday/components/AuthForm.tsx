@@ -1,3 +1,4 @@
+// MovieMonday/components/AuthForm.tsx - Update the existing component
 import React, { useState, FormEvent, ChangeEvent } from "react";
 import {
   Input,
@@ -6,6 +7,12 @@ import {
   CardBody,
   CardHeader,
   Divider,
+  Link,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from "@heroui/react";
 import {
   EnvelopeIcon,
@@ -32,6 +39,7 @@ const AuthForm: React.FC = () => {
     email: "",
     password: "",
   });
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -56,6 +64,13 @@ const AuthForm: React.FC = () => {
       const data = await response.json();
   
       if (!response.ok) {
+        // Handle need for verification
+        if (response.status === 403 && data.needsVerification) {
+          setVerificationModalOpen(true);
+          throw new Error(data.message);
+        }
+        
+        // Handle other errors
         switch (response.status) {
           case 401:
             throw new Error("Invalid credentials");
@@ -68,6 +83,13 @@ const AuthForm: React.FC = () => {
           default:
             throw new Error(data.message || "Authentication failed");
         }
+      }
+      
+      // For registration, show success message
+      if (!isLogin) {
+        // Show verification required modal
+        setVerificationModalOpen(true);
+        return;
       }
   
       if (data.token) {
@@ -118,6 +140,7 @@ const AuthForm: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <Card className="max-w-md w-full">
+      // MovieMonday/components/AuthForm.tsx (continued)
         <CardHeader className="flex flex-col items-center">
           <h2 className="text-2xl font-bold text-center">
             {isLogin ? "Welcome Back" : "Create an Account"}
@@ -184,6 +207,14 @@ const AuthForm: React.FC = () => {
               isInvalid={!!(error && !formData.password)}
             />
 
+            {isLogin && (
+              <div className="flex justify-end">
+                <Link href="/forgot-password" color="primary" size="sm">
+                  Forgot password?
+                </Link>
+              </div>
+            )}
+
             <Button 
               type="submit" 
               color="primary" 
@@ -212,6 +243,38 @@ const AuthForm: React.FC = () => {
           </div>
         </CardBody>
       </Card>
+      
+      {/* Email Verification Modal */}
+      <Modal isOpen={verificationModalOpen} onClose={() => setVerificationModalOpen(false)}>
+        <ModalContent>
+          <ModalHeader>Email Verification Required</ModalHeader>
+          <ModalBody>
+            <p>
+              {isLogin 
+                ? "Your email address has not been verified yet. Please check your inbox for the verification email." 
+                : "Thank you for registering! We've sent a verification email to your email address. Please check your inbox and click the verification link to activate your account."}
+            </p>
+            <p className="mt-2">
+              If you don't see the email, please check your spam folder.
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              color="primary" 
+              variant="light"
+              onPress={() => router.push("/resend-verification")}
+            >
+              Resend Verification Email
+            </Button>
+            <Button 
+              color="primary"
+              onPress={() => setVerificationModalOpen(false)}
+            >
+              OK
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 };
