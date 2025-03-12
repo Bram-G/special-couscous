@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Button,
   Image,
@@ -15,26 +15,28 @@ import {
   Divider,
   Avatar,
   Spinner,
+  Badge,
+  Link,
 } from "@heroui/react";
 import {
   Heart,
-  Plus,
-  Share2,
-  Star,
   Calendar,
-  PlayCircle,
-  Eye,
+  Star,
   Clock,
   Film,
   Users,
   Info,
   Tag,
   Globe,
-  Calendar as CalendarIcon,
+  PlayCircle,
+  LinkIcon,
+  Trophy,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import MovieMondaySelector from "@/components/MovieMondaySelector";
-import EmblaCarouselRec from "@/components/EmblaCarouselRec/EmblaCarouselRec";
+import EnhancedRecommendations from "@/components/MoviePage/EnhancedRecommendations";
+import ActorAnalyticsModal from "@/components/MoviePage/ActorAnalyticsModal";
 import "./moviePage.css";
 
 // Rating component to mimic the reference image
@@ -79,6 +81,7 @@ const StreamingServices = ({ providers }) => {
               src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
               alt={provider.provider_name}
               className="w-full h-full object-cover"
+              removeWrapper
             />
           </div>
         </Tooltip>
@@ -87,24 +90,30 @@ const StreamingServices = ({ providers }) => {
   );
 };
 
-// Analytics Widget Component (placeholder - to be expanded later)
-const AnalyticsWidget = ({ movieId }) => {
+// Actor Stats Component
+const ActorStatsBadge = ({ actorName, stats }) => {
+  if (!stats || !stats.appearances || stats.appearances === 0) {
+    return null;
+  }
+
   return (
-    <div className="p-4 rounded-lg border border-default-200">
-      <h4 className="text-sm font-medium mb-2">Movie Monday Analytics</h4>
-      <p className="text-xs text-default-500">
-        This widget will compare actors and directors from this movie with 
-        those from winning Movie Monday selections.
-      </p>
-      <div className="mt-3 h-32 bg-default-100 rounded flex items-center justify-center">
-        <CalendarIcon className="w-8 h-8 text-default-300" />
-      </div>
-    </div>
+    <Badge
+      content={
+        <div className="flex items-center">
+          <span className="font-bold text-xs mr-1">{stats.appearances}</span>
+          {stats.wins > 0 && <Trophy className="h-3 w-3" />}
+        </div>
+      }
+      color={stats.wins > 0 ? "success" : "primary"}
+      placement="top-right"
+      size="sm"
+    />
   );
 };
 
 export default function MoviePage() {
   const pathname = usePathname();
+  const router = useRouter();
   const { token, isAuthenticated } = useAuth();
   const [movieId, setMovieId] = useState<string | null>(null);
   const [movieDetails, setMovieDetails] = useState(null);
@@ -116,41 +125,128 @@ export default function MoviePage() {
   const [watchProviders, setWatchProviders] = useState(null);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
+  const [actorStats, setActorStats] = useState({});
+  const [loadingActorStats, setLoadingActorStats] = useState(false);
+  
+  // State for actor analytics modal
+  const [showActorAnalyticsModal, setShowActorAnalyticsModal] = useState(false);
+  const [selectedActor, setSelectedActor] = useState(null);
 
   useEffect(() => {
     // Extract movie ID from pathname
     const extractedId = pathname.split("/").pop();
     setMovieId(extractedId);
-
+  
     // Fetch movie details
     const fetchMovieDetails = async () => {
       if (!extractedId) return;
-
+  
       try {
         setLoading(true);
         const response = await fetch(
           `https://api.themoviedb.org/3/movie/${extractedId}?append_to_response=credits,videos,release_dates&api_key=${process.env.NEXT_PUBLIC_API_Key}`
         );
+        
+        if (!response.ok) {
+          throw new Error(`TMDB API error: ${response.status}`);
+        }
+        
         const data = await response.json();
         setMovieDetails(data);
         setCredits(data.credits || { cast: [], crew: [] });
         
-        // Check watch later status if user is authenticated
-        if (token) {
-          checkWatchLaterStatus(extractedId);
-        }
-        
-        // Fetch watch providers
+        // Fetch watch providers as well
         fetchWatchProviders(extractedId);
+        
+        // Only check watchlist status after we have the movie details
+        if (isAuthenticated && token) {
+          setTimeout(() => {
+            // Use setTimeout to ensure this happens after state update
+            checkWatchLaterStatus(extractedId);
+          }, 100);
+        }
       } catch (error) {
         console.error("Error fetching movie details:", error);
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchMovieDetails();
-  }, [pathname, token]);
+  }, [pathname, isAuthenticated, token]);
+  
+  // Also add an effect to refresh watchlist status when auth changes
+  useEffect(() => {
+    if (movieId && isAuthenticated && token) {
+      checkWatchLaterStatus(movieId);
+    }
+  }, [isAuthenticated, token]);
+
+  // Fetch actor statistics from your analytics endpoint
+  const fetchActorStats = async (castList) => {
+    if (!token || !castList.length) return;
+    
+    try {
+      setLoadingActorStats(true);
+      
+      // This would be replaced with a real API endpoint that returns actor statistics
+      // For now, we'll simulate it with a timeout
+      const actorNames = castList.map(actor => actor.name);
+      
+      // In a real implementation, you would send this list to your backend
+      // and get back statistics about these actors from your group's watch history
+      const response = await fetch('http://localhost:8000/api/movie-monday/all', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const movieData = await response.json();
+        
+        // Process the data to get actor statistics
+        const actorStatsMap = {};
+        
+        actorNames.forEach(actorName => {
+          // Initialize stats for all actors with zero values
+          actorStatsMap[actorName] = { appearances: 0, wins: 0, movies: [] };
+          
+          // Go through all movie Mondays
+          movieData.forEach(movieMonday => {
+            // Go through all movie selections
+            movieMonday.movieSelections.forEach(movie => {
+              // Check if this actor is in the cast
+              const actorInCast = movie.cast && movie.cast.some(castMember => 
+                castMember.name.toLowerCase() === actorName.toLowerCase()
+              );
+              
+              if (actorInCast) {
+                actorStatsMap[actorName].appearances++;
+                if (movie.isWinner) {
+                  actorStatsMap[actorName].wins++;
+                }
+                
+                // Add movie details
+                actorStatsMap[actorName].movies.push({
+                  id: movie.tmdbMovieId,
+                  title: movie.title,
+                  posterPath: movie.posterPath,
+                  isWinner: movie.isWinner
+                });
+              }
+            });
+          });
+        });
+        
+        setActorStats(actorStatsMap);
+      }
+    } catch (error) {
+      console.error("Error fetching actor stats:", error);
+    } finally {
+      setLoadingActorStats(false);
+    }
+  };
 
   // Function to fetch watch providers
   const fetchWatchProviders = async (id) => {
@@ -179,20 +275,27 @@ export default function MoviePage() {
   // Check if movie is in watch later list
   const checkWatchLaterStatus = async (id) => {
     if (!token) return;
-
+  
     try {
+      console.log(`Checking watchlist status for movie ID: ${id}`);
       const response = await fetch(
         `http://localhost:8000/api/movie-monday/watch-later/status/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
           },
+          credentials: 'include'
         }
       );
-
+  
       if (response.ok) {
         const data = await response.json();
+        console.log('Watch later status response:', data);
         setIsInWatchLater(data.isInWatchLater);
+      } else {
+        console.error('Error response:', response.status, response.statusText);
+        // Don't update state on error to avoid flickering UI
       }
     } catch (error) {
       console.error("Error checking watch later status:", error);
@@ -202,77 +305,111 @@ export default function MoviePage() {
   // Toggle watch later status
   const toggleWatchLater = async () => {
     if (!token || !movieId || loadingWatchlist) return;
-
+  
     setLoadingWatchlist(true);
     try {
       if (isInWatchLater) {
-        // Find the watch later entry
+        console.log('Removing from watchlist, but need to find the entry first');
+        // First, get all watchlist entries to find the ID
         const watchLaterResponse = await fetch(
           "http://localhost:8000/api/movie-monday/watch-later",
           {
             headers: {
               Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
             },
+            credentials: 'include'
           }
         );
-
+  
         if (!watchLaterResponse.ok) {
           throw new Error(`HTTP error! status: ${watchLaterResponse.status}`);
         }
-
+  
         const watchLaterData = await watchLaterResponse.json();
-        const watchLaterList = Array.isArray(watchLaterData)
-          ? watchLaterData
-          : [];
+        const watchLaterList = Array.isArray(watchLaterData) ? watchLaterData : [];
         const movieEntry = watchLaterList.find(
           (item) => item.tmdbMovieId === parseInt(movieId)
         );
-
+  
         if (movieEntry) {
           // Remove from watch later
+          console.log(`Found watchlist entry with ID ${movieEntry.id}, deleting it`);
           const deleteResponse = await fetch(
             `http://localhost:8000/api/movie-monday/watch-later/${movieEntry.id}`,
             {
               method: "DELETE",
               headers: {
                 Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
               },
+              credentials: 'include'
             }
           );
-
+  
           if (!deleteResponse.ok) {
             throw new Error(`Failed to delete movie: ${deleteResponse.status}`);
           }
+          
+          console.log('Successfully removed from watchlist');
+          setIsInWatchLater(false);
+        } else {
+          console.error('Movie found in watch later status but not in list');
+          // Refresh status to be sure
+          await checkWatchLaterStatus(movieId);
         }
       } else {
         // Add to watch later
+        console.log('Adding to watchlist:', {
+          tmdbMovieId: movieId,
+          title: movieDetails?.title,
+          posterPath: movieDetails?.poster_path
+        });
+        
         const addResponse = await fetch(
           "http://localhost:8000/api/movie-monday/watch-later",
           {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
+              "Content-Type": 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({
               tmdbMovieId: parseInt(movieId),
               title: movieDetails?.title,
-              posterPath: movieDetails?.poster_path,
+              posterPath: movieDetails?.poster_path
             }),
           }
         );
-
+  
         if (!addResponse.ok) {
-          throw new Error(`Failed to add movie: ${addResponse.status}`);
+          const errorData = await addResponse.json();
+          throw new Error(`Failed to add movie: ${addResponse.status} - ${errorData.message || 'Unknown error'}`);
         }
+        
+        console.log('Successfully added to watchlist');
+        setIsInWatchLater(true);
       }
-
-      setIsInWatchLater(!isInWatchLater);
     } catch (error) {
       console.error("Error toggling watch later:", error);
+      // Refresh status to be sure
+      await checkWatchLaterStatus(movieId);
     } finally {
       setLoadingWatchlist(false);
     }
+  };
+
+  // Handle login redirection
+  const handleLoginRedirect = (action) => {
+    // Store the current URL for redirection after login
+    localStorage.setItem('redirectAfterLogin', window.location.pathname);
+    
+    // Add a flag for which action to perform after login
+    localStorage.setItem('postLoginAction', action);
+    
+    // Redirect to login page
+    router.push('/login');
   };
 
   // Handle adding movie to Movie Monday
@@ -365,27 +502,13 @@ export default function MoviePage() {
     return trailers.length > 0 ? trailers[0] : null;
   };
 
-  // Handle share button click
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: movieDetails?.title,
-          text: `Check out ${movieDetails?.title} on Movie Monday!`,
-          url: window.location.href,
-        });
-      } catch (error) {
-        console.error("Error sharing:", error);
-      }
-    } else {
-      // Fallback: copy to clipboard
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        alert("Link copied to clipboard!");
-      } catch (error) {
-        console.error("Error copying to clipboard:", error);
-      }
-    }
+  // Handle actor click to show analytics
+  const handleActorClick = (actor) => {
+    setSelectedActor({
+      ...actor,
+      stats: actorStats[actor.name] || { appearances: 0, wins: 0, movies: [] }
+    });
+    setShowActorAnalyticsModal(true);
   };
 
   if (loading) {
@@ -429,12 +552,13 @@ export default function MoviePage() {
         {/* Content container */}
         <div className="container mx-auto px-4 h-full relative z-10">
           <div className="flex flex-col md:flex-row items-end h-full pb-10">
-            {/* Poster */}
-            <div className="hidden md:block w-64 flex-shrink-0 -mb-20 shadow-xl rounded-lg overflow-hidden">
+            {/* Poster - FIXED: Moved inside hero section only */}
+            <div className="hidden md:block w-64 flex-shrink-0 shadow-xl rounded-lg overflow-hidden">
               <Image
                 src={posterUrl}
                 alt={movieDetails.title}
                 className="w-full h-auto"
+                removeWrapper
               />
             </div>
             
@@ -486,30 +610,32 @@ export default function MoviePage() {
               
               {/* Action buttons for mobile */}
               <div className="flex md:hidden gap-2 mt-4">
-                {isAuthenticated && (
-                  <>
-                    <Button
-                      color={isInWatchLater ? "success" : "primary"}
-                      variant="solid"
-                      startContent={<Heart className={isInWatchLater ? "fill-current" : ""} />}
-                      onPress={toggleWatchLater}
-                      isLoading={loadingWatchlist}
-                      className="flex-1"
-                    >
-                      {isInWatchLater ? "In Watchlist" : "Add to Watchlist"}
-                    </Button>
-                    
-                    <Button
-                      color="secondary"
-                      variant="solid"
-                      startContent={<Calendar />}
-                      onPress={() => setShowMovieMondayModal(true)}
-                      className="flex-1"
-                    >
-                      Add to Movie Monday
-                    </Button>
-                  </>
-                )}
+                <Button
+                  color={isInWatchLater ? "success" : "primary"}
+                  variant="solid"
+                  startContent={<Heart className={isInWatchLater ? "fill-current" : ""} />}
+                  onPress={isAuthenticated ? toggleWatchLater : () => handleLoginRedirect('watchlist')}
+                  isLoading={loadingWatchlist}
+                  className="flex-1"
+                >
+                  {isAuthenticated 
+                    ? (isInWatchLater ? "In Watchlist" : "Add to Watchlist")
+                    : "Sign in to Add to Watchlist"
+                  }
+                </Button>
+                
+                <Button
+                  color="secondary"
+                  variant="solid"
+                  startContent={<Calendar />}
+                  onPress={isAuthenticated ? () => setShowMovieMondayModal(true) : () => handleLoginRedirect('moviemonday')}
+                  className="flex-1"
+                >
+                  {isAuthenticated 
+                    ? "Add to Movie Monday"
+                    : "Sign in to Add to Monday"
+                  }
+                </Button>
               </div>
             </div>
           </div>
@@ -527,7 +653,14 @@ export default function MoviePage() {
                 src={posterUrl}
                 alt={movieDetails.title}
                 className="w-full h-auto rounded-lg shadow-lg"
+                removeWrapper
               />
+            </div>
+            
+            {/* Overview section */}
+            <div className="mb-6">
+              <h2 className="text-xl font-bold mb-2">Overview</h2>
+              <p>{movieDetails.overview}</p>
             </div>
             
             {/* Tabs */}
@@ -547,26 +680,56 @@ export default function MoviePage() {
                   <CardBody>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {credits.cast?.slice(0, 16).map((person) => (
-                        <div key={person.id} className="flex flex-col items-center text-center">
-                          <Avatar
-                            src={
-                              person.profile_path
-                                ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
-                                : null
-                            }
-                            name={person.name}
-                            className="w-16 h-16 mb-2"
-                          />
-                          <p className="font-medium text-sm">{person.name}</p>
+                        <div 
+                          key={person.id} 
+                          className="flex flex-col items-center text-center relative cursor-pointer group"
+                          onClick={() => handleActorClick(person)}
+                        >
+                          <div className="relative">
+                            <Avatar
+                              src={
+                                person.profile_path
+                                  ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
+                                  : null
+                              }
+                              name={person.name}
+                              className="w-16 h-16 mb-2 transition-transform group-hover:scale-105"
+                            />
+                            
+                            {/* Actor Statistics Badge */}
+                            {actorStats[person.name] && actorStats[person.name].appearances > 0 && (
+                              <ActorStatsBadge 
+                                actorName={person.name} 
+                                stats={actorStats[person.name]} 
+                              />
+                            )}
+                          </div>
+                          
+                          <p className="font-medium text-sm group-hover:text-primary transition-colors">
+                            {person.name}
+                          </p>
                           <p className="text-xs text-default-500">{person.character}</p>
+                          
+                          {/* Indicator for analytics available */}
+                          {actorStats[person.name] && actorStats[person.name].appearances > 0 && (
+                            <div className="text-xs text-primary mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              View stats
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
+                    
                     {credits.cast?.length > 16 && (
                       <Button variant="light" className="mt-4 mx-auto">
                         View All Cast
                       </Button>
                     )}
+                    
+                    <div className="mt-6 text-sm text-center text-default-500">
+                      <p>Click on an actor to see their Movie Monday statistics.</p>
+                      {loadingActorStats && <p className="mt-2">Loading actor statistics...</p>}
+                    </div>
                   </CardBody>
                 </Card>
               </Tab>
@@ -638,13 +801,6 @@ export default function MoviePage() {
               }>
                 <Card>
                   <CardBody className="space-y-4">
-                    <div>
-                      <h3 className="text-default-500 text-sm">Overview</h3>
-                      <p className="mt-1">{movieDetails.overview}</p>
-                    </div>
-                    
-                    <Divider />
-                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <h3 className="text-default-500 text-sm">Status</h3>
@@ -690,6 +846,7 @@ export default function MoviePage() {
                                     src={`https://image.tmdb.org/t/p/w92${company.logo_path}`}
                                     alt={company.name}
                                     className="h-12 object-contain mb-1"
+                                    removeWrapper
                                   />
                                 ) : (
                                   <div className="h-12 w-24 bg-default-100 flex items-center justify-center rounded mb-1">
@@ -720,7 +877,6 @@ export default function MoviePage() {
                         <div key={genre.id} className="bg-default-100 p-4 rounded-lg">
                           <h3 className="font-semibold">{genre.name}</h3>
                           <p className="text-sm text-default-500 mt-1">
-                            {/* This would ideally come from a genres database with descriptions */}
                             Movies categorized as {genre.name.toLowerCase()}
                           </p>
                         </div>
@@ -781,7 +937,7 @@ export default function MoviePage() {
             {/* Recommendations */}
             <div className="mt-12">
               <h2 className="text-2xl font-bold mb-4">Recommendations</h2>
-              <EmblaCarouselRec slides={[]} />
+              <EnhancedRecommendations movieId={movieId} />
             </div>
           </div>
           
@@ -789,50 +945,45 @@ export default function MoviePage() {
           <div className="w-full md:w-1/3">
             {/* Action buttons (desktop) */}
             <div className="hidden md:flex flex-col gap-3">
-              <div className="flex flex-col gap-3">
-                <Button
-                  color="primary"
-                  variant="flat"
-                  startContent={<Star />}
-                  className="font-semibold"
-                >
-                  Sign in to log, rate or review
-                </Button>
-                
-                <Button
-                  variant="flat"
-                  startContent={<Share2 />}
-                  onPress={handleShare}
-                >
-                  Share
-                </Button>
-                
-                {isAuthenticated && (
-                  <>
-                    <Button
-                      color={isInWatchLater ? "success" : "primary"}
-                      variant="solid"
-                      startContent={<Heart className={isInWatchLater ? "fill-current" : ""} />}
-                      onPress={toggleWatchLater}
-                      isLoading={loadingWatchlist}
-                    >
-                      {isInWatchLater ? "In Watchlist" : "Add to Watchlist"}
-                    </Button>
-                    
-                    <Button
-                      color="secondary"
-                      variant="solid"
-                      startContent={<Calendar />}
-                      onPress={() => setShowMovieMondayModal(true)}
-                    >
-                      Add to Movie Monday
-                    </Button>
-                  </>
-                )}
-              </div>
+              <Button
+                color={isInWatchLater ? "success" : "primary"}
+                variant="solid"
+                startContent={<Heart className={isInWatchLater ? "fill-current" : ""} />}
+                onPress={isAuthenticated ? toggleWatchLater : () => handleLoginRedirect('watchlist')}
+                isLoading={loadingWatchlist}
+              >
+                {isAuthenticated 
+                  ? (isInWatchLater ? "In Watchlist" : "Add to Watchlist")
+                  : "Sign in to Add to Watchlist"
+                }
+              </Button>
+              
+              <Button
+                color="secondary"
+                variant="solid"
+                startContent={<Calendar />}
+                onPress={isAuthenticated ? () => setShowMovieMondayModal(true) : () => handleLoginRedirect('moviemonday')}
+              >
+                {isAuthenticated 
+                  ? "Add to Movie Monday"
+                  : "Sign in to Add to Monday"
+                }
+              </Button>
+              
+              {/* Copy Link Button */}
+              <Button
+                variant="flat"
+                startContent={<LinkIcon />}
+                onPress={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  // You could add a toast notification here
+                }}
+              >
+                Copy Link
+              </Button>
             </div>
             
-            {/* Ratings card (placeholder for analytics widget) */}
+            {/* Ratings card with improved analytics content */}
             <Card className="mt-6">
               <CardHeader>
                 <h3 className="text-lg font-semibold">Ratings</h3>
@@ -852,8 +1003,101 @@ export default function MoviePage() {
                     count={movieDetails.vote_count || 0}
                   />
                   
+                  {/* Movie Monday Analytics card */}
                   <div className="mt-6 w-full">
-                    <AnalyticsWidget movieId={movieId} />
+                    <Card className="border border-default-200">
+                      <CardHeader className="px-4 py-3">
+                        <h4 className="text-sm font-medium">Movie Monday Insights</h4>
+                      </CardHeader>
+                      <CardBody className="px-4 py-3">
+                        <div className="space-y-2">
+                          {/* Actor insights */}
+                          <div>
+                            <p className="text-xs font-medium text-default-500">TOP ACTORS</p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {credits.cast?.slice(0, 3).map((actor) => {
+                                const stats = actorStats[actor.name] || { appearances: 0, wins: 0 };
+                                return (
+                                  <Chip 
+                                    key={actor.id}
+                                    variant="flat"
+                                    color={stats.wins > 0 ? "success" : stats.appearances > 0 ? "primary" : "default"}
+                                    size="sm"
+                                    onClick={() => handleActorClick(actor)}
+                                    className="cursor-pointer"
+                                  >
+                                    {actor.name}
+                                    {stats.appearances > 0 && (
+                                      <span className="ml-1 text-xs">
+                                        ({stats.appearances}{stats.wins > 0 ? '🏆' : ''})
+                                      </span>
+                                    )}
+                                  </Chip>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Director insights */}
+                          <div className="mt-3">
+                            <p className="text-xs font-medium text-default-500">DIRECTORS</p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {getDirectors().map((director) => {
+                                const stats = actorStats[director.name] || { appearances: 0, wins: 0 };
+                                return (
+                                  <Chip 
+                                    key={director.id}
+                                    variant="flat"
+                                    color={stats.wins > 0 ? "success" : stats.appearances > 0 ? "primary" : "default"}
+                                    size="sm"
+                                  >
+                                    {director.name}
+                                    {stats.appearances > 0 && (
+                                      <span className="ml-1 text-xs">
+                                        ({stats.appearances}{stats.wins > 0 ? '🏆' : ''})
+                                      </span>
+                                    )}
+                                  </Chip>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          
+                          {/* Genre insights */}
+                          <div className="mt-3">
+                            <p className="text-xs font-medium text-default-500">GENRES</p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {movieDetails.genres?.slice(0, 3).map((genre) => (
+                                <Chip 
+                                  key={genre.id}
+                                  variant="flat"
+                                  color="default"
+                                  size="sm"
+                                >
+                                  {genre.name}
+                                </Chip>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {isAuthenticated ? (
+                          <Link 
+                            href="/analytics" 
+                            className="flex items-center justify-end text-xs text-primary mt-4"
+                          >
+                            View full analytics <ExternalLink className="h-3 w-3 ml-1" />
+                          </Link>
+                        ) : (
+                          <Link 
+                            href="/login" 
+                            className="flex items-center justify-end text-xs text-primary mt-4"
+                          >
+                            Sign in to see your analytics <ExternalLink className="h-3 w-3 ml-1" />
+                          </Link>
+                        )}
+                      </CardBody>
+                    </Card>
                   </div>
                 </div>
               </CardBody>
@@ -954,6 +1198,15 @@ export default function MoviePage() {
         onSelect={handleAddToMovieMonday}
         token={token}
       />
+      
+      {/* Actor Analytics Modal */}
+      {selectedActor && (
+        <ActorAnalyticsModal
+          isOpen={showActorAnalyticsModal}
+          onClose={() => setShowActorAnalyticsModal(false)}
+          actor={selectedActor}
+        />
+      )}
     </div>
   );
 }
