@@ -796,3 +796,132 @@ export function getFoodDrinkAnalytics(movieMondayData: MovieMonday[]) {
     totalDesserts,
   };
 }
+// utils/analyticsUtils.ts (extending existing file)
+
+// Add these functions to your existing analyticsUtils.ts file
+
+/**
+ * Gets similar movie recommendations based on a reference movie
+ * @param tmdbId The TMDB ID of the reference movie
+ * @returns A promise that resolves to an array of similar movies
+ */
+export async function getSimilarMovies(tmdbId: number) {
+  try {
+    const response = await fetch(
+      `https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${process.env.NEXT_PUBLIC_API_Key}`
+    );
+    
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error(`Error fetching similar movies for ${tmdbId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Gets movie recommendations based on a reference movie
+ * @param tmdbId The TMDB ID of the reference movie
+ * @returns A promise that resolves to an array of recommended movies
+ */
+export async function getRecommendedMovies(tmdbId: number) {
+  try {
+    const response = await fetch(
+      `https://api.themoviedb.org/3/movie/${tmdbId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`
+    );
+    
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error(`Error fetching recommendations for ${tmdbId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Extracts genres from a MovieMonday collection
+ * @param movieMondays Array of MovieMonday objects
+ * @returns Object containing genre data
+ */
+export function extractWatchlistGenres(watchlist: any[]) {
+  // This would require having genre_ids in your watchlist items,
+  // which you might need to add by enriching your watchlist data
+  
+  const genreCounts = {};
+  
+  watchlist.forEach(movie => {
+    if (movie.genres && Array.isArray(movie.genres)) {
+      movie.genres.forEach(genre => {
+        genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+      });
+    }
+  });
+  
+  // Sort genres by frequency
+  const sortedGenres = Object.entries(genreCounts)
+    .map(([genreId, count]) => ({ 
+      id: parseInt(genreId), 
+      count 
+    }))
+    .sort((a, b) => b.count - a.count);
+  
+  return {
+    topGenres: sortedGenres,
+    allGenres: Object.keys(genreCounts).map(id => parseInt(id))
+  };
+}
+
+/**
+ * Gets a curated list of movies by genre
+ * @param genreId The genre ID to filter by
+ * @param page The page number
+ * @returns A promise that resolves to an array of movies
+ */
+
+export async function getMoviesByGenreTMDB(genreId: number, page = 1) {
+  try {
+    const response = await fetch(
+      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&with_genres=${genreId}&sort_by=popularity.desc&page=${page}`
+    );
+    
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error(`Error fetching movies for genre ${genreId}:`, error);
+    return [];
+  }
+}
+
+
+/**
+ * Gets a curated list of movies by decade
+ * @param decade The decade (e.g., "1980" for 1980s)
+ * @param page The page number
+ * @returns A promise that resolves to an array of movies
+ */
+export async function getMoviesByDecade(decade: string, page = 1) {
+  try {
+    let fromYear, toYear;
+    
+    if (decade === "pre-1970") {
+      fromYear = "1900";
+      toYear = "1969";
+    } else if (decade === "2020") {
+      fromYear = "2020";
+      toYear = new Date().getFullYear().toString();
+    } else {
+      fromYear = decade;
+      toYear = (parseInt(decade) + 9).toString();
+    }
+    
+    const response = await fetch(
+      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&primary_release_date.gte=${fromYear}-01-01&primary_release_date.lte=${toYear}-12-31&sort_by=vote_average.desc&vote_count.gte=100&page=${page}`
+    );
+    
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error(`Error fetching movies for decade ${decade}:`, error);
+    return [];
+  }
+}
