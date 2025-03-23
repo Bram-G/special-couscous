@@ -1,0 +1,42 @@
+/* Custom CSS for the fallback VHS demo */
+
+/* Add these styles to your globals.css or create a vhs.css and import it */
+.perspective-500 {
+    perspective: 500px;
+  }
+  
+  .transform-style-3d {
+    transform-style: preserve-3d;
+  }
+  
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+  
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+  
+  @keyframes rotateY {
+    0% {
+      transform: rotateY(0deg);
+    }
+    100% {
+      transform: rotateY(360deg);
+    }
+  }
+  
+  .animate-rotate-y {
+    animation: rotateY 15s infinite linear;
+  }
+  
+  /* You can add this to your global CSS to support hover effects */
+  @media (hover: hover) {
+    .animate-rotate-y {
+      animation: none;
+    }
+    
+    .perspective-500:hover .animate-rotate-y {
+      animation: rotateY 15s infinite linear;
+    }
+  }

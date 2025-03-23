@@ -1,9 +1,8 @@
 "use client";
 
 import React from "react";
-import DiscoveryPage from "../../components/Discovery/DiscoveryPage";
+import MultiRowDiscoveryPage from "../../components/Discovery/MultiRowDiscoveryPage";
 
-// This redirects the old trending page to the new discovery page
-export default function TrendingPage() {
-  return <DiscoveryPage />;
+export default function DiscoveryPage() {
+  return <MultiRowDiscoveryPage />;
 }
