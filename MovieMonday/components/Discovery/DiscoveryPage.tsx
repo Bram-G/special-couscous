@@ -7,13 +7,16 @@ import {
   Spinner, 
   Button,
   Input,
-  Link
+  Link,
+  Tooltip
 } from "@heroui/react";
 import { 
   Heart, 
   Search,
   UserCircle2,
-  Info
+  Info,
+  Trash,
+  FilterX
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +35,7 @@ interface Movie {
   vote_average: number;
   overview: string;
   genre_ids: number[];
+  popularity?: number;
 }
 
 interface WatchlistMovie {
@@ -100,6 +104,21 @@ const curatedCollections = [
   }
 ];
 
+// Common franchise patterns
+const franchisePatterns = [
+  { pattern: /friday.*(13|thirteen)/i, searchTerm: "friday the 13th" },
+  { pattern: /star.?wars/i, searchTerm: "star wars" },
+  { pattern: /harry.?potter/i, searchTerm: "harry potter" },
+  { pattern: /fast.*(furious|saga)/i, searchTerm: "fast and furious" },
+  { pattern: /lord.*(rings|ring)/i, searchTerm: "lord of the rings" },
+  { pattern: /jurassic.*(park|world)/i, searchTerm: "jurassic" },
+  { pattern: /marvel/i, searchTerm: "marvel" },
+  { pattern: /batman/i, searchTerm: "batman" },
+  { pattern: /spider.?man/i, searchTerm: "spider-man" },
+  { pattern: /x.?men/i, searchTerm: "x-men" },
+  // Add more franchise patterns as needed
+];
+
 export default function DiscoveryPage() {
   const router = useRouter();
   const { token, isAuthenticated } = useAuth();
@@ -119,6 +138,7 @@ export default function DiscoveryPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchResults, setSearchResults] = useState<Movie[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(""); // Keep track of the actual search term used
   
   // Loading states
   const [loadingTrending, setLoadingTrending] = useState(true);
@@ -408,24 +428,241 @@ export default function DiscoveryPage() {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+  // Helper function to sort search results with smart prioritization
+  const sortSearchResults = (results, query) => {
+    // Normalize the query for comparison
+    const normalizedQuery = query.toLowerCase().trim();
+    const words = normalizedQuery.split(/\s+/);
     
-    try {
-      setLoadingSearch(true);
-      setHasSearched(true);
+    // Calculate a relevance score for each result
+    return [...results].sort((a, b) => {
+      // Start with base scores from TMDB
+      let scoreA = a.popularity || 0;
+      let scoreB = b.popularity || 0;
       
+      const titleA = a.title.toLowerCase();
+      const titleB = b.title.toLowerCase();
+      
+      // Give huge boost for exact matches
+      if (titleA === normalizedQuery) scoreA += 1000;
+      if (titleB === normalizedQuery) scoreB += 1000;
+      
+      // Give big boost for titles that start with the query
+      if (titleA.startsWith(normalizedQuery)) scoreA += 500;
+      if (titleB.startsWith(normalizedQuery)) scoreB += 500;
+      
+      // Give medium boost for titles that contain the query as a substring
+      if (titleA.includes(normalizedQuery)) scoreA += 200;
+      if (titleB.includes(normalizedQuery)) scoreB += 200;
+      
+      // Give smaller boost for each query word that appears in the title
+      words.forEach(word => {
+        if (word.length >= 3) { // Only consider meaningful words
+          if (titleA.includes(word)) scoreA += 50;
+          if (titleB.includes(word)) scoreB += 50;
+        }
+      });
+      
+      // Boost well-rated movies
+      scoreA += (a.vote_average || 0) * 5;
+      scoreB += (b.vote_average || 0) * 5;
+      
+      // Boost recent movies slightly
+      const yearA = a.release_date ? parseInt(a.release_date.split('-')[0]) : 0;
+      const yearB = b.release_date ? parseInt(b.release_date.split('-')[0]) : 0;
+      if (yearA >= 2010) scoreA += 20;
+      if (yearB >= 2010) scoreB += 20;
+      
+      // Final comparison
+      return scoreB - scoreA;
+    });
+  };
+
+  // Function to search for well-known franchises
+
+  // Enhanced search function with improved results
+// Enhanced search function with improved results prioritizing popularity over exact matches
+const handleSearch = async () => {
+  if (!searchQuery.trim()) return;
+  
+  try {
+    setLoadingSearch(true);
+    setHasSearched(true);
+    
+    // First try franchise-specific search for well-known franchises
+    const franchiseSearch = await searchWithFranchiseAwareness(searchQuery);
+    
+    if (franchiseSearch) {
+      // We found franchise-specific results - use them directly
+      setSearchResults(franchiseSearch.results);
+      setSearchTerm(franchiseSearch.searchedTerm); // Store the actual term used
+    } else {
+      // Try searching with popularity as the primary sorting factor
       const response = await fetch(
-        `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(searchQuery)}&include_adult=false`
+        `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(searchQuery)}&include_adult=false&sort_by=popularity.desc`
       );
       
       const data = await response.json();
-      setSearchResults(data.results || []);
-    } catch (error) {
-      console.error("Error searching movies:", error);
-    } finally {
-      setLoadingSearch(false);
+      
+      // Apply our custom sorting for better results
+      const sortedResults = sortSearchResultsByImpact(data.results || [], searchQuery);
+      setSearchResults(sortedResults);
+      setSearchTerm(searchQuery); // Store the actual term used
     }
+  } catch (error) {
+    console.error("Error searching movies:", error);
+    setSearchResults([]);
+  } finally {
+    setLoadingSearch(false);
+  }
+};
+
+// Helper function to sort search results prioritizing cultural impact and popularity
+const sortSearchResultsByImpact = (results, query) => {
+  // Normalize the query for comparison
+  const normalizedQuery = query.toLowerCase().trim();
+  
+  return [...results].sort((a, b) => {
+    // Primarily sort by popularity (cultural impact)
+    let scoreA = a.popularity || 0;
+    let scoreB = b.popularity || 0;
+    
+    // Apply multiplier based on vote count (more votes = more reliable popularity)
+    if (a.vote_count && a.vote_count > 100) {
+      scoreA *= 1 + Math.min(Math.log10(a.vote_count) / 10, 0.5); // Logarithmic boost
+    }
+    
+    if (b.vote_count && b.vote_count > 100) {
+      scoreB *= 1 + Math.min(Math.log10(b.vote_count) / 10, 0.5); // Logarithmic boost
+    }
+    
+    // Boost high-rated films, but with less weight than popularity
+    scoreA += (a.vote_average || 0) * 2;
+    scoreB += (b.vote_average || 0) * 2;
+    
+    // Apply smaller boost for recent releases
+    const yearA = a.release_date ? parseInt(a.release_date.split('-')[0]) : 0;
+    const yearB = b.release_date ? parseInt(b.release_date.split('-')[0]) : 0;
+    if (yearA >= 2010) scoreA += 5;
+    if (yearB >= 2010) scoreB += 5;
+    
+    // Only apply title match boosts as secondary factors
+    const titleA = a.title.toLowerCase();
+    const titleB = b.title.toLowerCase();
+    
+    // Small boost for containing the query as a word
+    if (titleA.includes(` ${normalizedQuery} `) || 
+        titleA.startsWith(`${normalizedQuery} `) || 
+        titleA.endsWith(` ${normalizedQuery}`)) {
+      scoreA += 15;
+    }
+    
+    if (titleB.includes(` ${normalizedQuery} `) || 
+        titleB.startsWith(`${normalizedQuery} `) || 
+        titleB.endsWith(` ${normalizedQuery}`)) {
+      scoreB += 15;
+    }
+    
+    // Very small boost for containing the query as a substring
+    if (titleA.includes(normalizedQuery)) {
+      scoreA += 5;
+    }
+    
+    if (titleB.includes(normalizedQuery)) {
+      scoreB += 5;
+    }
+    
+    // Final comparison - higher score first
+    return scoreB - scoreA;
+  });
+};
+
+// Make franchise awareness more robust to prioritize popular films within each franchise
+const searchWithFranchiseAwareness = async (query) => {
+  // Check if query matches any franchise pattern
+  for (const { pattern, searchTerm } of franchisePatterns) {
+    if (pattern.test(query)) {
+      try {
+        // Fetch more results for franchises (2 pages)
+        const responses = await Promise.all([
+          fetch(`https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(searchTerm)}&include_adult=false&sort_by=popularity.desc&page=1`),
+          fetch(`https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(searchTerm)}&include_adult=false&sort_by=popularity.desc&page=2`)
+        ]);
+        
+        if (responses[0].ok) {
+          const data1 = await responses[0].json();
+          let allResults = data1.results || [];
+          
+          // Add results from second page if available
+          if (responses[1].ok) {
+            const data2 = await responses[1].json();
+            allResults = [...allResults, ...(data2.results || [])];
+          }
+          
+          if (allResults.length > 0) {
+            // Sort by popularity (which TMDB already does) and take top 20
+            return {
+              results: allResults.slice(0, 20),
+              searchedTerm: searchTerm
+            };
+          }
+        }
+      } catch (error) {
+        console.error(`Error in franchise search for ${searchTerm}:`, error);
+      }
+    }
+  }
+  
+  // Return null if no franchise match or errors occurred
+  return null;
+};
+
+// Enhanced franchise patterns
+const franchisePatterns = [
+  { pattern: /friday.*(13|thirteen)/i, searchTerm: "friday the 13th" },
+  { pattern: /^friday$/i, searchTerm: "friday the 13th" }, // Exact match for "friday" prioritizes the franchise
+  { pattern: /star.?wars/i, searchTerm: "star wars" },
+  { pattern: /harry.?potter/i, searchTerm: "harry potter" },
+  { pattern: /fast.*(furious|saga)/i, searchTerm: "fast and furious" },
+  { pattern: /^fast$/i, searchTerm: "fast and furious" }, // Exact match for "fast" prioritizes the franchise
+  { pattern: /lord.*(rings|ring)/i, searchTerm: "lord of the rings" },
+  { pattern: /jurassic.*(park|world)/i, searchTerm: "jurassic" },
+  { pattern: /^marvel$/i, searchTerm: "marvel" },
+  { pattern: /^batman$/i, searchTerm: "batman" },
+  { pattern: /spider.?man/i, searchTerm: "spider-man" },
+  { pattern: /^spider.?$/i, searchTerm: "spider-man" }, // Exact match for "spider" prioritizes Spider-Man
+  { pattern: /x.?men/i, searchTerm: "x-men" },
+  { pattern: /matrix/i, searchTerm: "the matrix" },
+  { pattern: /^alien$/i, searchTerm: "alien" },
+  { pattern: /predator/i, searchTerm: "predator" },
+  { pattern: /terminator/i, searchTerm: "terminator" },
+  { pattern: /rocky/i, searchTerm: "rocky" },
+  { pattern: /rambo/i, searchTerm: "rambo" },
+  { pattern: /godfather/i, searchTerm: "the godfather" },
+  { pattern: /indiana.?jones/i, searchTerm: "indiana jones" },
+  { pattern: /^jones$/i, searchTerm: "indiana jones" }, // Exact match for "jones" prioritizes Indiana Jones
+  { pattern: /mission.?impossible/i, searchTerm: "mission impossible" },
+  { pattern: /die.?hard/i, searchTerm: "die hard" },
+  { pattern: /bourne/i, searchTerm: "bourne" },
+  { pattern: /pirates.*(caribbean)/i, searchTerm: "pirates of the caribbean" },
+  { pattern: /^pirates$/i, searchTerm: "pirates of the caribbean" }, // Exact match for "pirates" prioritizes Pirates of the Caribbean
+  { pattern: /hunger.?games/i, searchTerm: "hunger games" },
+  { pattern: /twilight/i, searchTerm: "twilight" },
+  { pattern: /transformers/i, searchTerm: "transformers" },
+  { pattern: /toy.?story/i, searchTerm: "toy story" },
+  { pattern: /shrek/i, searchTerm: "shrek" },
+  { pattern: /ice.?age/i, searchTerm: "ice age" },
+  { pattern: /^scream$/i, searchTerm: "scream" },
+  { pattern: /^saw$/i, searchTerm: "saw" },
+  { pattern: /final.?destination/i, searchTerm: "final destination" },
+  { pattern: /halloween/i, searchTerm: "halloween" }
+];
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setHasSearched(false);
+    setSearchTerm("");
   };
 
   const getFilteredMovies = (movies: Movie[]) => {
@@ -509,13 +746,26 @@ export default function DiscoveryPage() {
       {/* Search and Filter Bar */}
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row gap-4 mb-4">
-          <div className="flex gap-4 flex-1">
+          <div className="flex gap-2 flex-1">
             <Input
               placeholder="Search for movies..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               startContent={<Search className="text-default-300" />}
+              endContent={
+                searchQuery && (
+                  <Button
+                    isIconOnly
+                    variant="light"
+                    size="sm"
+                    onPress={clearSearch}
+                    className="text-default-300 hover:text-default-500"
+                  >
+                    <Trash size={16} />
+                  </Button>
+                )
+              }
               className="flex-1"
             />
             <Button
@@ -569,6 +819,7 @@ export default function DiscoveryPage() {
                   setSelectedGenres([]);
                   setSelectedDecade("all");
                 }}
+                startContent={<FilterX size={18} />}
               >
                 Clear All Filters
               </Button>
@@ -582,16 +833,37 @@ export default function DiscoveryPage() {
         {/* Search Results - shown only when user has searched */}
         {hasSearched && (
           <div>
+            <div className="mb-2 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold">
+                  Search Results for "{searchTerm || searchQuery}"
+                </h2>
+                <p className="text-default-500 text-sm">
+                  Found {searchResults.length} movies
+                </p>
+              </div>
+              <Button
+                variant="light"
+                color="danger"
+                onPress={clearSearch}
+                startContent={<Trash size={16} />}
+                size="sm"
+              >
+                Clear Search
+              </Button>
+            </div>
+            
             {loadingSearch ? (
               <div className="flex justify-center py-8">
                 <Spinner size="lg" />
               </div>
             ) : searchResults.length > 0 ? (
               <MovieCarouselRow
-                title="Search Results"
+                title=""
                 movies={getFilteredMovies(searchResults)}
                 watchlistStatus={watchlistStatus}
                 onAddToWatchlist={addToWatchlist}
+                emptyMessage="No movies match your filters"
               />
             ) : (
               <div className="text-center py-8">
@@ -603,112 +875,117 @@ export default function DiscoveryPage() {
           </div>
         )}
         
-        {/* Trending Now Section */}
-        <MovieCarouselRow
-          title="Trending Now"
-          movies={getFilteredMovies(trending)}
-          loading={loadingTrending}
-          watchlistStatus={watchlistStatus}
-          onAddToWatchlist={addToWatchlist}
-        />
-        
-        {/* Personalized Recommendations */}
-        {isAuthenticated ? (
-          watchlist.length > 0 ? (
+        {/* Only show other sections if not searching */}
+        {(!hasSearched || searchResults.length === 0) && (
+          <>
+            {/* Trending Now Section */}
             <MovieCarouselRow
-              title="Recommended For You"
-              movies={getFilteredMovies(recommended)}
-              loading={loadingRecommended}
+              title="Trending Now"
+              movies={getFilteredMovies(trending)}
+              loading={loadingTrending}
               watchlistStatus={watchlistStatus}
               onAddToWatchlist={addToWatchlist}
-              reason={getRecommendationReason}
-              emptyMessage="Add more movies to your watchlist to get personalized recommendations"
             />
-          ) : (
-            <Card className="mb-12 mt-12">
-              <CardBody className="flex flex-col items-center justify-center py-12">
-                <Heart className="h-16 w-16 text-default-300 mb-4" />
-                <p className="text-center text-xl font-medium mb-2">Add movies to your watchlist</p>
-                <p className="text-center text-default-500 mb-6">
-                  Recommendations will appear here once you've added some movies to your watchlist
-                </p>
-              </CardBody>
-            </Card>
-          )
-        ) : (
-          <Card className="mb-12 mt-12">
-            <CardBody className="flex flex-col items-center justify-center py-12">
-              <UserCircle2 className="h-16 w-16 text-default-300 mb-4" />
-              <p className="text-center text-xl font-medium mb-2">Sign in to see personalized recommendations</p>
-              <p className="text-center text-default-500 mb-6">
-                We'll suggest movies based on your watchlist and preferences
-              </p>
-              <Button 
-                as={Link}
-                href="/login"
-                color="primary"
-              >
-                Sign in
-              </Button>
-            </CardBody>
-          </Card>
+            
+            {/* Personalized Recommendations */}
+            {isAuthenticated ? (
+              watchlist.length > 0 ? (
+                <MovieCarouselRow
+                  title="Recommended For You"
+                  movies={getFilteredMovies(recommended)}
+                  loading={loadingRecommended}
+                  watchlistStatus={watchlistStatus}
+                  onAddToWatchlist={addToWatchlist}
+                  reason={getRecommendationReason}
+                  emptyMessage="Add more movies to your watchlist to get personalized recommendations"
+                />
+              ) : (
+                <Card className="mb-12 mt-12">
+                  <CardBody className="flex flex-col items-center justify-center py-12">
+                    <Heart className="h-16 w-16 text-default-300 mb-4" />
+                    <p className="text-center text-xl font-medium mb-2">Add movies to your watchlist</p>
+                    <p className="text-center text-default-500 mb-6">
+                      Recommendations will appear here once you've added some movies to your watchlist
+                    </p>
+                  </CardBody>
+                </Card>
+              )
+            ) : (
+              <Card className="mb-12 mt-12">
+                <CardBody className="flex flex-col items-center justify-center py-12">
+                  <UserCircle2 className="h-16 w-16 text-default-300 mb-4" />
+                  <p className="text-center text-xl font-medium mb-2">Sign in to see personalized recommendations</p>
+                  <p className="text-center text-default-500 mb-6">
+                    We'll suggest movies based on your watchlist and preferences
+                  </p>
+                  <Button 
+                    as={Link}
+                    href="/login"
+                    color="primary"
+                  >
+                    Sign in
+                  </Button>
+                </CardBody>
+              </Card>
+            )}
+            
+            {/* Popular Movies Section */}
+            <MovieCarouselRow
+              title="Popular Movies"
+              movies={getFilteredMovies(popularMovies)}
+              loading={loadingPopular}
+              watchlistStatus={watchlistStatus}
+              onAddToWatchlist={addToWatchlist}
+            />
+            
+            {/* Top Rated Movies Section */}
+            <MovieCarouselRow
+              title="Top Rated Movies"
+              movies={getFilteredMovies(topRatedMovies)}
+              loading={loadingTopRated}
+              watchlistStatus={watchlistStatus}
+              onAddToWatchlist={addToWatchlist}
+            />
+            
+            {/* Similar Movies Row (when authenticated and has watchlist) */}
+            {isAuthenticated && watchlist.length > 0 && (
+              <MovieCarouselRow
+                title="Similar to Your Watchlist"
+                movies={getFilteredMovies(similar)}
+                loading={loadingSimilar}
+                watchlistStatus={watchlistStatus}
+                onAddToWatchlist={addToWatchlist}
+                emptyMessage="No similar movies found"
+              />
+            )}
+            
+            {/* Upcoming Movies Section */}
+            <MovieCarouselRow
+              title="Coming Soon"
+              movies={getFilteredMovies(upcomingMovies)}
+              loading={loadingUpcoming}
+              watchlistStatus={watchlistStatus}
+              onAddToWatchlist={addToWatchlist}
+            />
+            
+            {/* Featured Curated Collections */}
+            {curatedCollections.map((collection) => (
+              <MovieCarouselRow
+                key={collection.id}
+                title={collection.name}
+                subtitle={collection.description}
+                movies={getFilteredMovies(curatedMovies[collection.id] || [])}
+                loading={loadingCurated[collection.id]}
+                watchlistStatus={watchlistStatus}
+                onAddToWatchlist={addToWatchlist}
+                emptyMessage={!curatedMovies[collection.id] ? 
+                  `Loading ${collection.name}...` : 
+                  `No movies in ${collection.name} match your filters`
+                }
+              />
+            ))}
+          </>
         )}
-        
-        {/* Popular Movies Section */}
-        <MovieCarouselRow
-          title="Popular Movies"
-          movies={getFilteredMovies(popularMovies)}
-          loading={loadingPopular}
-          watchlistStatus={watchlistStatus}
-          onAddToWatchlist={addToWatchlist}
-        />
-        
-        {/* Top Rated Movies Section */}
-        <MovieCarouselRow
-          title="Top Rated Movies"
-          movies={getFilteredMovies(topRatedMovies)}
-          loading={loadingTopRated}
-          watchlistStatus={watchlistStatus}
-          onAddToWatchlist={addToWatchlist}
-        />
-        
-        {/* Similar Movies Row (when authenticated and has watchlist) */}
-        {isAuthenticated && watchlist.length > 0 && (
-          <MovieCarouselRow
-            title="Similar to Your Watchlist"
-            movies={getFilteredMovies(similar)}
-            loading={loadingSimilar}
-            watchlistStatus={watchlistStatus}
-            onAddToWatchlist={addToWatchlist}
-            emptyMessage="No similar movies found"
-          />
-        )}
-        
-        {/* Upcoming Movies Section */}
-        <MovieCarouselRow
-          title="Coming Soon"
-          movies={getFilteredMovies(upcomingMovies)}
-          loading={loadingUpcoming}
-          watchlistStatus={watchlistStatus}
-          onAddToWatchlist={addToWatchlist}
-        />
-        
-        {/* Featured Curated Collections */}
-        {curatedCollections.map((collection) => (
-          <MovieCarouselRow
-            key={collection.id}
-            title={collection.name}
-            subtitle={collection.description}
-            movies={getFilteredMovies(curatedMovies[collection.id] || [])}
-            loading={loadingCurated[collection.id]}
-            watchlistStatus={watchlistStatus}
-            onAddToWatchlist={addToWatchlist}
-            emptyMessage={!curatedMovies[collection.id] ? 
-              `Loading ${collection.name}...` : 
-              `No movies in ${collection.name} match your filters`
-            }
-          />
-        ))}
       </div>
     </div>
   );
