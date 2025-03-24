@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Card,
   Button,
@@ -11,6 +11,11 @@ import {
   DropdownItem,
   Tooltip,
   Chip,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from "@heroui/react";
 import {
   ChevronLeft,
@@ -26,6 +31,7 @@ import {
   Utensils,
   Wine,
   FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -138,6 +144,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     "left" | "right" | null
   >(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+
+  // Confirmation modal for unsaved changes
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
+  const [pendingDateSelection, setPendingDateSelection] = useState<Date | null>(null);
 
   // Cocktail suggestions
   const [cocktailSuggestions, setCocktailSuggestions] = useState<string[]>([]);
@@ -320,10 +330,38 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     return date.toISOString().split("T")[0];
   };
 
-  // Handle clicking on a date in the calendar
+  // Check for unsaved changes
+  const hasUnsavedChanges = (): boolean => {
+    if (!isEditing) return false;
+
+    // Compare the current editable details with the original event details
+    return (
+      JSON.stringify(editableDetails.meals) !== JSON.stringify(eventDetails.meals) ||
+      JSON.stringify(editableDetails.cocktails) !== JSON.stringify(eventDetails.cocktails) ||
+      JSON.stringify(editableDetails.desserts) !== JSON.stringify(eventDetails.desserts) ||
+      editableDetails.notes !== eventDetails.notes
+    );
+  };
+
+  // Handle clicking on a date in the calendar with unsaved changes check
   const handleDateClick = async (date: Date) => {
+    // If there are unsaved changes, show confirmation dialog
+    if (isEditing && hasUnsavedChanges()) {
+      setPendingDateSelection(date);
+      setShowUnsavedChangesModal(true);
+      return;
+    }
+
+    // Otherwise proceed with date selection
+    proceedWithDateSelection(date);
+  };
+
+  // Proceed with date selection after handling unsaved changes
+  const proceedWithDateSelection = async (date: Date) => {
     setSelectedDate(date);
     setLoading(true);
+    // Reset editing state when changing dates
+    setIsEditing(false);
 
     try {
       // Format date as YYYY-MM-DD
@@ -350,13 +388,13 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         if (data.eventDetails) {
           setEventDetails({
             meals: Array.isArray(data.eventDetails.meals)
-              ? data.eventDetails.meals
+              ? [...data.eventDetails.meals]
               : data.eventDetails.meals
                 ? [data.eventDetails.meals]
                 : [],
             cocktails: data.eventDetails.cocktails || [],
             desserts: Array.isArray(data.eventDetails.desserts)
-              ? data.eventDetails.desserts
+              ? [...data.eventDetails.desserts]
               : data.eventDetails.desserts
                 ? [data.eventDetails.desserts]
                 : [],
@@ -371,6 +409,14 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
             notes: "",
           });
         }
+
+        // Reset the editable details too
+        setEditableDetails({
+          meals: [],
+          cocktails: [],
+          desserts: [],
+          notes: "",
+        });
       }
     } catch (error) {
       console.error("Error fetching movie monday details:", error);
@@ -561,6 +607,37 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     }
   };
 
+  // Start editing event details
+  const startEditing = () => {
+    setIsEditing(true);
+    setEditableDetails({
+      meals: Array.isArray(selectedMonday?.eventDetails?.meals)
+        ? [...selectedMonday.eventDetails.meals]
+        : selectedMonday?.eventDetails?.meals
+          ? [selectedMonday.eventDetails.meals]
+          : [],
+      cocktails:
+        selectedMonday?.eventDetails?.cocktails || [],
+      desserts: Array.isArray(selectedMonday?.eventDetails?.desserts)
+        ? [...selectedMonday.eventDetails.desserts]
+        : selectedMonday?.eventDetails?.desserts
+          ? [selectedMonday.eventDetails.desserts]
+          : [],
+      notes:
+        selectedMonday?.eventDetails?.notes || "",
+    });
+  };
+
+  // Cancel editing and discard changes
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setNewCocktail("");
+    setNewMeal("");
+    setNewDessert("");
+    setFilteredSuggestions([]);
+    setActiveSuggestionType(null);
+  };
+
   // Save all event details
   const handleSaveAll = async () => {
     if (!selectedMonday || !token) return;
@@ -693,8 +770,32 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     router.push(`/movie/${movieId}`);
   };
 
+  // Confirm discard changes
+  const confirmDiscardChanges = () => {
+    // Close the modal
+    setShowUnsavedChangesModal(false);
+    
+    // If there's a pending date selection, process it now
+    if (pendingDateSelection) {
+      proceedWithDateSelection(pendingDateSelection);
+      setPendingDateSelection(null);
+    }
+  };
+
+  // Cancel discard changes
+  const cancelDiscardChanges = () => {
+    setShowUnsavedChangesModal(false);
+    setPendingDateSelection(null);
+  };
+
   // Calendar navigation functions
   const handlePrevious = () => {
+    // Check for unsaved changes before navigation
+    if (isEditing && hasUnsavedChanges()) {
+      setShowUnsavedChangesModal(true);
+      return;
+    }
+
     setAnimationDirection("right");
     const newDates = mondayDates.map((date) => {
       const newDate = new Date(date);
@@ -709,6 +810,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   const handleNext = () => {
+    // Check for unsaved changes before navigation
+    if (isEditing && hasUnsavedChanges()) {
+      setShowUnsavedChangesModal(true);
+      return;
+    }
+
     setAnimationDirection("left");
     const newDates = mondayDates.map((date) => {
       const newDate = new Date(date);
@@ -724,6 +831,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
   // Jump to a specific month
   const jumpToMonth = (year: number, month: number) => {
+    // Check for unsaved changes before jumping
+    if (isEditing && hasUnsavedChanges()) {
+      setShowUnsavedChangesModal(true);
+      return;
+    }
+
     const today = new Date();
     // Find the first Monday of the specified month
     const firstDay = new Date(year, month, 1);
@@ -1077,29 +1190,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                           <Button
                             isIconOnly
                             variant="light"
-                            onPress={() => {
-                              setIsEditing(true);
-                              setEditableDetails({
-                                meals: Array.isArray(
-                                  selectedMonday?.eventDetails?.meals
-                                )
-                                  ? [...selectedMonday.eventDetails.meals]
-                                  : selectedMonday?.eventDetails?.meals
-                                    ? [selectedMonday.eventDetails.meals]
-                                    : [],
-                                cocktails:
-                                  selectedMonday?.eventDetails?.cocktails || [],
-                                desserts: Array.isArray(
-                                  selectedMonday?.eventDetails?.desserts
-                                )
-                                  ? [...selectedMonday.eventDetails.desserts]
-                                  : selectedMonday?.eventDetails?.desserts
-                                    ? [selectedMonday.eventDetails.desserts]
-                                    : [],
-                                notes:
-                                  selectedMonday?.eventDetails?.notes || "",
-                              });
-                            }}
+                            onPress={startEditing}
                             aria-label="Edit details"
                           >
                             <Edit2 className="h-4 w-4" />
@@ -1109,7 +1200,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                             <Button
                               color="danger"
                               variant="light"
-                              onPress={() => setIsEditing(false)}
+                              onPress={cancelEditing}
                               startContent={<X className="h-4 w-4" />}
                             >
                               Cancel
@@ -1480,6 +1571,24 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                               )}
                             </div>
                           </div>
+
+                          {/* Notes textarea */}
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-left block">
+                              Notes
+                            </label>
+                            <Textarea
+                              placeholder="Add any notes about this event..."
+                              value={editableDetails.notes}
+                              onChange={(e) => 
+                                setEditableDetails(prev => ({
+                                  ...prev,
+                                  notes: e.target.value
+                                }))
+                              }
+                              className="min-h-24"
+                            />
+                          </div>
                         </div>
                       ) : (
                         /* Event details - Display mode */
@@ -1613,6 +1722,39 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           )}
         </Card>
       )}
+
+      {/* Unsaved Changes Confirmation Modal */}
+      <Modal 
+        isOpen={showUnsavedChangesModal} 
+        onClose={cancelDiscardChanges}
+      >
+        <ModalContent>
+          <ModalHeader className="flex gap-2 items-center">
+            <AlertTriangle className="text-warning h-6 w-6" />
+            <span>Unsaved Changes</span>
+          </ModalHeader>
+          <ModalBody>
+            <p>
+              You have unsaved changes to the event details. What would you like to do?
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button 
+              color="danger" 
+              variant="light" 
+              onPress={confirmDiscardChanges}
+            >
+              Discard Changes
+            </Button>
+            <Button 
+              color="primary" 
+              onPress={cancelDiscardChanges}
+            >
+              Continue Editing
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 };

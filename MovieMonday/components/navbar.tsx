@@ -15,9 +15,41 @@ import NextLink from "next/link";
 import clsx from "clsx";
 import { siteConfig } from "@/config/site";
 import { ThemeSwitch } from "@/components/theme-switch";
-import { TwitterIcon, GithubIcon, DiscordIcon, Logo } from "@/components/icons";
+import { TwitterIcon, GithubIcon, DiscordIcon } from "@/components/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { MovieSearch } from "@/components/MovieSearch";
+import { useTheme } from "next-themes";
+import Image from "next/image";
+
+// Logo component that switches based on theme
+const ThemeSwitchableLogo = () => {
+  const { theme, resolvedTheme } = useTheme();
+  const currentTheme = theme === 'system' ? resolvedTheme : theme;
+  
+  return (
+    <div className="h-8 w-auto flex items-center">
+      {currentTheme === 'dark' ? (
+        <Image 
+          src="/svgs/logo_full_dark.svg" 
+          alt="Movie Monday Logo" 
+          width={180} 
+          height={40} 
+          className="h-full w-auto"
+          priority
+        />
+      ) : (
+        <Image 
+          src="/svgs/logo_full_light.svg" 
+          alt="Movie Monday Logo" 
+          width={180} 
+          height={40}
+          className="h-full w-auto"
+          priority
+        />
+      )}
+    </div>
+  );
+};
 
 export const Navbar = () => {
   const { isAuthenticated, logout } = useAuth();
@@ -42,8 +74,7 @@ export const Navbar = () => {
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
         <NavbarBrand as="li" className="gap-3 max-w-fit">
           <NextLink className="flex justify-start items-center gap-1" href="/">
-            <Logo />
-            <p className="font-bold text-inherit">Movie Monday</p>
+            <ThemeSwitchableLogo />
           </NextLink>
         </NavbarBrand>
         <ul className="hidden lg:flex gap-4 justify-start ml-2">

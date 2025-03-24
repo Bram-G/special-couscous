@@ -2,36 +2,25 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  Tabs, 
-  Tab, 
   Card, 
   CardBody, 
   Spinner, 
   Button,
   Input,
-  Image,
-  Chip,
   Link
 } from "@heroui/react";
 import { 
-  Compass, 
   Heart, 
-  TrendingUp, 
-  Award, 
-  Tag, 
-  Calendar, 
   Search,
-  Clock,
   UserCircle2,
   Info
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { title } from "@/components/primitives";
-import MovieGrid from "@/components/Discovery/MovieGrid";
 import GenreSelector from "@/components/Discovery/GenreSelector";
 import DecadeSelector from "@/components/Discovery/DecadeSelector";
-import RecommendationReason from "@/components/Discovery/RecommendationReason";
+import MovieCarouselRow from "@/components/Discovery/MovieCarouselRow";
 
 // Types for movie data
 interface Movie {
@@ -54,7 +43,7 @@ interface WatchlistMovie {
   isWinner?: boolean;
 }
 
-// Genre mapping (would be good to fetch this from API)
+// Genre mapping
 const genreMap = {
   28: "Action",
   12: "Adventure",
@@ -83,7 +72,7 @@ const curatedCollections = [
     id: "cult-classics", 
     name: "Cult Classics", 
     description: "Movies that have developed dedicated and passionate fan bases despite initial mixed receptions",
-    tmdbListId: 10 // This is an example - you would need to find appropriate lists
+    tmdbListId: 10 
   },
   { 
     id: "mind-bending", 
@@ -114,76 +103,132 @@ const curatedCollections = [
 export default function DiscoveryPage() {
   const router = useRouter();
   const { token, isAuthenticated } = useAuth();
-  const [selectedTab, setSelectedTab] = useState("for-you");
   const [trending, setTrending] = useState<Movie[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistMovie[]>([]);
   const [recommended, setRecommended] = useState<Movie[]>([]);
   const [similar, setSimilar] = useState<Movie[]>([]);
+  const [popularMovies, setPopularMovies] = useState<Movie[]>([]);
+  const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
+  const [upcomingMovies, setUpcomingMovies] = useState<Movie[]>([]);
   const [curatedMovies, setCuratedMovies] = useState<{[key: string]: Movie[]}>({});
   
-  // Selected filters
+  // Filter and search state
   const [selectedGenres, setSelectedGenres] = useState<number[]>([]);
   const [selectedDecade, setSelectedDecade] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchResults, setSearchResults] = useState<Movie[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
   
   // Loading states
   const [loadingTrending, setLoadingTrending] = useState(true);
+  const [loadingPopular, setLoadingPopular] = useState(true);
+  const [loadingTopRated, setLoadingTopRated] = useState(true);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
   const [loadingRecommended, setLoadingRecommended] = useState(true);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
-  const [loadingCurated, setLoadingCurated] = useState(true);
+  const [loadingCurated, setLoadingCurated] = useState({});
   const [loadingSearch, setLoadingSearch] = useState(false);
-  const [searchResults, setSearchResults] = useState<Movie[]>([]);
   
-  // Pagination
-  const [trendingPage, setTrendingPage] = useState(1);
-  const [hasMoreTrending, setHasMoreTrending] = useState(true);
-
-  // Selected curated collection
-  const [selectedCollection, setSelectedCollection] = useState(curatedCollections[0]);
+  // Watchlist status for quick lookup
+  const [watchlistStatus, setWatchlistStatus] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    // Fetch trending movies
+    // Fetch initial data
     fetchTrending();
+    fetchPopular();
+    fetchTopRated();
+    fetchUpcoming();
     
     // If authenticated, fetch watchlist
     if (isAuthenticated && token) {
       fetchWatchlist();
     }
     
-    // Fetch initial curated collections
+    // Fetch featured curated collection
     fetchCuratedCollection(curatedCollections[0].id);
   }, [isAuthenticated, token]);
 
-  // When watchlist changes, get recommendations
+  // When watchlist changes, get recommendations and update watchlist status
   useEffect(() => {
     if (watchlist.length > 0) {
       generateRecommendations();
       generateSimilarMovies();
+      
+      // Update watchlist status lookup
+      const statusMap = {};
+      watchlist.forEach(movie => {
+        statusMap[movie.tmdbMovieId] = true;
+      });
+      setWatchlistStatus(statusMap);
     }
   }, [watchlist]);
 
-  const fetchTrending = async (page = 1) => {
+  const fetchTrending = async () => {
     try {
       setLoadingTrending(true);
       
       const response = await fetch(
-        `https://api.themoviedb.org/3/trending/movie/week?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=${page}`
+        `https://api.themoviedb.org/3/trending/movie/week?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`
       );
       
       const data = await response.json();
-      
-      if (page === 1) {
-        setTrending(data.results || []);
-      } else {
-        setTrending(prev => [...prev, ...(data.results || [])]);
-      }
-      
-      setHasMoreTrending(data.page < data.total_pages);
-      setTrendingPage(data.page);
+      setTrending(data.results || []);
     } catch (error) {
       console.error("Error fetching trending movies:", error);
     } finally {
       setLoadingTrending(false);
+    }
+  };
+  
+  const fetchPopular = async () => {
+    try {
+      setLoadingPopular(true);
+      
+      const response = await fetch(
+        `https://api.themoviedb.org/3/movie/popular?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`
+      );
+      
+      const data = await response.json();
+      setPopularMovies(data.results || []);
+    } catch (error) {
+      console.error("Error fetching popular movies:", error);
+    } finally {
+      setLoadingPopular(false);
+    }
+  };
+  
+  const fetchTopRated = async () => {
+    try {
+      setLoadingTopRated(true);
+      
+      const response = await fetch(
+        `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`
+      );
+      
+      const data = await response.json();
+      setTopRatedMovies(data.results || []);
+    } catch (error) {
+      console.error("Error fetching top rated movies:", error);
+    } finally {
+      setLoadingTopRated(false);
+    }
+  };
+  
+  const fetchUpcoming = async () => {
+    try {
+      setLoadingUpcoming(true);
+      
+      const response = await fetch(
+        `https://api.themoviedb.org/3/movie/upcoming?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`
+      );
+      
+      const data = await response.json();
+      setUpcomingMovies(data.results || []);
+    } catch (error) {
+      console.error("Error fetching upcoming movies:", error);
+    } finally {
+      setLoadingUpcoming(false);
     }
   };
 
@@ -212,6 +257,41 @@ export default function DiscoveryPage() {
     }
   };
 
+  const addToWatchlist = async (movie: Movie) => {
+    if (!token || watchlistStatus[movie.id]) return;
+  
+    try {
+      const response = await fetch('http://localhost:8000/api/movie-monday/watch-later', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          tmdbMovieId: movie.id,
+          title: movie.title,
+          posterPath: movie.poster_path
+        })
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to add movie to watchlist');
+      }
+      
+      // Update the watchlist status
+      setWatchlistStatus(prev => ({
+        ...prev,
+        [movie.id]: true
+      }));
+      
+      // Refresh watchlist
+      fetchWatchlist();
+    } catch (error) {
+      console.error('Error adding to watchlist:', error);
+    }
+  };
+
   const generateRecommendations = async () => {
     if (watchlist.length === 0) return;
     
@@ -219,7 +299,6 @@ export default function DiscoveryPage() {
       setLoadingRecommended(true);
       
       // Get recommendations based on 2-3 random movies from watchlist
-      // This provides more variety than always using the same movie
       const sampleSize = Math.min(3, watchlist.length);
       const sampleMovies = [...watchlist].sort(() => 0.5 - Math.random()).slice(0, sampleSize);
       
@@ -288,7 +367,8 @@ export default function DiscoveryPage() {
 
   const fetchCuratedCollection = async (collectionId: string) => {
     try {
-      setLoadingCurated(true);
+      // Set loading state for specific collection
+      setLoadingCurated(prev => ({ ...prev, [collectionId]: true }));
       
       // Find the collection config
       const collection = curatedCollections.find(c => c.id === collectionId);
@@ -320,12 +400,11 @@ export default function DiscoveryPage() {
         [collectionId]: movies
       }));
       
-      // Update selected collection
-      setSelectedCollection(collection);
     } catch (error) {
       console.error(`Error fetching curated collection ${collectionId}:`, error);
     } finally {
-      setLoadingCurated(false);
+      // Clear loading state for specific collection
+      setLoadingCurated(prev => ({ ...prev, [collectionId]: false }));
     }
   };
 
@@ -334,6 +413,7 @@ export default function DiscoveryPage() {
     
     try {
       setLoadingSearch(true);
+      setHasSearched(true);
       
       const response = await fetch(
         `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(searchQuery)}&include_adult=false`
@@ -341,9 +421,6 @@ export default function DiscoveryPage() {
       
       const data = await response.json();
       setSearchResults(data.results || []);
-      
-      // Switch to search tab
-      setSelectedTab("search");
     } catch (error) {
       console.error("Error searching movies:", error);
     } finally {
@@ -351,12 +428,12 @@ export default function DiscoveryPage() {
     }
   };
 
-  const loadMoreTrending = () => {
-    fetchTrending(trendingPage + 1);
-  };
-
   const getFilteredMovies = (movies: Movie[]) => {
     if (!movies) return [];
+    
+    // Only apply filters if they are actually set
+    const hasFilters = selectedGenres.length > 0 || selectedDecade !== 'all';
+    if (!hasFilters) return movies;
     
     return movies.filter(movie => {
       // Filter by genre if any genres are selected
@@ -420,354 +497,219 @@ export default function DiscoveryPage() {
     };
   };
 
-  const renderTabContent = () => {
-    switch (selectedTab) {
-      case "for-you":
-        return (
-          <div className="space-y-10">
-            {/* Personalized Recommendations */}
-            <section className="mt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">Recommended For You</h2>
-                {isAuthenticated ? (
-                  <Button 
-                    variant="light" 
-                    color="primary" 
-                    onPress={generateRecommendations}
-                    isDisabled={loadingRecommended}
-                  >
-                    Refresh
-                  </Button>
-                ) : (
-                  <Button 
-                    as={Link}
-                    href="/login"
-                    variant="light" 
-                    color="primary"
-                  >
-                    Sign in for recommendations
-                  </Button>
-                )}
-              </div>
-              
-              {!isAuthenticated ? (
-                <Card className="w-full">
-                  <CardBody className="flex flex-col items-center justify-center py-12">
-                    <UserCircle2 className="h-16 w-16 text-default-300 mb-4" />
-                    <p className="text-center text-xl font-medium mb-2">Sign in to see personalized recommendations</p>
-                    <p className="text-center text-default-500 mb-6">
-                      We'll suggest movies based on your watchlist and preferences
-                    </p>
-                    <Button 
-                      as={Link}
-                      href="/login"
-                      color="primary"
-                    >
-                      Sign in
-                    </Button>
-                  </CardBody>
-                </Card>
-              ) : watchlist.length === 0 ? (
-                <Card className="w-full">
-                  <CardBody className="flex flex-col items-center justify-center py-12">
-                    <Heart className="h-16 w-16 text-default-300 mb-4" />
-                    <p className="text-center text-xl font-medium mb-2">Add movies to your watchlist</p>
-                    <p className="text-center text-default-500 mb-6">
-                      Recommendations will appear here once you've added some movies to your watchlist
-                    </p>
-                    <Button 
-                      as={Link}
-                      href="/trending"
-                      color="primary"
-                    >
-                      Browse trending movies
-                    </Button>
-                  </CardBody>
-                </Card>
-              ) : loadingRecommended ? (
-                <div className="flex justify-center py-8">
-                  <Spinner size="lg" />
-                </div>
-              ) : (
-                <div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {recommended.slice(0, 10).map((movie) => (
-                      <div key={movie.id} className="relative group">
-                        <Link href={`/movie/${movie.id}`}>
-                          <div className="aspect-[2/3] overflow-hidden rounded-lg">
-                            <Image
-                              src={
-                                movie.poster_path
-                                  ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                                  : '/placeholder-poster.jpg'
-                              }
-                              alt={movie.title}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              removeWrapper
-                            />
-                            
-                            {/* Hover overlay with info */}
-                            <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                              <h3 className="text-white font-medium line-clamp-2">{movie.title}</h3>
-                              <p className="text-white/70 text-sm mt-1">
-                                {new Date(movie.release_date).getFullYear() || "Unknown"}
-                              </p>
-                              
-                              {/* Recommendation reason */}
-                              <RecommendationReason reason={getRecommendationReason(movie)} />
-                            </div>
-                          </div>
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-            
-            {/* Similar to your watchlist */}
-            {isAuthenticated && watchlist.length > 0 && (
-              <section className="mt-10">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-bold">Similar to Your Watchlist</h2>
-                  <Button 
-                    variant="light" 
-                    color="primary" 
-                    onPress={generateSimilarMovies}
-                    isDisabled={loadingSimilar}
-                  >
-                    Refresh
-                  </Button>
-                </div>
-                
-                {loadingSimilar ? (
-                  <div className="flex justify-center py-8">
-                    <Spinner size="lg" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {similar.slice(0, 10).map((movie) => (
-                      <div key={movie.id} className="relative group">
-                        <Link href={`/movie/${movie.id}`}>
-                          <div className="aspect-[2/3] overflow-hidden rounded-lg">
-                            <Image
-                              src={
-                                movie.poster_path
-                                  ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                                  : '/placeholder-poster.jpg'
-                              }
-                              alt={movie.title}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              removeWrapper
-                            />
-                            
-                            {/* Hover overlay with info */}
-                            <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                              <h3 className="text-white font-medium line-clamp-2">{movie.title}</h3>
-                              <p className="text-white/70 text-sm mt-1">
-                                {new Date(movie.release_date).getFullYear() || "Unknown"}
-                              </p>
-                              
-                              {/* You could add similarity reason here */}
-                            </div>
-                          </div>
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
-          </div>
-        );
-      
-      case "trending":
-        return (
-          <div className="space-y-6">
-            <div className="flex flex-wrap gap-4 mb-6">
-              <GenreSelector
-                selectedGenres={selectedGenres}
-                onChange={setSelectedGenres}
-              />
-              <DecadeSelector
-                selectedDecade={selectedDecade}
-                onChange={setSelectedDecade}
-              />
-            </div>
-            
-            <h2 className="text-2xl font-bold mb-4">Trending This Week</h2>
-            
-            {loadingTrending && trending.length === 0 ? (
-              <div className="flex justify-center py-8">
-                <Spinner size="lg" />
-              </div>
-            ) : (
-              <>
-                <MovieGrid 
-                  movies={getFilteredMovies(trending)} 
-                  emptyMessage="No movies match your selected filters"
-                />
-                
-                {hasMoreTrending && (
-                  <div className="flex justify-center mt-8">
-                    <Button
-                      color="primary"
-                      variant="flat"
-                      onPress={loadMoreTrending}
-                      isLoading={loadingTrending}
-                    >
-                      Load More
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        );
-      
-      case "curated":
-        return (
-          <div className="space-y-6">
-            {/* Collection selector */}
-            <div className="overflow-x-auto pb-2">
-              <div className="flex gap-2">
-                {curatedCollections.map((collection) => (
-                  <Button
-                    key={collection.id}
-                    variant={selectedCollection.id === collection.id ? "solid" : "light"}
-                    color={selectedCollection.id === collection.id ? "primary" : "default"}
-                    onPress={() => fetchCuratedCollection(collection.id)}
-                  >
-                    {collection.name}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Collection description */}
-            <Card className="mb-6">
-              <CardBody>
-                <h2 className="text-xl font-bold mb-2">{selectedCollection.name}</h2>
-                <p className="text-default-500">{selectedCollection.description}</p>
-              </CardBody>
-            </Card>
-            
-            {/* Movies in collection */}
-            {loadingCurated ? (
-              <div className="flex justify-center py-8">
-                <Spinner size="lg" />
-              </div>
-            ) : (
-              <MovieGrid 
-                movies={getFilteredMovies(curatedMovies[selectedCollection.id] || [])} 
-                emptyMessage="No movies in this collection match your filters"
-              />
-            )}
-          </div>
-        );
-      
-      case "search":
-        return (
-          <div className="space-y-6">
-            <div className="flex gap-4 mb-6">
-              <Input
-                placeholder="Search for movies..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                startContent={<Search className="text-default-300" />}
-                className="flex-1"
-              />
-              <Button
-                color="primary"
-                onPress={handleSearch}
-                isLoading={loadingSearch}
-              >
-                Search
-              </Button>
-            </div>
-            
-            {loadingSearch ? (
-              <div className="flex justify-center py-8">
-                <Spinner size="lg" />
-              </div>
-            ) : searchResults.length > 0 ? (
-              <MovieGrid movies={getFilteredMovies(searchResults)} />
-            ) : searchQuery ? (
-              <div className="text-center py-8">
-                <Info className="h-12 w-12 text-default-300 mx-auto mb-2" />
-                <p className="text-xl font-medium mb-2">No results found</p>
-                <p className="text-default-500">Try different keywords or filters</p>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Search className="h-12 w-12 text-default-300 mx-auto mb-2" />
-                <p className="text-xl font-medium mb-2">Search for movies</p>
-                <p className="text-default-500">Enter keywords to find movies you'll love</p>
-              </div>
-            )}
-          </div>
-        );
-      
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="container">
       <div className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
         <h1 className={title({ size: "lg" })}>Discover Movies</h1>
         <p className="text-center text-default-500 max-w-3xl">
-          Find your next favorite movie with personalized recommendations, trending titles, and curated collections.
+          Find your next favorite movie for Movie Monday with personalized recommendations and trending titles.
         </p>
       </div>
       
-      <Tabs
-        aria-label="Discovery options"
-        selectedKey={selectedTab}
-        onSelectionChange={(key) => setSelectedTab(key as string)}
-        className="mb-6"
-      >
-        <Tab
-          key="for-you"
-          title={
-            <div className="flex items-center gap-2">
-              <Compass className="h-4 w-4" />
-              <span>For You</span>
-            </div>
-          }
-        />
-        <Tab
-          key="trending"
-          title={
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              <span>Trending</span>
-            </div>
-          }
-        />
-        <Tab
-          key="curated"
-          title={
-            <div className="flex items-center gap-2">
-              <Award className="h-4 w-4" />
-              <span>Curated Collections</span>
-            </div>
-          }
-        />
-        <Tab
-          key="search"
-          title={
-            <div className="flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              <span>Search</span>
-            </div>
-          }
-        />
-      </Tabs>
+      {/* Search and Filter Bar */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
+          <div className="flex gap-4 flex-1">
+            <Input
+              placeholder="Search for movies..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              startContent={<Search className="text-default-300" />}
+              className="flex-1"
+            />
+            <Button
+              color="primary"
+              onPress={handleSearch}
+              isLoading={loadingSearch}
+            >
+              Search
+            </Button>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              variant="flat"
+              color={showFilters ? "primary" : "default"}
+              onPress={() => setShowFilters(!showFilters)}
+            >
+              {showFilters ? "Hide Filters" : "Show Filters"}
+            </Button>
+            
+            {isAuthenticated && (
+              <Button
+                as={Link}
+                href="/dashboard"
+                variant="flat"
+                color="primary"
+                startContent={<Heart className="h-4 w-4" />}
+              >
+                My Watchlist ({watchlist.length})
+              </Button>
+            )}
+          </div>
+        </div>
+        
+        {/* Filters - conditionally shown */}
+        {showFilters && (
+          <div className="flex flex-wrap gap-4 bg-default-50 p-4 rounded-lg">
+            <GenreSelector
+              selectedGenres={selectedGenres}
+              onChange={setSelectedGenres}
+            />
+            <DecadeSelector
+              selectedDecade={selectedDecade}
+              onChange={setSelectedDecade}
+            />
+            {(selectedGenres.length > 0 || selectedDecade !== "all") && (
+              <Button 
+                color="danger" 
+                variant="light"
+                onPress={() => {
+                  setSelectedGenres([]);
+                  setSelectedDecade("all");
+                }}
+              >
+                Clear All Filters
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
       
-      {renderTabContent()}
+      {/* Main Content Area */}
+      <div className="space-y-12">
+        {/* Search Results - shown only when user has searched */}
+        {hasSearched && (
+          <div>
+            {loadingSearch ? (
+              <div className="flex justify-center py-8">
+                <Spinner size="lg" />
+              </div>
+            ) : searchResults.length > 0 ? (
+              <MovieCarouselRow
+                title="Search Results"
+                movies={getFilteredMovies(searchResults)}
+                watchlistStatus={watchlistStatus}
+                onAddToWatchlist={addToWatchlist}
+              />
+            ) : (
+              <div className="text-center py-8">
+                <Info className="h-12 w-12 text-default-300 mx-auto mb-2" />
+                <p className="text-xl font-medium mb-2">No results found for "{searchQuery}"</p>
+                <p className="text-default-500">Try different keywords or filters</p>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Trending Now Section */}
+        <MovieCarouselRow
+          title="Trending Now"
+          movies={getFilteredMovies(trending)}
+          loading={loadingTrending}
+          watchlistStatus={watchlistStatus}
+          onAddToWatchlist={addToWatchlist}
+        />
+        
+        {/* Personalized Recommendations */}
+        {isAuthenticated ? (
+          watchlist.length > 0 ? (
+            <MovieCarouselRow
+              title="Recommended For You"
+              movies={getFilteredMovies(recommended)}
+              loading={loadingRecommended}
+              watchlistStatus={watchlistStatus}
+              onAddToWatchlist={addToWatchlist}
+              reason={getRecommendationReason}
+              emptyMessage="Add more movies to your watchlist to get personalized recommendations"
+            />
+          ) : (
+            <Card className="mb-12 mt-12">
+              <CardBody className="flex flex-col items-center justify-center py-12">
+                <Heart className="h-16 w-16 text-default-300 mb-4" />
+                <p className="text-center text-xl font-medium mb-2">Add movies to your watchlist</p>
+                <p className="text-center text-default-500 mb-6">
+                  Recommendations will appear here once you've added some movies to your watchlist
+                </p>
+              </CardBody>
+            </Card>
+          )
+        ) : (
+          <Card className="mb-12 mt-12">
+            <CardBody className="flex flex-col items-center justify-center py-12">
+              <UserCircle2 className="h-16 w-16 text-default-300 mb-4" />
+              <p className="text-center text-xl font-medium mb-2">Sign in to see personalized recommendations</p>
+              <p className="text-center text-default-500 mb-6">
+                We'll suggest movies based on your watchlist and preferences
+              </p>
+              <Button 
+                as={Link}
+                href="/login"
+                color="primary"
+              >
+                Sign in
+              </Button>
+            </CardBody>
+          </Card>
+        )}
+        
+        {/* Popular Movies Section */}
+        <MovieCarouselRow
+          title="Popular Movies"
+          movies={getFilteredMovies(popularMovies)}
+          loading={loadingPopular}
+          watchlistStatus={watchlistStatus}
+          onAddToWatchlist={addToWatchlist}
+        />
+        
+        {/* Top Rated Movies Section */}
+        <MovieCarouselRow
+          title="Top Rated Movies"
+          movies={getFilteredMovies(topRatedMovies)}
+          loading={loadingTopRated}
+          watchlistStatus={watchlistStatus}
+          onAddToWatchlist={addToWatchlist}
+        />
+        
+        {/* Similar Movies Row (when authenticated and has watchlist) */}
+        {isAuthenticated && watchlist.length > 0 && (
+          <MovieCarouselRow
+            title="Similar to Your Watchlist"
+            movies={getFilteredMovies(similar)}
+            loading={loadingSimilar}
+            watchlistStatus={watchlistStatus}
+            onAddToWatchlist={addToWatchlist}
+            emptyMessage="No similar movies found"
+          />
+        )}
+        
+        {/* Upcoming Movies Section */}
+        <MovieCarouselRow
+          title="Coming Soon"
+          movies={getFilteredMovies(upcomingMovies)}
+          loading={loadingUpcoming}
+          watchlistStatus={watchlistStatus}
+          onAddToWatchlist={addToWatchlist}
+        />
+        
+        {/* Featured Curated Collections */}
+        {curatedCollections.map((collection) => (
+          <MovieCarouselRow
+            key={collection.id}
+            title={collection.name}
+            subtitle={collection.description}
+            movies={getFilteredMovies(curatedMovies[collection.id] || [])}
+            loading={loadingCurated[collection.id]}
+            watchlistStatus={watchlistStatus}
+            onAddToWatchlist={addToWatchlist}
+            emptyMessage={!curatedMovies[collection.id] ? 
+              `Loading ${collection.name}...` : 
+              `No movies in ${collection.name} match your filters`
+            }
+          />
+        ))}
+      </div>
     </div>
   );
 }

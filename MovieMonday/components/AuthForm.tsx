@@ -1,4 +1,4 @@
-// MovieMonday/components/AuthForm.tsx - Update the existing component
+
 import React, { useState, FormEvent, ChangeEvent } from "react";
 import {
   Input,
@@ -140,7 +140,6 @@ const AuthForm: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <Card className="max-w-md w-full">
-      // MovieMonday/components/AuthForm.tsx (continued)
         <CardHeader className="flex flex-col items-center">
           <h2 className="text-2xl font-bold text-center">
             {isLogin ? "Welcome Back" : "Create an Account"}

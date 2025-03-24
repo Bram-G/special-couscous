@@ -7,6 +7,7 @@ interface AuthContextType {
   token: string | null;
   login: (token: string) => void;
   logout: () => void;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   login: () => {},
   logout: () => {},
+  authFetch: async () => new Response(),
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -25,58 +27,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const storedToken = localStorage.getItem('token');
+      setIsLoading(true); // Ensure loading state is true at the start
       
-      if (storedToken) {
-        try {
-          // Verify token validity with your backend
-          const response = await fetch('http://localhost:8000/auth/verify', {
-            headers: {
-              'Authorization': `Bearer ${storedToken}`,
-            },
-          });
+      try {
+        const storedToken = localStorage.getItem('token');
+        
+        if (!storedToken) {
+          // No token found, clearly not authenticated
+          setIsAuthenticated(false);
+          setToken(null);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Token exists, verify it with the backend
+        const response = await fetch('http://localhost:8000/auth/verify', {
+          headers: {
+            'Authorization': `Bearer ${storedToken}`,
+          },
+        });
 
-          if (response.ok) {
-            // Token is valid
-            setToken(storedToken);
-            setIsAuthenticated(true);
-            // Reset verification attempts on success
-            setVerificationAttempts(0);
-          } else if (response.status === 401) {
-            // Token is invalid or expired
-            console.log('Token invalid or expired, logging out');
+        if (response.ok) {
+          // Token is valid
+          setToken(storedToken);
+          setIsAuthenticated(true);
+          setVerificationAttempts(0);
+        } else if (response.status === 401) {
+          // Token is invalid or expired - clear it
+          localStorage.removeItem('token');
+          setIsAuthenticated(false);
+          setToken(null);
+        } else {
+          // Handle network issues or server problems gracefully
+          console.warn('Token verification returned status:', response.status);
+          // Keep current token on network/server issues but increment attempts
+          if (verificationAttempts >= 2) {
             localStorage.removeItem('token');
             setIsAuthenticated(false);
             setToken(null);
           } else {
-            // Other error (server issue, network problem, etc.)
-            console.warn('Token verification returned non-401 error:', response.status);
-            // Only clear token after multiple failed attempts
-            if (verificationAttempts >= 2) {
-              console.warn('Multiple verification failures, clearing token');
-              localStorage.removeItem('token');
-              setIsAuthenticated(false);
-              setToken(null);
-            } else {
-              // Assume token is valid for now, but track the attempt
-              setToken(storedToken);
-              setIsAuthenticated(true);
-              setVerificationAttempts(prev => prev + 1);
-            }
+            // Temporarily assume token is valid until we can verify
+            setToken(storedToken);
+            setIsAuthenticated(true);
+            setVerificationAttempts(prev => prev + 1);
           }
-        } catch (error) {
-          console.error('Error verifying token:', error);
-          // On network error, assume token is still valid
+        }
+      } catch (error) {
+        console.error('Error during authentication initialization:', error);
+        // On connection error, keep user logged in if they had a token
+        const storedToken = localStorage.getItem('token');
+        if (storedToken) {
           setToken(storedToken);
           setIsAuthenticated(true);
-          // But track the attempt
-          setVerificationAttempts(prev => prev + 1);
         }
-      } else {
-        setIsAuthenticated(false);
-        setToken(null);
+        setVerificationAttempts(prev => prev + 1);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     initializeAuth();
@@ -102,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Handle 401 Unauthorized errors
       if (response.status === 401) {
-        // Token might be expired, try to refresh or logout
+        // Token might be expired, logout
         logout();
         throw new Error('Authentication token expired');
       }
@@ -133,22 +140,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoading, 
       token, 
       login, 
-      logout, 
-      authFetch // Add the authFetch method to the context
+      logout,
+      authFetch
     }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-// Update the context type interface
-interface AuthContextType {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  token: string | null;
-  login: (token: string) => void;
-  logout: () => void;
-  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
-}
 
 export const useAuth = () => useContext(AuthContext);
