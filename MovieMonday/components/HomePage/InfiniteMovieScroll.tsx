@@ -84,7 +84,7 @@ const InfiniteMovieScroll = () => {
     );
   }
 
-  // Create a grid-based mosaic layout
+  // Create a grid-based mosaic layout that fills the entire container
   return (
     <div className="h-full w-full relative overflow-hidden bg-black">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-1 relative">
@@ -214,9 +214,6 @@ const InfiniteMovieScroll = () => {
           </motion.div>
         </div>
       </div>
-
-      {/* Add an overlay with gradient to enhance text readability */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent pointer-events-none"></div>
     </div>
   );
 };
