@@ -47,6 +47,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, useSortable, verticalListSortingStrategy, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToParentElement } from '@dnd-kit/modifiers';
+import MoveToWatchlistModal from './MoveToWatchlistModal';
 
 // Types
 interface WatchlistItem {
@@ -244,6 +245,8 @@ const WatchlistDetail = () => {
   const [selectedMovie, setSelectedMovie] = useState<WatchlistItem | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [movieToDelete, setMovieToDelete] = useState<number | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [movieToMove, setMovieToMove] = useState<WatchlistItem | null>(null);
   
   const slug = params?.slug as string;
   
@@ -464,6 +467,10 @@ const WatchlistDetail = () => {
       .catch(err => {
         console.error('Failed to copy: ', err);
       });
+  };
+  const handleMoveMovie = (item: WatchlistItem) => {
+    setMovieToMove(item);
+    setShowMoveModal(true);
   };
   
   // Filter movies based on search query
