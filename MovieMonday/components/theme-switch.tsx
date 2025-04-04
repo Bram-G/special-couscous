@@ -1,6 +1,6 @@
 "use client";
 
-import { FC } from "react";
+import { FC, useEffect, useState } from "react";
 import { VisuallyHidden } from "@react-aria/visually-hidden";
 import { SwitchProps, useSwitch } from "@heroui/switch";
 import { useTheme } from "next-themes";
@@ -20,6 +20,12 @@ export const ThemeSwitch: FC<ThemeSwitchProps> = ({
 }) => {
   const { theme, setTheme } = useTheme();
   const isSSR = useIsSSR();
+  const [mounted, setMounted] = useState(false);
+
+  // After mounting, we can safely show the themed content
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const onChange = () => {
     theme === "light" ? setTheme("dark") : setTheme("light");
@@ -33,10 +39,38 @@ export const ThemeSwitch: FC<ThemeSwitchProps> = ({
     getInputProps,
     getWrapperProps,
   } = useSwitch({
-    isSelected: theme === "light" || isSSR,
-    "aria-label": `Switch to ${theme === "light" || isSSR ? "dark" : "light"} mode`,
+    // Only use the theme for selection logic after mounting to prevent hydration mismatch
+    isSelected: mounted ? theme === "light" : false,
+    "aria-label": mounted ? `Switch to ${theme === "light" ? "dark" : "light"} mode` : "Switch theme",
     onChange,
   });
+
+  // Use a placeholder or simplified component during SSR and initial render
+  if (isSSR || !mounted) {
+    return (
+      <div className={clsx(
+        "px-px transition-opacity hover:opacity-80 cursor-pointer",
+        className,
+        classNames?.base,
+      )}>
+        <div className={clsx(
+          [
+            "w-auto h-auto",
+            "bg-transparent",
+            "rounded-lg",
+            "flex items-center justify-center",
+            "pt-px",
+            "px-0",
+            "mx-0",
+          ],
+          classNames?.wrapper,
+        )}>
+          {/* Default icon that will be replaced after hydration */}
+          <SunFilledIcon size={22} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Component
@@ -70,7 +104,7 @@ export const ThemeSwitch: FC<ThemeSwitchProps> = ({
           ),
         })}
       >
-        {!isSelected || isSSR ? (
+        {isSelected ? (
           <SunFilledIcon size={22} />
         ) : (
           <MoonFilledIcon size={22} />

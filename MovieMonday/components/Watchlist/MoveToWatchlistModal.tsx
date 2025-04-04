@@ -21,16 +21,18 @@ interface WatchlistCategory {
   moviesCount: number;
 }
 
+interface MovieItem {
+  id: number;
+  tmdbMovieId: number;
+  title: string;
+  posterPath: string | null;
+}
+
 interface MoveToWatchlistModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentWatchlistId: number;
-  movieItem: {
-    id: number;
-    tmdbMovieId: number;
-    title: string;
-    posterPath: string;
-  };
+  movieItem: MovieItem;
   onSuccess?: () => void;
 }
 

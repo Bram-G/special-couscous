@@ -19,18 +19,30 @@ import { TwitterIcon, GithubIcon, DiscordIcon } from "@/components/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { MovieSearch } from "@/components/MovieSearch";
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 
 // Logo component that switches based on theme
 const ThemeSwitchableLogo = () => {
   const { theme, resolvedTheme } = useTheme();
-  const currentTheme = theme === 'system' ? resolvedTheme : theme;
+  const [mounted, setMounted] = useState(false);
+
+  // After mounting, we can safely use the theme
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // Determine what theme to use for the logo
+  const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'dark';
+  const logoPath = currentTheme === 'dark' 
+    ? "/svgs/logo_full_dark.svg" 
+    : "/svgs/logo_full_light.svg";
   
   return (
     <div className="h-8 w-auto flex items-center">
-      {currentTheme === 'dark' ? (
+      {mounted ? (
         <Image 
-          src="/svgs/logo_full_dark.svg" 
+          src={logoPath}
           alt="Movie Monday Logo" 
           width={180} 
           height={40} 
@@ -38,14 +50,8 @@ const ThemeSwitchableLogo = () => {
           priority
         />
       ) : (
-        <Image 
-          src="/svgs/logo_full_light.svg" 
-          alt="Movie Monday Logo" 
-          width={180} 
-          height={40}
-          className="h-full w-auto"
-          priority
-        />
+        // Show a placeholder during SSR/before hydration
+        <div className="h-8 w-40 bg-default-100 animate-pulse rounded"></div>
       )}
     </div>
   );
@@ -53,6 +59,12 @@ const ThemeSwitchableLogo = () => {
 
 export const Navbar = () => {
   const { isAuthenticated, logout } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  // After mounting, we have access to authentication state
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Keep static nav items separate from auth-dependent items
   const staticNavItems = siteConfig.navItems.filter(
@@ -72,80 +84,92 @@ export const Navbar = () => {
   return (
     <NextUINavbar maxWidth="xl" position="sticky">
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
-        <NavbarBrand as="li" className="gap-3 max-w-fit">
+        {/* Important: NavbarBrand is already a <li> element, so don't wrap it with another list item */}
+        <NavbarBrand>
           <NextLink className="flex justify-start items-center gap-1" href="/">
             <ThemeSwitchableLogo />
           </NextLink>
         </NavbarBrand>
-        <ul className="hidden lg:flex gap-4 justify-start ml-2">
-          {staticNavItems.map((item) => (
-            <NavbarItem key={item.href}>
-              <NextLink
-                className={clsx(
-                  linkStyles({ color: "foreground" }),
-                  "data-[active=true]:text-primary data-[active=true]:font-medium"
-                )}
-                color="foreground"
-                href={item.href}
-              >
-                {item.label}
-              </NextLink>
-            </NavbarItem>
-          ))}
-        </ul>
+        
+        {/* Regular nav items */}
+        {staticNavItems.map((item) => (
+          <NavbarItem key={item.href} className="hidden lg:flex">
+            <NextLink
+              className={clsx(
+                linkStyles({ color: "foreground" }),
+                "data-[active=true]:text-primary data-[active=true]:font-medium"
+              )}
+              color="foreground"
+              href={item.href}
+            >
+              {item.label}
+            </NextLink>
+          </NavbarItem>
+        ))}
       </NavbarContent>
 
-      <NavbarContent
-        className="hidden sm:flex basis-1/5 sm:basis-full"
-        justify="end"
-      >
-        <NavbarItem className="hidden sm:flex gap-2">
-          <NavbarItem className="hidden lg:flex">
-            <MovieSearch />
-          </NavbarItem>
+      <NavbarContent className="hidden sm:flex basis-1/5 sm:basis-full" justify="end">
+        <NavbarItem className="hidden lg:flex">
+          <MovieSearch />
+        </NavbarItem>
+        
+        <NavbarItem>
           <ThemeSwitch />
         </NavbarItem>
 
-        {/* Auth-dependent buttons */}
-        <NavbarItem className="hidden md:flex gap-2">
-          {isAuthenticated && (
-            <Button
-              as={NextLink}
-              className="text-sm font-normal"
-              href="/dashboard"
-              variant="flat"
-            >
-              Dashboard
-            </Button>
-          )}
-          {isAuthenticated ? (
-            <Button
-              className="text-sm font-normal"
-              color="danger"
-              variant="flat"
-              onPress={handleLogout}
-            >
-              Logout
-            </Button>
-          ) : (
-            <Button
-              as={NextLink}
-              className="text-sm font-normal"
-              href="/login"
-              color="primary"
-              variant="flat"
-            >
-              Login
-            </Button>
-          )}
-        </NavbarItem>
+        {/* Auth-dependent buttons - only render after client-side hydration */}
+        {mounted && (
+          <>
+            {isAuthenticated && (
+              <NavbarItem>
+                <Button
+                  as={NextLink}
+                  className="text-sm font-normal"
+                  href="/dashboard"
+                  variant="flat"
+                >
+                  Dashboard
+                </Button>
+              </NavbarItem>
+            )}
+            
+            <NavbarItem>
+              {isAuthenticated ? (
+                <Button
+                  className="text-sm font-normal"
+                  color="danger"
+                  variant="flat"
+                  onPress={handleLogout}
+                >
+                  Logout
+                </Button>
+              ) : (
+                <Button
+                  as={NextLink}
+                  className="text-sm font-normal"
+                  href="/login"
+                  color="primary"
+                  variant="flat"
+                >
+                  Login
+                </Button>
+              )}
+            </NavbarItem>
+          </>
+        )}
       </NavbarContent>
 
       <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
-        <Link isExternal aria-label="Github" href={siteConfig.links.github}>
-          <GithubIcon className="text-default-500" />
-        </Link>
-        <ThemeSwitch />
+        <NavbarItem>
+          <Link isExternal aria-label="Github" href={siteConfig.links.github}>
+            <GithubIcon className="text-default-500" />
+          </Link>
+        </NavbarItem>
+        
+        <NavbarItem>
+          <ThemeSwitch />
+        </NavbarItem>
+        
         <NavbarMenuToggle />
       </NavbarContent>
 
@@ -165,7 +189,7 @@ export const Navbar = () => {
             </NextLink>
           </NavbarMenuItem>
         ))}
-        {isAuthenticated && (
+        {mounted && isAuthenticated && (
           <NavbarMenuItem>
             <NextLink
               className={clsx(
@@ -178,28 +202,30 @@ export const Navbar = () => {
             </NextLink>
           </NavbarMenuItem>
         )}
-        <NavbarMenuItem>
-          {isAuthenticated ? (
-            <Button
-              className="text-sm font-normal w-full"
-              color="danger"
-              variant="flat"
-              onPress={handleLogout}
-            >
-              Logout
-            </Button>
-          ) : (
-            <NextLink
-              className={clsx(
-                linkStyles({ color: "foreground" }),
-                "data-[active=true]:text-primary data-[active-true]:font-medium"
-              )}
-              href="/login"
-            >
-              Login
-            </NextLink>
-          )}
-        </NavbarMenuItem>
+        {mounted && (
+          <NavbarMenuItem>
+            {isAuthenticated ? (
+              <Button
+                className="text-sm font-normal w-full"
+                color="danger"
+                variant="flat"
+                onPress={handleLogout}
+              >
+                Logout
+              </Button>
+            ) : (
+              <NextLink
+                className={clsx(
+                  linkStyles({ color: "foreground" }),
+                  "data-[active=true]:text-primary data-[active-true]:font-medium"
+                )}
+                href="/login"
+              >
+                Login
+              </NextLink>
+            )}
+          </NavbarMenuItem>
+        )}
       </NavbarMenu>
     </NextUINavbar>
   );

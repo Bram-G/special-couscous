@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import React, { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -39,13 +39,15 @@ import EnhancedRecommendations from "@/components/MoviePage/EnhancedRecommendati
 import ActorAnalyticsModal from "@/components/MoviePage/ActorAnalyticsModal";
 import { useDisclosure } from "@heroui/react";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
+import StreamingServices from "@/components/MoviePage/StreamingServices";
+import RatingBar from "@/components/MoviePage/RatingBar";
 import "./moviePage.css";
 
 export default function MoviePage() {
   const pathname = usePathname();
   const router = useRouter();
   const { token, isAuthenticated } = useAuth();
-  
+
   // State
   const [movieId, setMovieId] = useState<string | null>(null);
   const [movieDetails, setMovieDetails] = useState(null);
@@ -58,24 +60,24 @@ export default function MoviePage() {
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
   const [actorStats, setActorStats] = useState({});
   const [loadingActorStats, setLoadingActorStats] = useState(false);
-  
+
   // Use the new watchlist hook
-  const { 
+  const {
     inWatchlist,
+    inDefaultWatchlist,
+    watchlistIds,
     isLoading: isLoadingWatchlist,
-    addToWatchlist,
-    removeFromWatchlist,
-    watchlists,
-    refresh: refreshWatchlist
+    error,
+    refresh: refreshWatchlist,
   } = useWatchlistStatus(movieId ? parseInt(movieId) : 0);
-  
+
   // Modal states
   const {
     isOpen: isWatchlistModalOpen,
     onOpen: onWatchlistModalOpen,
     onClose: onWatchlistModalClose,
   } = useDisclosure();
-  
+
   // Actor analytics modal states
   const [showActorAnalyticsModal, setShowActorAnalyticsModal] = useState(false);
   const [selectedActor, setSelectedActor] = useState(null);
@@ -129,7 +131,7 @@ export default function MoviePage() {
       });
       return;
     }
-  
+
     try {
       const response = await fetch(
         `http://localhost:8000/api/movie-monday/add-movie`,
@@ -147,62 +149,145 @@ export default function MoviePage() {
           }),
         }
       );
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
         throw new Error(data.message || "Failed to add movie to Movie Monday");
       }
-  
+
       return data;
     } catch (error) {
       console.error("Error adding movie to Movie Monday:", error);
       throw error;
     }
   };
-    // Toggle watchlist status
-    const toggleWatchlist = async () => {
-      if (!token || !movieId || loadingWatchlist) return;
-      
-      setLoadingWatchlist(true);
-      try {
-        if (inWatchlist) {
-          // If the movie is in watchlists, find the first one (usually default) to remove from
-          if (watchlists && watchlists.length > 0) {
-            // Find the default watchlist item or use the first one
-            const defaultEntry = watchlists.find(item => item.isDefault) || watchlists[0];
-            
-            // Remove from watchlist using our hook
-            await removeFromWatchlist(defaultEntry.watchlistId, defaultEntry.itemId);
+  // Toggle watchlist status
+  const toggleWatchlist = async () => {
+    if (!token || !movieId || loadingWatchlist) return;
+
+    setLoadingWatchlist(true);
+    try {
+      if (inWatchlist) {
+        // If movie is in a watchlist, find the watchlist ID and remove it
+        // Get updated status first to have the latest data
+        const response = await fetch(
+          `http://localhost:8000/api/watchlists/status/${movieId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
           }
-        } else {
-          // Add to watchlist using our hook
-          await addToWatchlist({
-            title: movieDetails?.title,
-            posterPath: movieDetails?.poster_path
-          });
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
-        // Refresh the status
-        refreshWatchlist();
-      } catch (error) {
-        console.error("Error toggling watchlist:", error);
-      } finally {
-        setLoadingWatchlist(false);
+
+        const data = await response.json();
+
+        // Find a watchlist to remove from (prefer default or just use the first one)
+        if (data.inWatchlist && data.watchlists && data.watchlists.length > 0) {
+          const defaultEntry =
+            data.watchlists.find((w) => w.isDefault) || data.watchlists[0];
+
+          // Remove from watchlist
+          const deleteResponse = await fetch(
+            `http://localhost:8000/api/watchlists/categories/${defaultEntry.watchlistId}/movies/${defaultEntry.itemId}`,
+            {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+            }
+          );
+
+          if (!deleteResponse.ok) {
+            throw new Error(`Failed to remove movie from watchlist`);
+          }
+        }
+      } else {
+        // Add to watchlist using quick-add endpoint
+        const addResponse = await fetch(
+          "http://localhost:8000/api/watchlists/quick-add",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              tmdbMovieId: parseInt(movieId),
+              title: movieDetails?.title,
+              posterPath: movieDetails?.poster_path,
+            }),
+          }
+        );
+
+        if (!addResponse.ok) {
+          const errorData = await addResponse.json();
+          throw new Error(
+            `Failed to add movie to watchlist: ${errorData.message || "Unknown error"}`
+          );
+        }
       }
-    };
-  
-    // Handle login redirection
-    const handleLoginRedirect = (action) => {
-      // Store the current URL for redirection after login
-      localStorage.setItem("redirectAfterLogin", window.location.pathname);
-  
-      // Add a flag for which action to perform after login
-      localStorage.setItem("postLoginAction", action);
-  
-      // Redirect to login page
-      router.push("/login");
-    };
+
+      // Refresh watchlist status after operation
+      await refreshWatchlist();
+    } catch (error) {
+      console.error("Error toggling watchlist:", error);
+      // Refresh anyway to ensure UI is in sync
+      await refreshWatchlist();
+    } finally {
+      setLoadingWatchlist(false);
+    }
+  };
+
+  const checkWatchlistStatus = async (movieId: number): Promise<boolean> => {
+    if (!token) return false;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/watchlists/status/${movieId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.inWatchlist;
+      }
+      return false;
+    } catch (error) {
+      console.error(
+        `Error checking watchlist status for movie ${movieId}:`,
+        error
+      );
+      return false;
+    }
+  };
+
+  // Handle login redirection
+  const handleLoginRedirect = (action) => {
+    // Store the current URL for redirection after login
+    localStorage.setItem("redirectAfterLogin", window.location.pathname);
+
+    // Add a flag for which action to perform after login
+    localStorage.setItem("postLoginAction", action);
+
+    // Redirect to login page
+    router.push("/login");
+  };
   // Function to fetch watch providers
   const fetchWatchProviders = async (id) => {
     try {
@@ -288,7 +373,7 @@ export default function MoviePage() {
       setLoadingActorStats(false);
     }
   };
-  
+
   // Format runtime to hours and minutes
   const formatRuntime = (minutes) => {
     if (!minutes) return "Unknown";
@@ -314,27 +399,27 @@ export default function MoviePage() {
     return new Date(dateString).getFullYear();
   };
   // Rating component to mimic the reference image
-const RatingBar = ({ rating, count = 0 }) => {
-  // Convert rating to percentage (for a 5-star scale)
-  const percentage = (rating / 5) * 100;
+  const RatingBar = ({ rating, count = 0 }) => {
+    // Convert rating to percentage (for a 5-star scale)
+    const percentage = (rating / 5) * 100;
 
-  return (
-    <div className="flex flex-col items-center">
-      <div className="flex items-center w-full">
-        <div className="text-4xl font-bold mr-2">{rating.toFixed(1)}</div>
-        <div className="flex-1">
-          <div className="h-4 bg-default-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full"
-              style={{ width: `${percentage}%` }}
-            ></div>
+    return (
+      <div className="flex flex-col items-center">
+        <div className="flex items-center w-full">
+          <div className="text-4xl font-bold mr-2">{rating.toFixed(1)}</div>
+          <div className="flex-1">
+            <div className="h-4 bg-default-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full"
+                style={{ width: `${percentage}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-default-500 mt-1">{count} ratings</div>
           </div>
-          <div className="text-xs text-default-500 mt-1">{count} ratings</div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   // Get directors from crew
   const getDirectors = () => {
@@ -410,8 +495,8 @@ const RatingBar = ({ rating, count = 0 }) => {
           backgroundColor: !backdropUrl ? "rgba(0,0,0,0.8)" : "transparent",
         }}
       >
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
+        {/* Enhanced gradient overlay for better text readability in both modes */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/90 to-transparent"></div>
 
         {/* Content container */}
         <div className="container mx-auto px-4 h-full relative z-10">
@@ -426,20 +511,20 @@ const RatingBar = ({ rating, count = 0 }) => {
               />
             </div>
 
-            {/* Movie info */}
-            <div className="md:ml-8 flex-1">
-              <h1 className="text-4xl md:text-5xl font-bold text-white">
+            {/* Movie info - with text-left alignment and adaptive text color */}
+            <div className="md:ml-8 flex-1 text-left">
+              <h1 className="text-4xl md:text-5xl font-bold text-foreground">
                 {movieDetails.title}
               </h1>
 
-              <div className="flex flex-wrap items-center gap-3 mt-2 text-white/80">
+              <div className="flex flex-wrap items-center gap-3 mt-2 text-foreground/80">
                 {movieDetails.release_date && (
                   <span>{getReleaseYear(movieDetails.release_date)}</span>
                 )}
 
                 {movieDetails.runtime && (
                   <>
-                    <span className="w-1 h-1 rounded-full bg-white/80"></span>
+                    <span className="w-1 h-1 rounded-full bg-foreground/80"></span>
                     <span className="flex items-center">
                       <Clock className="w-4 h-4 mr-1" />
                       {formatRuntime(movieDetails.runtime)}
@@ -449,7 +534,7 @@ const RatingBar = ({ rating, count = 0 }) => {
 
                 {movieDetails.vote_average > 0 && (
                   <>
-                    <span className="w-1 h-1 rounded-full bg-white/80"></span>
+                    <span className="w-1 h-1 rounded-full bg-foreground/80"></span>
                     <span className="flex items-center">
                       <Star className="w-4 h-4 mr-1 text-yellow-400" />
                       {movieDetails.vote_average.toFixed(1)}
@@ -467,9 +552,9 @@ const RatingBar = ({ rating, count = 0 }) => {
                 ))}
               </div>
 
-              {/* Tagline */}
+              {/* Tagline with adaptive text color */}
               {movieDetails.tagline && (
-                <p className="mt-4 text-xl italic text-white/70">
+                <p className="mt-4 text-xl italic text-foreground/70">
                   {movieDetails.tagline}
                 </p>
               )}
@@ -483,7 +568,7 @@ const RatingBar = ({ rating, count = 0 }) => {
                     <Heart className={inWatchlist ? "fill-current" : ""} />
                   }
                   onPress={toggleWatchlist}
-                  isLoading={loadingWatchlist || isLoadingWatchlist}
+                  isLoading={loadingWatchlist || isLoadingWatchlist} // Use isLoadingWatchlist instead of isLoading
                 >
                   {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
                 </Button>
@@ -572,11 +657,19 @@ const RatingBar = ({ rating, count = 0 }) => {
                                 <Badge
                                   content={
                                     <div className="flex items-center">
-                                      <span className="font-bold text-xs mr-1">{actorStats[person.name].appearances}</span>
-                                      {actorStats[person.name].wins > 0 && <Trophy className="h-3 w-3" />}
+                                      <span className="font-bold text-xs mr-1">
+                                        {actorStats[person.name].appearances}
+                                      </span>
+                                      {actorStats[person.name].wins > 0 && (
+                                        <Trophy className="h-3 w-3" />
+                                      )}
                                     </div>
                                   }
-                                  color={actorStats[person.name].wins > 0 ? "success" : "primary"}
+                                  color={
+                                    actorStats[person.name].wins > 0
+                                      ? "success"
+                                      : "primary"
+                                  }
                                   placement="top-right"
                                   size="sm"
                                 />
@@ -917,7 +1010,6 @@ const RatingBar = ({ rating, count = 0 }) => {
               </Button>
             </div>
 
-          
             {/* Ratings card with improved analytics content */}
             <Card className="mt-6">
               <CardHeader>
@@ -1159,8 +1251,8 @@ const RatingBar = ({ rating, count = 0 }) => {
           </div>
         </div>
       </div>
-            {/* AddToWatchlist Modal */}
-            {movieDetails && (
+      {/* AddToWatchlist Modal */}
+      {movieDetails && (
         <AddToWatchlistModal
           isOpen={isWatchlistModalOpen}
           onClose={onWatchlistModalClose}
@@ -1192,6 +1284,5 @@ const RatingBar = ({ rating, count = 0 }) => {
         />
       )}
     </div>
-    
   );
-};
+}
