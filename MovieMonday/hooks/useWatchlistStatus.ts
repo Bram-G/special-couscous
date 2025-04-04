@@ -1,86 +1,128 @@
-// hooks/useWatchlistStatus.ts
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface WatchlistInfo {
-  watchlistId: number;
-  watchlistName: string;
-  itemId: number;
-  isDefault: boolean;
-}
-
-interface WatchlistStatus {
-  inWatchlist: boolean;
-  inDefaultWatchlist: boolean;
-  watchlists: WatchlistInfo[];
-  loading: boolean;
-  error: string | null;
-  refresh: () => void;
-}
-
-export const useWatchlistStatus = (tmdbMovieId: number | string | null): WatchlistStatus => {
+export default function useWatchlistStatus(movieId: number) {
   const { token, isAuthenticated } = useAuth();
-  const [status, setStatus] = useState<Omit<WatchlistStatus, 'refresh'>>({
-    inWatchlist: false,
-    inDefaultWatchlist: false,
-    watchlists: [],
-    loading: false,
-    error: null
-  });
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [inWatchlist, setInWatchlist] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [watchlists, setWatchlists] = useState([]);
 
-  useEffect(() => {
-    // Skip if not authenticated or no movie ID
-    if (!isAuthenticated || !token || !tmdbMovieId) {
+  // Check if movie is in watchlist
+  const checkWatchlistStatus = async () => {
+    if (!token || !movieId) {
+      setIsLoading(false);
       return;
     }
 
-    const fetchStatus = async () => {
-      try {
-        setStatus(prev => ({ ...prev, loading: true, error: null }));
-        
-        const response = await fetch(`http://localhost:8000/api/watchlists/status/${tmdbMovieId}`, {
+    try {
+      setIsLoading(true);
+      const response = await fetch(
+        `http://localhost:8000/api/watchlists/status/${movieId}`,
+        {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch watchlist status');
+          },
+          credentials: 'include'
         }
-        
+      );
+
+      if (response.ok) {
         const data = await response.json();
-        
-        setStatus({
-          inWatchlist: data.inWatchlist,
-          inDefaultWatchlist: data.inDefaultWatchlist || false,
-          watchlists: data.watchlists || [],
-          loading: false,
-          error: null
-        });
-      } catch (error) {
-        console.error('Error fetching watchlist status:', error);
-        setStatus(prev => ({ 
-          ...prev, 
-          loading: false, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
-        }));
+        setInWatchlist(data.inWatchlist);
+        setWatchlists(data.watchlists || []);
       }
-    };
-    
-    fetchStatus();
-  }, [tmdbMovieId, token, isAuthenticated, refreshTrigger]);
-  
-  // Function to trigger a refresh
-  const refresh = () => {
-    setRefreshTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error(`Error checking watchlist status for movie ${movieId}:`, error);
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
+
+  // Add to watchlist
+  const addToWatchlist = async (movieData: { title: string, posterPath: string }) => {
+    if (!token || !movieId) return;
+
+    try {
+      const response = await fetch(
+        "http://localhost:8000/api/watchlists/quick-add",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            tmdbMovieId: movieId,
+            title: movieData.title,
+            posterPath: movieData.posterPath
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to add to watchlist');
+      }
+
+      setInWatchlist(true);
+      return await response.json();
+    } catch (error) {
+      console.error("Error adding to watchlist:", error);
+      throw error;
+    }
+  };
+
+  // Remove from watchlist
+  const removeFromWatchlist = async (watchlistId: number, itemId: number) => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/watchlists/categories/${watchlistId}/movies/${itemId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to remove from watchlist');
+      }
+
+      setInWatchlist(false);
+      return true;
+    } catch (error) {
+      console.error("Error removing from watchlist:", error);
+      throw error;
+    }
+  };
+
+  // Refresh watchlist status
+  const refresh = () => {
+    checkWatchlistStatus();
+  };
+
+  // Check status when movie id changes
+  useEffect(() => {
+    if (movieId && isAuthenticated) {
+      checkWatchlistStatus();
+    } else {
+      setInWatchlist(false);
+      setIsLoading(false);
+    }
+  }, [movieId, isAuthenticated, token]);
+
   return {
-    ...status,
+    inWatchlist,
+    isLoading,
+    watchlists,
+    addToWatchlist,
+    removeFromWatchlist,
     refresh
   };
-};
-
-export default useWatchlistStatus;
+}

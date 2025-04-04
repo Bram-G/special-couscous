@@ -1,5 +1,4 @@
-"use client";
-
+'use client'
 import React, { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -39,88 +38,18 @@ import MovieMondaySelector from "@/components/MovieMondaySelector";
 import EnhancedRecommendations from "@/components/MoviePage/EnhancedRecommendations";
 import ActorAnalyticsModal from "@/components/MoviePage/ActorAnalyticsModal";
 import { useDisclosure } from "@heroui/react";
+import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import "./moviePage.css";
-
-// Rating component to mimic the reference image
-const RatingBar = ({ rating, count = 0 }) => {
-  // Convert rating to percentage (for a 5-star scale)
-  const percentage = (rating / 5) * 100;
-
-  return (
-    <div className="flex flex-col items-center">
-      <div className="flex items-center w-full">
-        <div className="text-4xl font-bold mr-2">{rating.toFixed(1)}</div>
-        <div className="flex-1">
-          <div className="h-4 bg-default-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full"
-              style={{ width: `${percentage}%` }}
-            ></div>
-          </div>
-          <div className="text-xs text-default-500 mt-1">{count} ratings</div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Where to Watch logos component
-const StreamingServices = ({ providers }) => {
-  if (!providers || providers.length === 0) {
-    return (
-      <div className="text-default-500 text-sm py-2">
-        No streaming information available
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2 mt-2">
-      {providers.map((provider) => (
-        <Tooltip key={provider.provider_id} content={provider.provider_name}>
-          <div className="w-10 h-10 rounded-md overflow-hidden">
-            <Image
-              src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
-              alt={provider.provider_name}
-              className="w-full h-full object-cover"
-              removeWrapper
-            />
-          </div>
-        </Tooltip>
-      ))}
-    </div>
-  );
-};
-
-// Actor Stats Component
-const ActorStatsBadge = ({ actorName, stats }) => {
-  if (!stats || !stats.appearances || stats.appearances === 0) {
-    return null;
-  }
-
-  return (
-    <Badge
-      content={
-        <div className="flex items-center">
-          <span className="font-bold text-xs mr-1">{stats.appearances}</span>
-          {stats.wins > 0 && <Trophy className="h-3 w-3" />}
-        </div>
-      }
-      color={stats.wins > 0 ? "success" : "primary"}
-      placement="top-right"
-      size="sm"
-    />
-  );
-};
 
 export default function MoviePage() {
   const pathname = usePathname();
   const router = useRouter();
   const { token, isAuthenticated } = useAuth();
+  
+  // State
   const [movieId, setMovieId] = useState<string | null>(null);
   const [movieDetails, setMovieDetails] = useState(null);
   const [credits, setCredits] = useState({ cast: [], crew: [] });
-  const [isInWatchLater, setIsInWatchLater] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showMovieMondayModal, setShowMovieMondayModal] = useState(false);
   const [activeTab, setActiveTab] = useState("cast");
@@ -129,15 +58,25 @@ export default function MoviePage() {
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
   const [actorStats, setActorStats] = useState({});
   const [loadingActorStats, setLoadingActorStats] = useState(false);
-  const [watchlistModalOpen, setWatchlistModalOpen] = useState(false);
+  
+  // Use the new watchlist hook
+  const { 
+    inWatchlist,
+    isLoading: isLoadingWatchlist,
+    addToWatchlist,
+    removeFromWatchlist,
+    watchlists,
+    refresh: refreshWatchlist
+  } = useWatchlistStatus(movieId ? parseInt(movieId) : 0);
+  
+  // Modal states
   const {
     isOpen: isWatchlistModalOpen,
     onOpen: onWatchlistModalOpen,
     onClose: onWatchlistModalClose,
   } = useDisclosure();
-  const [isInWatchlist, setIsInWatchlist] = useState(false);
-
-  // State for actor analytics modal
+  
+  // Actor analytics modal states
   const [showActorAnalyticsModal, setShowActorAnalyticsModal] = useState(false);
   const [selectedActor, setSelectedActor] = useState(null);
 
@@ -167,12 +106,9 @@ export default function MoviePage() {
         // Fetch watch providers as well
         fetchWatchProviders(extractedId);
 
-        // Only check watchlist status after we have the movie details
-        if (isAuthenticated && token) {
-          setTimeout(() => {
-            // Use setTimeout to ensure this happens after state update
-            checkWatchLaterStatus(extractedId);
-          }, 100);
+        // Fetch actor statistics
+        if (data.credits && data.credits.cast && isAuthenticated && token) {
+          fetchActorStats(data.credits.cast);
         }
       } catch (error) {
         console.error("Error fetching movie details:", error);
@@ -184,85 +120,89 @@ export default function MoviePage() {
     fetchMovieDetails();
   }, [pathname, isAuthenticated, token]);
 
-  // Also add an effect to refresh watchlist status when auth changes
-  useEffect(() => {
-    if (movieId && isAuthenticated && token) {
-      checkWatchLaterStatus(movieId);
+  const handleAddToMovieMonday = async (movieMondayId: number) => {
+    if (!token || !movieId || !movieDetails?.title) {
+      console.error("Missing required data:", {
+        token: !!token,
+        movieId,
+        title: movieDetails?.title,
+      });
+      return;
     }
-  }, [isAuthenticated, token]);
-
-  // Fetch actor statistics from your analytics endpoint
-  const fetchActorStats = async (castList) => {
-    if (!token || !castList.length) return;
-
+  
     try {
-      setLoadingActorStats(true);
-
-      // This would be replaced with a real API endpoint that returns actor statistics
-      // For now, we'll simulate it with a timeout
-      const actorNames = castList.map((actor) => actor.name);
-
-      // In a real implementation, you would send this list to your backend
-      // and get back statistics about these actors from your group's watch history
       const response = await fetch(
-        "http://localhost:8000/api/movie-monday/all",
+        `http://localhost:8000/api/movie-monday/add-movie`,
         {
+          method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
+          body: JSON.stringify({
+            movieMondayId,
+            tmdbMovieId: parseInt(movieId),
+            title: movieDetails.title,
+            posterPath: movieDetails.poster_path,
+          }),
         }
       );
-
-      if (response.ok) {
-        const movieData = await response.json();
-
-        // Process the data to get actor statistics
-        const actorStatsMap = {};
-
-        actorNames.forEach((actorName) => {
-          // Initialize stats for all actors with zero values
-          actorStatsMap[actorName] = { appearances: 0, wins: 0, movies: [] };
-
-          // Go through all movie Mondays
-          movieData.forEach((movieMonday) => {
-            // Go through all movie selections
-            movieMonday.movieSelections.forEach((movie) => {
-              // Check if this actor is in the cast
-              const actorInCast =
-                movie.cast &&
-                movie.cast.some(
-                  (castMember) =>
-                    castMember.name.toLowerCase() === actorName.toLowerCase()
-                );
-
-              if (actorInCast) {
-                actorStatsMap[actorName].appearances++;
-                if (movie.isWinner) {
-                  actorStatsMap[actorName].wins++;
-                }
-
-                // Add movie details
-                actorStatsMap[actorName].movies.push({
-                  id: movie.tmdbMovieId,
-                  title: movie.title,
-                  posterPath: movie.posterPath,
-                  isWinner: movie.isWinner,
-                });
-              }
-            });
-          });
-        });
-
-        setActorStats(actorStatsMap);
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to add movie to Movie Monday");
       }
+  
+      return data;
     } catch (error) {
-      console.error("Error fetching actor stats:", error);
-    } finally {
-      setLoadingActorStats(false);
+      console.error("Error adding movie to Movie Monday:", error);
+      throw error;
     }
   };
-
+    // Toggle watchlist status
+    const toggleWatchlist = async () => {
+      if (!token || !movieId || loadingWatchlist) return;
+      
+      setLoadingWatchlist(true);
+      try {
+        if (inWatchlist) {
+          // If the movie is in watchlists, find the first one (usually default) to remove from
+          if (watchlists && watchlists.length > 0) {
+            // Find the default watchlist item or use the first one
+            const defaultEntry = watchlists.find(item => item.isDefault) || watchlists[0];
+            
+            // Remove from watchlist using our hook
+            await removeFromWatchlist(defaultEntry.watchlistId, defaultEntry.itemId);
+          }
+        } else {
+          // Add to watchlist using our hook
+          await addToWatchlist({
+            title: movieDetails?.title,
+            posterPath: movieDetails?.poster_path
+          });
+        }
+        
+        // Refresh the status
+        refreshWatchlist();
+      } catch (error) {
+        console.error("Error toggling watchlist:", error);
+      } finally {
+        setLoadingWatchlist(false);
+      }
+    };
+  
+    // Handle login redirection
+    const handleLoginRedirect = (action) => {
+      // Store the current URL for redirection after login
+      localStorage.setItem("redirectAfterLogin", window.location.pathname);
+  
+      // Add a flag for which action to perform after login
+      localStorage.setItem("postLoginAction", action);
+  
+      // Redirect to login page
+      router.push("/login");
+    };
   // Function to fetch watch providers
   const fetchWatchProviders = async (id) => {
     try {
@@ -289,205 +229,66 @@ export default function MoviePage() {
     }
   };
 
-  // Check if movie is in watch later list
-  const checkWatchLaterStatus = async (id) => {
-    if (!token) return;
+  // Fetch actor statistics from your analytics endpoint
+  const fetchActorStats = async (castList) => {
+    if (!token || !castList.length) return;
 
     try {
-      console.log(`Checking watchlist status for movie ID: ${id}`);
+      setLoadingActorStats(true);
+      const actorNames = castList.map((actor) => actor.name);
+
       const response = await fetch(
-        `http://localhost:8000/api/movie-monday/watch-later/status/${id}`,
+        "http://localhost:8000/api/movie-monday/all",
         {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          credentials: "include",
         }
       );
 
       if (response.ok) {
-        const data = await response.json();
-        console.log("Watch later status response:", data);
-        setIsInWatchLater(data.isInWatchLater);
-      } else {
-        console.error("Error response:", response.status, response.statusText);
-        // Don't update state on error to avoid flickering UI
-      }
-    } catch (error) {
-      console.error("Error checking watch later status:", error);
-    }
-  };
+        const movieData = await response.json();
+        const actorStatsMap = {};
 
-  const checkWatchlistStatus = async (movieId: number) => {
-    if (!token) return false;
-    
-    try {
-      const response = await fetch(
-        `http://localhost:8000/api/watchlists/status/${movieId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
-        }
-      );
-  
-      if (response.ok) {
-        const data = await response.json();
-        return data.inWatchlist;
-      }
-      return false;
-    } catch (error) {
-      console.error(`Error checking watchlist status for movie ${movieId}:`, error);
-      return false;
-    }
-  };
+        actorNames.forEach((actorName) => {
+          actorStatsMap[actorName] = { appearances: 0, wins: 0, movies: [] };
 
-  // Toggle watch later status
-  const toggleWatchlist = async () => {
-    if (!token || !movieId || loadingWatchlist) return;
-  
-    setLoadingWatchlist(true);
-    try {
-      if (isInWatchlist) {
-        // Get default watchlist ID first
-        const watchlistResponse = await fetch(
-          `http://localhost:8000/api/watchlists/status/${movieId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-          }
-        );
-  
-        if (!watchlistResponse.ok) {
-          throw new Error(`HTTP error! status: ${watchlistResponse.status}`);
-        }
-  
-        const watchlistData = await watchlistResponse.json();
-        
-        if (watchlistData.inWatchlist && watchlistData.watchlists.length > 0) {
-          // Find the default watchlist item (or just use the first one)
-          const defaultEntry = watchlistData.watchlists.find(item => item.isDefault) || 
-                               watchlistData.watchlists[0];
-          
-          // Remove from watchlist using the item ID
-          const deleteResponse = await fetch(
-            `http://localhost:8000/api/watchlists/categories/${defaultEntry.watchlistId}/movies/${defaultEntry.itemId}`,
-            {
-              method: "DELETE",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              },
-              credentials: 'include'
-            }
-          );
-  
-          if (!deleteResponse.ok) {
-            throw new Error(`Failed to delete movie: ${deleteResponse.status}`);
-          }
-          
-          setIsInWatchlist(false);
-        } else {
-          console.error('Movie found in watch later status but not in watchlists');
-          // Refresh status to be sure
-          await checkWatchlistStatus(movieId);
-        }
-      } else {
-        // Use the quick add endpoint for simplicity
-        const addResponse = await fetch(
-          "http://localhost:8000/api/watchlists/quick-add",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": 'application/json'
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              tmdbMovieId: parseInt(movieId),
-              title: movieDetails?.title,
-              posterPath: movieDetails?.poster_path
-            }),
-          }
-        );
-  
-        if (!addResponse.ok) {
-          const errorData = await addResponse.json();
-          throw new Error(`Failed to add movie: ${addResponse.status} - ${errorData.message || 'Unknown error'}`);
-        }
-        
-        setIsInWatchlist(true);
+          movieData.forEach((movieMonday) => {
+            movieMonday.movieSelections.forEach((movie) => {
+              const actorInCast =
+                movie.cast &&
+                movie.cast.some(
+                  (castMember) =>
+                    castMember.name.toLowerCase() === actorName.toLowerCase()
+                );
+
+              if (actorInCast) {
+                actorStatsMap[actorName].appearances++;
+                if (movie.isWinner) {
+                  actorStatsMap[actorName].wins++;
+                }
+
+                actorStatsMap[actorName].movies.push({
+                  id: movie.tmdbMovieId,
+                  title: movie.title,
+                  posterPath: movie.posterPath,
+                  isWinner: movie.isWinner,
+                });
+              }
+            });
+          });
+        });
+
+        setActorStats(actorStatsMap);
       }
     } catch (error) {
-      console.error("Error toggling watchlist:", error);
-      // Refresh status to be sure
-      await checkWatchlistStatus(movieId);
+      console.error("Error fetching actor stats:", error);
     } finally {
-      setLoadingWatchlist(false);
+      setLoadingActorStats(false);
     }
   };
-
-  // Handle login redirection
-  const handleLoginRedirect = (action) => {
-    // Store the current URL for redirection after login
-    localStorage.setItem("redirectAfterLogin", window.location.pathname);
-
-    // Add a flag for which action to perform after login
-    localStorage.setItem("postLoginAction", action);
-
-    // Redirect to login page
-    router.push("/login");
-  };
-
-  // Handle adding movie to Movie Monday
-  const handleAddToMovieMonday = async (movieMondayId) => {
-    if (!token || !movieId || !movieDetails?.title) {
-      console.error("Missing required data:", {
-        token: !!token,
-        movieId,
-        title: movieDetails?.title,
-      });
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `http://localhost:8000/api/movie-monday/add-movie`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            movieMondayId,
-            tmdbMovieId: parseInt(movieId),
-            title: movieDetails.title,
-            posterPath: movieDetails.poster_path,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to add movie to Movie Monday");
-      }
-
-      console.log("Movie added successfully:", data);
-      return data;
-    } catch (error) {
-      console.error("Error adding movie to Movie Monday:", error);
-      throw error;
-    }
-  };
-
+  
   // Format runtime to hours and minutes
   const formatRuntime = (minutes) => {
     if (!minutes) return "Unknown";
@@ -512,6 +313,28 @@ export default function MoviePage() {
     if (!dateString) return "";
     return new Date(dateString).getFullYear();
   };
+  // Rating component to mimic the reference image
+const RatingBar = ({ rating, count = 0 }) => {
+  // Convert rating to percentage (for a 5-star scale)
+  const percentage = (rating / 5) * 100;
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="flex items-center w-full">
+        <div className="text-4xl font-bold mr-2">{rating.toFixed(1)}</div>
+        <div className="flex-1">
+          <div className="h-4 bg-default-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full"
+              style={{ width: `${percentage}%` }}
+            ></div>
+          </div>
+          <div className="text-xs text-default-500 mt-1">{count} ratings</div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   // Get directors from crew
   const getDirectors = () => {
@@ -593,7 +416,7 @@ export default function MoviePage() {
         {/* Content container */}
         <div className="container mx-auto px-4 h-full relative z-10">
           <div className="flex flex-col md:flex-row items-end h-full pb-10">
-            {/* Poster - FIXED: Moved inside hero section only */}
+            {/* Poster */}
             <div className="hidden md:block w-64 flex-shrink-0 shadow-xl rounded-lg overflow-hidden">
               <Image
                 src={posterUrl}
@@ -654,15 +477,15 @@ export default function MoviePage() {
               {/* Action buttons for mobile */}
               <div className="flex md:hidden gap-2 mt-4">
                 <Button
-                  color={isInWatchlist ? "success" : "primary"}
+                  color={inWatchlist ? "success" : "primary"}
                   variant="solid"
                   startContent={
-                    <Heart className={isInWatchlist ? "fill-current" : ""} />
+                    <Heart className={inWatchlist ? "fill-current" : ""} />
                   }
                   onPress={toggleWatchlist}
-                  isLoading={loadingWatchlist}
+                  isLoading={loadingWatchlist || isLoadingWatchlist}
                 >
-                  {isInWatchlist ? "In Watchlist" : "Add to Watchlist"}
+                  {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
                 </Button>
 
                 <Button
@@ -746,9 +569,16 @@ export default function MoviePage() {
                             {/* Actor Statistics Badge */}
                             {actorStats[person.name] &&
                               actorStats[person.name].appearances > 0 && (
-                                <ActorStatsBadge
-                                  actorName={person.name}
-                                  stats={actorStats[person.name]}
+                                <Badge
+                                  content={
+                                    <div className="flex items-center">
+                                      <span className="font-bold text-xs mr-1">{actorStats[person.name].appearances}</span>
+                                      {actorStats[person.name].wins > 0 && <Trophy className="h-3 w-3" />}
+                                    </div>
+                                  }
+                                  color={actorStats[person.name].wins > 0 ? "success" : "primary"}
+                                  placement="top-right"
+                                  size="sm"
                                 />
                               )}
                           </div>
@@ -892,7 +722,7 @@ export default function MoviePage() {
                         <h3 className="text-default-500 text-sm">Budget</h3>
                         <p className="font-medium">
                           {movieDetails.budget > 0
-                            ? `$${movieDetails.budget.toLocaleString()}`
+                            ? `${movieDetails.budget.toLocaleString()}`
                             : "Not specified"}
                         </p>
                       </div>
@@ -901,7 +731,7 @@ export default function MoviePage() {
                         <h3 className="text-default-500 text-sm">Revenue</h3>
                         <p className="font-medium">
                           {movieDetails.revenue > 0
-                            ? `$${movieDetails.revenue.toLocaleString()}`
+                            ? `${movieDetails.revenue.toLocaleString()}`
                             : "Not specified"}
                         </p>
                       </div>
@@ -1048,15 +878,15 @@ export default function MoviePage() {
             {/* Action buttons (desktop) */}
             <div className="hidden md:flex flex-col gap-3">
               <Button
-                color={isInWatchlist ? "success" : "primary"}
+                color={inWatchlist ? "success" : "primary"}
                 variant="solid"
                 startContent={
-                  <Heart className={isInWatchlist ? "fill-current" : ""} />
+                  <Heart className={inWatchlist ? "fill-current" : ""} />
                 }
                 onPress={toggleWatchlist}
-                isLoading={loadingWatchlist}
+                isLoading={loadingWatchlist || isLoadingWatchlist}
               >
-                {isInWatchlist ? "In Watchlist" : "Add to Watchlist"}
+                {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
               </Button>
 
               <Button
@@ -1087,6 +917,7 @@ export default function MoviePage() {
               </Button>
             </div>
 
+          
             {/* Ratings card with improved analytics content */}
             <Card className="mt-6">
               <CardHeader>
@@ -1328,7 +1159,8 @@ export default function MoviePage() {
           </div>
         </div>
       </div>
-      {movieDetails && (
+            {/* AddToWatchlist Modal */}
+            {movieDetails && (
         <AddToWatchlistModal
           isOpen={isWatchlistModalOpen}
           onClose={onWatchlistModalClose}
@@ -1338,23 +1170,11 @@ export default function MoviePage() {
             posterPath: movieDetails.poster_path,
           }}
           onSuccess={() => {
-            setIsInWatchlist(true);
+            refreshWatchlist();
           }}
         />
       )}
-      <AddToWatchlistModal
-        isOpen={watchlistModalOpen}
-        onClose={() => setWatchlistModalOpen(false)}
-        movieDetails={{
-          id: parseInt(movieId),
-          title: movieDetails?.title,
-          posterPath: movieDetails?.poster_path,
-        }}
-        onSuccess={() => {
-          setIsInWatchLater(true);
-          setWatchlistModalOpen(false);
-        }}
-      />
+
       {/* Movie Monday Selector Modal */}
       <MovieMondaySelector
         isOpen={showMovieMondayModal}
@@ -1372,5 +1192,6 @@ export default function MoviePage() {
         />
       )}
     </div>
+    
   );
-}
+};
