@@ -41,6 +41,7 @@ import { useDisclosure } from "@heroui/react";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import StreamingServices from "@/components/MoviePage/StreamingServices";
 import RatingBar from "@/components/MoviePage/RatingBar";
+import WatchlistSplitButton from "@/components/Watchlist/WatchlistSplitButton";
 import "./moviePage.css";
 
 export default function MoviePage() {
@@ -561,17 +562,14 @@ export default function MoviePage() {
 
               {/* Action buttons for mobile */}
               <div className="flex md:hidden gap-2 mt-4">
-                <Button
-                  color={inWatchlist ? "success" : "primary"}
-                  variant="solid"
-                  startContent={
-                    <Heart className={inWatchlist ? "fill-current" : ""} />
-                  }
-                  onPress={toggleWatchlist}
-                  isLoading={loadingWatchlist || isLoadingWatchlist} // Use isLoadingWatchlist instead of isLoading
-                >
-                  {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
-                </Button>
+                <WatchlistSplitButton
+                  movie={{
+                    id: parseInt(movieId),
+                    title: movieDetails.title,
+                    posterPath: movieDetails.poster_path,
+                  }}
+                  onSuccess={() => refreshWatchlist()}
+                />
 
                 <Button
                   color="secondary"
@@ -970,17 +968,14 @@ export default function MoviePage() {
           <div className="w-full md:w-1/3">
             {/* Action buttons (desktop) */}
             <div className="hidden md:flex flex-col gap-3">
-              <Button
-                color={inWatchlist ? "success" : "primary"}
-                variant="solid"
-                startContent={
-                  <Heart className={inWatchlist ? "fill-current" : ""} />
-                }
-                onPress={toggleWatchlist}
-                isLoading={loadingWatchlist || isLoadingWatchlist}
-              >
-                {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
-              </Button>
+              <WatchlistSplitButton
+                movie={{
+                  id: parseInt(movieId),
+                  title: movieDetails.title,
+                  posterPath: movieDetails.poster_path,
+                }}
+                onSuccess={() => refreshWatchlist()}
+              />
 
               <Button
                 color="secondary"

@@ -1,4 +1,4 @@
-// MovieMonday/components/Watchlist/AddToWatchlistModal.tsx
+// Enhanced AddToWatchlistModal with multiple selection support
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -8,14 +8,13 @@ import {
   ModalFooter,
   Button,
   Spinner,
-  RadioGroup,
-  Radio,
+  Checkbox,
+  CheckboxGroup,
   useDisclosure,
   Input,
-  Divider,
-  Checkbox
+  Divider
 } from "@heroui/react";
-import { Plus, Heart, ArrowRightCircle } from "lucide-react";
+import { Plus, Heart } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 
 interface WatchlistCategory {
@@ -48,18 +47,20 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
   const [watchlists, setWatchlists] = useState<WatchlistCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(null);
+  const [selectedWatchlists, setSelectedWatchlists] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showNewWatchlistForm, setShowNewWatchlistForm] = useState(false);
   const [newWatchlistName, setNewWatchlistName] = useState('');
   const [newWatchlistDescription, setNewWatchlistDescription] = useState('');
   const [newWatchlistIsPublic, setNewWatchlistIsPublic] = useState(false);
   const [createWatchlistLoading, setCreateWatchlistLoading] = useState(false);
+  const [movieWatchlistStatus, setMovieWatchlistStatus] = useState<{[key: string]: boolean}>({});
 
   // Fetch watchlists when the modal opens
   useEffect(() => {
     if (isOpen && token) {
       fetchWatchlists();
+      checkMovieWatchlistStatus();
     }
   }, [isOpen, token]);
 
@@ -81,9 +82,12 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
         const data = await response.json();
         setWatchlists(data);
         
-        // If there's at least one watchlist, select the first one by default
+        // If there's at least one watchlist, select the default one
         if (data.length > 0) {
-          setSelectedWatchlist(data[0].id.toString());
+          const defaultWatchlist = data.find(w => w.name === 'My Watchlist');
+          if (defaultWatchlist) {
+            setSelectedWatchlists([defaultWatchlist.id.toString()]);
+          }
         }
       } else {
         setError('Failed to fetch watchlists');
@@ -96,14 +100,51 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
     }
   };
 
-  const handleAddToWatchlist = async () => {
-    if (!token || !selectedWatchlist || !movieDetails) return;
+  // Check which watchlists already contain this movie
+  const checkMovieWatchlistStatus = async () => {
+    if (!token || !movieDetails.id) return;
+    
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/watchlists/status/${movieDetails.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.inWatchlist && data.watchlists) {
+          // Create a map of watchlist IDs to status
+          const statusMap = {};
+          data.watchlists.forEach(w => {
+            statusMap[w.watchlistId] = true;
+          });
+          setMovieWatchlistStatus(statusMap);
+          
+          // Set initial selections based on current status
+          setSelectedWatchlists(
+            data.watchlists.map(w => w.watchlistId.toString())
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error checking movie watchlist status:', error);
+    }
+  };
+
+  const handleAddToWatchlists = async () => {
+    if (!token || !selectedWatchlists.length || !movieDetails) return;
 
     try {
       setSubmitting(true);
       setError(null);
 
-      const response = await fetch(`http://localhost:8000/api/watchlists/categories/${selectedWatchlist}/movies`, {
+      const response = await fetch(`http://localhost:8000/api/watchlists/add-to-watchlists`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -112,7 +153,8 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
         body: JSON.stringify({
           tmdbMovieId: movieDetails.id,
           title: movieDetails.title,
-          posterPath: movieDetails.posterPath
+          posterPath: movieDetails.posterPath,
+          categoryIds: selectedWatchlists.map(id => parseInt(id))
         })
       });
 
@@ -121,16 +163,10 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
         onClose();
       } else {
         const errorData = await response.json();
-        
-        // Special handling for already-in-watchlist case
-        if (response.status === 409) {
-          setError('This movie is already in the selected watchlist');
-        } else {
-          setError(errorData.message || 'Failed to add movie to watchlist');
-        }
+        setError(errorData.message || 'Failed to add movie to watchlists');
       }
     } catch (err) {
-      console.error('Error adding to watchlist:', err);
+      console.error('Error adding to watchlists:', err);
       setError('An error occurred while adding the movie');
     } finally {
       setSubmitting(false);
@@ -162,7 +198,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
         
         // Add the new watchlist to the list and select it
         setWatchlists(prev => [...prev, newWatchlist]);
-        setSelectedWatchlist(newWatchlist.id.toString());
+        setSelectedWatchlists(prev => [...prev, newWatchlist.id.toString()]);
         
         // Reset form and hide it
         setNewWatchlistName('');
@@ -226,22 +262,30 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
             <>
               {!showNewWatchlistForm && (
                 <>
-                  <p className="text-sm font-medium mb-2">Select a watchlist:</p>
-                  <RadioGroup
-                    value={selectedWatchlist}
-                    onValueChange={setSelectedWatchlist}
+                  <p className="text-sm font-medium mb-2">Select watchlists:</p>
+                  <CheckboxGroup
+                    value={selectedWatchlists}
+                    onValueChange={setSelectedWatchlists}
                     className="gap-2"
                   >
                     {watchlists.map((watchlist) => (
-                      <Radio 
+                      <Checkbox 
                         key={watchlist.id} 
                         value={watchlist.id.toString()}
-                        description={`${watchlist.moviesCount} movies`}
+                        isDisabled={movieWatchlistStatus[watchlist.id]}
                       >
-                        {watchlist.name}
-                      </Radio>
+                        <div className="flex justify-between items-center w-full">
+                          <span>{watchlist.name}</span>
+                          {movieWatchlistStatus[watchlist.id] && (
+                            <span className="text-xs text-success ml-2">Already added</span>
+                          )}
+                          <span className="text-xs text-default-500 ml-auto">
+                            {watchlist.moviesCount} movies
+                          </span>
+                        </div>
+                      </Checkbox>
                     ))}
-                  </RadioGroup>
+                  </CheckboxGroup>
                   
                   <Button
                     className="mt-4 w-full"
@@ -313,12 +357,12 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
           </Button>
           <Button
             color="primary"
-            onPress={handleAddToWatchlist}
+            onPress={handleAddToWatchlists}
             isLoading={submitting}
-            isDisabled={!selectedWatchlist || loading || showNewWatchlistForm}
+            isDisabled={!selectedWatchlists.length || loading || showNewWatchlistForm}
             startContent={<Heart />}
           >
-            Add to Watchlist
+            Add to Selected Watchlists
           </Button>
         </ModalFooter>
       </ModalContent>
