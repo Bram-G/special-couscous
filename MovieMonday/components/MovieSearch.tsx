@@ -169,5 +169,3 @@ export const MovieSearch = () => {
     </div>
   );
 };
-
-export default MovieSearch;

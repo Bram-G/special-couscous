@@ -1,9 +1,10 @@
+// Updated MovieCarouselRow.tsx with fixed height and improved layout
 import React, { useState, useRef, useEffect } from "react";
 import { Card, Image, Button, Spinner, useDisclosure } from "@heroui/react";
 import { Heart, ChevronLeft, ChevronRight, Eye, Info } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation"; // Add router import
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import AddToWatchlistModal from "../Watchlist/AddToWatchlistModal";
 
@@ -39,7 +40,7 @@ const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
   onAddToWatchlist,
   reason,
 }) => {
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
   const { token, isAuthenticated } = useAuth();
   const [hoveredMovieId, setHoveredMovieId] = useState<number | null>(null);
   const [watchlistStatus, setWatchlistStatus] = useState<
@@ -277,30 +278,38 @@ const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
               className="relative flex-none w-48 transition-opacity duration-300"
               onMouseEnter={() => setHoveredMovieId(movie.id)}
               onMouseLeave={() => setHoveredMovieId(null)}
-              style={{
-                height: "318px",
-              }} /* Fixed height to prevent layout shifts */
             >
               {/* Movie card with poster */}
-              <Card className="w-full h-72 overflow-hidden">
-                {/* Movie poster image */}
-                <Image
-                  src={
-                    movie.poster_path
-                      ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                      : "/placeholder-poster.jpg"
-                  }
-                  alt={movie.title}
-                  className="w-full h-full object-cover transition-transform duration-300 cursor-pointer hover:scale-105"
-                  onClick={() => window.open(`/movie/${movie.id}`, "_blank")}
-                  removeWrapper
-                />
+              <div className="w-full" style={{ height: "360px" }}> {/* Fixed height container */}
+                <div className="h-72 overflow-hidden rounded-md">
+                  <Image
+                    src={
+                      movie.poster_path
+                        ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                        : "/placeholder-poster.jpg"
+                    }
+                    alt={movie.title}
+                    className="w-full h-full object-cover transition-transform duration-300 cursor-pointer hover:scale-105"
+                    onClick={() => window.open(`/movie/${movie.id}`, "_blank")}
+                    removeWrapper
+                  />
+                </div>
+
+                {/* Movie title shown below poster */}
+                <div className="mt-2 w-full px-1">
+                  <p className="text-sm font-medium line-clamp-1">{movie.title}</p>
+                  {movie.release_date && (
+                    <p className="text-xs text-default-500">
+                      {getReleaseYear(movie.release_date)}
+                    </p>
+                  )}
+                </div>
 
                 {/* Hover menu - with AnimatePresence for clean animations */}
                 <AnimatePresence>
                   {hoveredMovieId === movie.id && (
                     <motion.div
-                      className="absolute left-0 right-0 bottom-0 z-50"
+                      className="absolute left-0 right-0 bottom-[72px] z-50"
                       initial={{ y: "100%" }}
                       animate={{ y: 0 }}
                       exit={{ y: "100%" }}
@@ -389,16 +398,6 @@ const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </Card>
-
-              {/* Movie title shown below poster */}
-              <div className="mt-2 w-full px-1">
-                <p className="text-sm font-medium truncate">{movie.title}</p>
-                {movie.release_date && (
-                  <p className="text-xs text-default-500">
-                    {getReleaseYear(movie.release_date)}
-                  </p>
-                )}
               </div>
             </div>
           ))}
