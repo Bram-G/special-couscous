@@ -28,7 +28,6 @@ import {
   Tag,
   Globe,
   PlayCircle,
-  LinkIcon,
   Trophy,
   ExternalLink,
 } from "lucide-react";
@@ -41,7 +40,6 @@ import { useDisclosure } from "@heroui/react";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import StreamingServices from "@/components/MoviePage/StreamingServices";
 import RatingBar from "@/components/MoviePage/RatingBar";
-import WatchlistSplitButton from "@/components/Watchlist/WatchlistSplitButton";
 import "./moviePage.css";
 
 export default function MoviePage() {
@@ -62,7 +60,7 @@ export default function MoviePage() {
   const [actorStats, setActorStats] = useState({});
   const [loadingActorStats, setLoadingActorStats] = useState(false);
 
-  // Use the new watchlist hook
+  // Use the watchlist hook
   const {
     inWatchlist,
     inDefaultWatchlist,
@@ -163,6 +161,7 @@ export default function MoviePage() {
       throw error;
     }
   };
+  
   // Toggle watchlist status
   const toggleWatchlist = async () => {
     if (!token || !movieId || loadingWatchlist) return;
@@ -249,46 +248,6 @@ export default function MoviePage() {
     }
   };
 
-  const checkWatchlistStatus = async (movieId: number): Promise<boolean> => {
-    if (!token) return false;
-
-    try {
-      const response = await fetch(
-        `http://localhost:8000/api/watchlists/status/${movieId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        return data.inWatchlist;
-      }
-      return false;
-    } catch (error) {
-      console.error(
-        `Error checking watchlist status for movie ${movieId}:`,
-        error
-      );
-      return false;
-    }
-  };
-
-  // Handle login redirection
-  const handleLoginRedirect = (action) => {
-    // Store the current URL for redirection after login
-    localStorage.setItem("redirectAfterLogin", window.location.pathname);
-
-    // Add a flag for which action to perform after login
-    localStorage.setItem("postLoginAction", action);
-
-    // Redirect to login page
-    router.push("/login");
-  };
   // Function to fetch watch providers
   const fetchWatchProviders = async (id) => {
     try {
@@ -375,6 +334,18 @@ export default function MoviePage() {
     }
   };
 
+  // Handle login redirection
+  const handleLoginRedirect = (action) => {
+    // Store the current URL for redirection after login
+    localStorage.setItem("redirectAfterLogin", window.location.pathname);
+
+    // Add a flag for which action to perform after login
+    localStorage.setItem("postLoginAction", action);
+
+    // Redirect to login page
+    router.push("/login");
+  };
+
   // Format runtime to hours and minutes
   const formatRuntime = (minutes) => {
     if (!minutes) return "Unknown";
@@ -398,28 +369,6 @@ export default function MoviePage() {
   const getReleaseYear = (dateString) => {
     if (!dateString) return "";
     return new Date(dateString).getFullYear();
-  };
-  // Rating component to mimic the reference image
-  const RatingBar = ({ rating, count = 0 }) => {
-    // Convert rating to percentage (for a 5-star scale)
-    const percentage = (rating / 5) * 100;
-
-    return (
-      <div className="flex flex-col items-center">
-        <div className="flex items-center w-full">
-          <div className="text-4xl font-bold mr-2">{rating.toFixed(1)}</div>
-          <div className="flex-1">
-            <div className="h-4 bg-default-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full"
-                style={{ width: `${percentage}%` }}
-              ></div>
-            </div>
-            <div className="text-xs text-default-500 mt-1">{count} ratings</div>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   // Get directors from crew
@@ -562,14 +511,17 @@ export default function MoviePage() {
 
               {/* Action buttons for mobile */}
               <div className="flex md:hidden gap-2 mt-4">
-                <WatchlistSplitButton
-                  movie={{
-                    id: parseInt(movieId),
-                    title: movieDetails.title,
-                    posterPath: movieDetails.poster_path,
-                  }}
-                  onSuccess={() => refreshWatchlist()}
-                />
+                <Button
+                  color={inWatchlist ? "success" : "primary"}
+                  variant="solid"
+                  startContent={
+                    <Heart className={inWatchlist ? "fill-current" : ""} />
+                  }
+                  onPress={toggleWatchlist}
+                  isLoading={loadingWatchlist || isLoadingWatchlist}
+                >
+                  {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
+                </Button>
 
                 <Button
                   color="secondary"
@@ -613,24 +565,68 @@ export default function MoviePage() {
               <p>{movieDetails.overview}</p>
             </div>
 
-            {/* Tabs */}
-            <Tabs
-              aria-label="Movie information"
-              selectedKey={activeTab}
-              onSelectionChange={setActiveTab}
-              className="mb-6"
-            >
-              <Tab
-                key="cast"
-                title={
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    <span>Cast</span>
-                  </div>
-                }
-              >
-                <Card>
-                  <CardBody>
+            {/* Cast, Crew, and Details Section with integrated tabs */}
+            <Card className="mb-6">
+              <CardBody className="p-0">
+                {/* Tabs Navigation */}
+                <Tabs
+                  aria-label="Movie information"
+                  selectedKey={activeTab}
+                  onSelectionChange={setActiveTab}
+                  className="py-4 justify-center"
+                >
+                  <Tab
+                    key="cast"
+                    title={
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        <span>Cast</span>
+                      </div>
+                    }
+                  />
+                  <Tab
+                    key="crew"
+                    title={
+                      <div className="flex items-center gap-2">
+                        <Film className="w-4 h-4" />
+                        <span>Crew</span>
+                      </div>
+                    }
+                  />
+                  <Tab
+                    key="details"
+                    title={
+                      <div className="flex items-center gap-2">
+                        <Info className="w-4 h-4" />
+                        <span>Details</span>
+                      </div>
+                    }
+                  />
+                  <Tab
+                    key="genres"
+                    title={
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4" />
+                        <span>Genres</span>
+                      </div>
+                    }
+                  />
+                  <Tab
+                    key="releases"
+                    title={
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4" />
+                        <span>Releases</span>
+                      </div>
+                    }
+                  />
+                </Tabs>
+                
+                <Divider className="my-2" />
+                
+                {/* Tab Content */}
+                <div className="p-4">
+                  {activeTab === "cast" && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {credits.cast?.slice(0, 16).map((person) => (
                         <div
@@ -691,196 +687,149 @@ export default function MoviePage() {
                         </div>
                       ))}
                     </div>
+                  )}
 
-                    {credits.cast?.length > 16 && (
-                      <Button variant="light" className="mt-4 mx-auto">
-                        View All Cast
-                      </Button>
-                    )}
+                  {activeTab === "crew" && (
+                    <>
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold mb-3">Directors</h3>
+                        <div className="flex flex-wrap gap-4">
+                          {getDirectors().map((person) => (
+                            <div
+                              key={person.id}
+                              className="flex items-center gap-3"
+                            >
+                              <Avatar
+                                src={
+                                  person.profile_path
+                                    ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
+                                    : null
+                                }
+                                name={person.name}
+                                className="w-12 h-12"
+                              />
+                              <div>
+                                <p className="font-medium">{person.name}</p>
+                                <p className="text-xs text-default-500">
+                                  Director
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
 
-                    <div className="mt-6 text-sm text-center text-default-500">
-                      <p>
-                        Click on an actor to see their Movie Monday statistics.
-                      </p>
-                      {loadingActorStats && (
-                        <p className="mt-2">Loading actor statistics...</p>
+                      <Divider />
+
+                      <div className="mt-6">
+                        <h3 className="text-lg font-semibold mb-3">Writers</h3>
+                        <div className="flex flex-wrap gap-4">
+                          {getWriters().map((person) => (
+                            <div
+                              key={`${person.id}-${person.job}`}
+                              className="flex items-center gap-3"
+                            >
+                              <Avatar
+                                src={
+                                  person.profile_path
+                                    ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
+                                    : null
+                                }
+                                name={person.name}
+                                className="w-12 h-12"
+                              />
+                              <div>
+                                <p className="font-medium">{person.name}</p>
+                                <p className="text-xs text-default-500">
+                                  {person.job}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {activeTab === "details" && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="text-default-500 text-sm">Status</h3>
+                          <p className="font-medium">{movieDetails.status}</p>
+                        </div>
+
+                        <div>
+                          <h3 className="text-default-500 text-sm">
+                            Original Language
+                          </h3>
+                          <p className="font-medium">
+                            {movieDetails.original_language?.toUpperCase() ||
+                              "Unknown"}
+                          </p>
+                        </div>
+
+                        <div>
+                          <h3 className="text-default-500 text-sm">Budget</h3>
+                          <p className="font-medium">
+                            {movieDetails.budget > 0
+                              ? `${movieDetails.budget.toLocaleString()}`
+                              : "Not specified"}
+                          </p>
+                        </div>
+
+                        <div>
+                          <h3 className="text-default-500 text-sm">Revenue</h3>
+                          <p className="font-medium">
+                            {movieDetails.revenue > 0
+                              ? `${movieDetails.revenue.toLocaleString()}`
+                              : "Not specified"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {movieDetails.production_companies?.length > 0 && (
+                        <>
+                          <Divider />
+                          <div>
+                            <h3 className="text-default-500 text-sm mb-2">
+                              Production Companies
+                            </h3>
+                            <div className="flex flex-wrap gap-4">
+                              {movieDetails.production_companies.map(
+                                (company) => (
+                                  <div
+                                    key={company.id}
+                                    className="flex flex-col items-center"
+                                  >
+                                    {company.logo_path ? (
+                                      <Image
+                                        src={`https://image.tmdb.org/t/p/w92${company.logo_path}`}
+                                        alt={company.name}
+                                        className="h-12 object-contain mb-1"
+                                        removeWrapper
+                                      />
+                                    ) : (
+                                      <div className="h-12 w-24 bg-default-100 flex items-center justify-center rounded mb-1">
+                                        <span className="text-xs text-default-500">
+                                          No logo
+                                        </span>
+                                      </div>
+                                    )}
+                                    <p className="text-xs text-center">
+                                      {company.name}
+                                    </p>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        </>
                       )}
                     </div>
-                  </CardBody>
-                </Card>
-              </Tab>
+                  )}
 
-              <Tab
-                key="crew"
-                title={
-                  <div className="flex items-center gap-2">
-                    <Film className="w-4 h-4" />
-                    <span>Crew</span>
-                  </div>
-                }
-              >
-                <Card>
-                  <CardBody>
-                    <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-3">Directors</h3>
-                      <div className="flex flex-wrap gap-4">
-                        {getDirectors().map((person) => (
-                          <div
-                            key={person.id}
-                            className="flex items-center gap-3"
-                          >
-                            <Avatar
-                              src={
-                                person.profile_path
-                                  ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
-                                  : null
-                              }
-                              name={person.name}
-                              className="w-12 h-12"
-                            />
-                            <div>
-                              <p className="font-medium">{person.name}</p>
-                              <p className="text-xs text-default-500">
-                                Director
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Divider />
-
-                    <div className="mt-6">
-                      <h3 className="text-lg font-semibold mb-3">Writers</h3>
-                      <div className="flex flex-wrap gap-4">
-                        {getWriters().map((person) => (
-                          <div
-                            key={`${person.id}-${person.job}`}
-                            className="flex items-center gap-3"
-                          >
-                            <Avatar
-                              src={
-                                person.profile_path
-                                  ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
-                                  : null
-                              }
-                              name={person.name}
-                              className="w-12 h-12"
-                            />
-                            <div>
-                              <p className="font-medium">{person.name}</p>
-                              <p className="text-xs text-default-500">
-                                {person.job}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CardBody>
-                </Card>
-              </Tab>
-
-              <Tab
-                key="details"
-                title={
-                  <div className="flex items-center gap-2">
-                    <Info className="w-4 h-4" />
-                    <span>Details</span>
-                  </div>
-                }
-              >
-                <Card>
-                  <CardBody className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="text-default-500 text-sm">Status</h3>
-                        <p className="font-medium">{movieDetails.status}</p>
-                      </div>
-
-                      <div>
-                        <h3 className="text-default-500 text-sm">
-                          Original Language
-                        </h3>
-                        <p className="font-medium">
-                          {movieDetails.original_language?.toUpperCase() ||
-                            "Unknown"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h3 className="text-default-500 text-sm">Budget</h3>
-                        <p className="font-medium">
-                          {movieDetails.budget > 0
-                            ? `${movieDetails.budget.toLocaleString()}`
-                            : "Not specified"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h3 className="text-default-500 text-sm">Revenue</h3>
-                        <p className="font-medium">
-                          {movieDetails.revenue > 0
-                            ? `${movieDetails.revenue.toLocaleString()}`
-                            : "Not specified"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {movieDetails.production_companies?.length > 0 && (
-                      <>
-                        <Divider />
-                        <div>
-                          <h3 className="text-default-500 text-sm mb-2">
-                            Production Companies
-                          </h3>
-                          <div className="flex flex-wrap gap-4">
-                            {movieDetails.production_companies.map(
-                              (company) => (
-                                <div
-                                  key={company.id}
-                                  className="flex flex-col items-center"
-                                >
-                                  {company.logo_path ? (
-                                    <Image
-                                      src={`https://image.tmdb.org/t/p/w92${company.logo_path}`}
-                                      alt={company.name}
-                                      className="h-12 object-contain mb-1"
-                                      removeWrapper
-                                    />
-                                  ) : (
-                                    <div className="h-12 w-24 bg-default-100 flex items-center justify-center rounded mb-1">
-                                      <span className="text-xs text-default-500">
-                                        No logo
-                                      </span>
-                                    </div>
-                                  )}
-                                  <p className="text-xs text-center">
-                                    {company.name}
-                                  </p>
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </CardBody>
-                </Card>
-              </Tab>
-
-              <Tab
-                key="genres"
-                title={
-                  <div className="flex items-center gap-2">
-                    <Tag className="w-4 h-4" />
-                    <span>Genres</span>
-                  </div>
-                }
-              >
-                <Card>
-                  <CardBody>
+                  {activeTab === "genres" && (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {movieDetails.genres?.map((genre) => (
                         <div
@@ -894,68 +843,58 @@ export default function MoviePage() {
                         </div>
                       ))}
                     </div>
-                  </CardBody>
-                </Card>
-              </Tab>
+                  )}
 
-              <Tab
-                key="releases"
-                title={
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4" />
-                    <span>Releases</span>
-                  </div>
-                }
-              >
-                <Card>
-                  <CardBody>
-                    {movieDetails.release_dates?.results?.length > 0 ? (
-                      <div className="space-y-4">
-                        {movieDetails.release_dates.results.map((country) => (
-                          <div key={country.iso_3166_1}>
-                            <h3 className="font-semibold">
-                              {country.iso_3166_1}
-                            </h3>
-                            <div className="mt-2 space-y-2">
-                              {country.release_dates.map((release, index) => (
-                                <div
-                                  key={index}
-                                  className="flex justify-between bg-default-50 p-2 rounded"
-                                >
-                                  <div>
-                                    <p className="text-sm">
-                                      {formatDate(release.release_date)}
-                                    </p>
-                                    <p className="text-xs text-default-500">
-                                      {release.type === 3
-                                        ? "Theatrical"
-                                        : release.type === 4
-                                          ? "Digital"
-                                          : release.type === 5
-                                            ? "Physical"
-                                            : "Release"}
-                                    </p>
+                  {activeTab === "releases" && (
+                    <>
+                      {movieDetails.release_dates?.results?.length > 0 ? (
+                        <div className="space-y-4">
+                          {movieDetails.release_dates.results.map((country) => (
+                            <div key={country.iso_3166_1}>
+                              <h3 className="font-semibold">
+                                {country.iso_3166_1}
+                              </h3>
+                              <div className="mt-2 space-y-2">
+                                {country.release_dates.map((release, index) => (
+                                  <div
+                                    key={index}
+                                    className="flex justify-between bg-default-50 p-2 rounded"
+                                  >
+                                    <div>
+                                      <p className="text-sm">
+                                        {formatDate(release.release_date)}
+                                      </p>
+                                      <p className="text-xs text-default-500">
+                                        {release.type === 3
+                                          ? "Theatrical"
+                                          : release.type === 4
+                                            ? "Digital"
+                                            : release.type === 5
+                                              ? "Physical"
+                                              : "Release"}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <Chip size="sm" color="primary">
+                                        {release.certification || "Not Rated"}
+                                      </Chip>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <Chip size="sm" color="primary">
-                                      {release.certification || "Not Rated"}
-                                    </Chip>
-                                  </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-default-500">
-                        No release information available.
-                      </p>
-                    )}
-                  </CardBody>
-                </Card>
-              </Tab>
-            </Tabs>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-default-500">
+                          No release information available.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
 
             {/* Recommendations */}
             <div className="mt-12">
@@ -968,14 +907,17 @@ export default function MoviePage() {
           <div className="w-full md:w-1/3">
             {/* Action buttons (desktop) */}
             <div className="hidden md:flex flex-col gap-3">
-              <WatchlistSplitButton
-                movie={{
-                  id: parseInt(movieId),
-                  title: movieDetails.title,
-                  posterPath: movieDetails.poster_path,
-                }}
-                onSuccess={() => refreshWatchlist()}
-              />
+              <Button
+                color={inWatchlist ? "success" : "primary"}
+                variant="solid"
+                startContent={
+                  <Heart className={inWatchlist ? "fill-current" : ""} />
+                }
+                onPress={toggleWatchlist}
+                isLoading={loadingWatchlist || isLoadingWatchlist}
+              >
+                {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
+              </Button>
 
               <Button
                 color="secondary"
@@ -991,39 +933,25 @@ export default function MoviePage() {
                   ? "Add to Movie Monday"
                   : "Sign in to Add to Monday"}
               </Button>
-
-              {/* Copy Link Button */}
-              <Button
-                variant="flat"
-                startContent={<LinkIcon />}
-                onPress={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  // You could add a toast notification here
-                }}
-              >
-                Copy Link
-              </Button>
             </div>
 
             {/* Ratings card with improved analytics content */}
             <Card className="mt-6">
-              <CardHeader>
+              <CardHeader className="px-4 py-4">
                 <h3 className="text-lg font-semibold">Ratings</h3>
               </CardHeader>
-              <CardBody>
-                <div className="flex flex-col items-center">
-                  <div className="text-6xl font-bold mb-2">
+              <CardBody className="px-4 py-4">
+                <div className="flex flex-col items-center justify-center">
+                  <div className="w-full flex text-6xl justify-center font-bold mb-2">
                     {movieDetails.vote_average?.toFixed(1) || "N/A"}
+                    <Star className="w-14 h-14 ml-2 text-yellow-400"/>
                   </div>
 
                   <div className="text-sm text-default-500 mb-4">
                     {movieDetails.vote_count?.toLocaleString() || 0} ratings
                   </div>
 
-                  <RatingBar
-                    rating={(movieDetails.vote_average || 0) / 2}
-                    count={movieDetails.vote_count || 0}
-                  />
+                  
 
                   {/* Movie Monday Analytics card */}
                   <div className="mt-6 w-full">
@@ -1033,7 +961,7 @@ export default function MoviePage() {
                           Movie Monday Insights
                         </h4>
                       </CardHeader>
-                      <CardBody className="px-4 py-3">
+                      <CardBody className="px-4 py-4">
                         <div className="space-y-2">
                           {/* Actor insights */}
                           <div>
@@ -1157,13 +1085,13 @@ export default function MoviePage() {
 
             {/* Where to Watch card */}
             <Card className="mt-6">
-              <CardHeader>
+              <CardHeader className="px-4 py-4">
                 <div className="flex items-center gap-2">
                   <PlayCircle className="w-5 h-5" />
                   <h3 className="text-lg font-semibold">Where to Watch</h3>
                 </div>
               </CardHeader>
-              <CardBody>
+              <CardBody className="px-4 py-4">
                 {loadingProviders ? (
                   <div className="flex justify-center py-4">
                     <Spinner size="sm" />
@@ -1192,13 +1120,13 @@ export default function MoviePage() {
 
             {/* Additional Info Card */}
             <Card className="mt-6">
-              <CardHeader>
+              <CardHeader className="px-4 py-4">
                 <div className="flex items-center gap-2">
                   <Info className="w-5 h-5" />
                   <h3 className="text-lg font-semibold">Additional Info</h3>
                 </div>
               </CardHeader>
-              <CardBody>
+              <CardBody className="px-4 py-4">
                 <div className="space-y-3">
                   <div>
                     <p className="text-sm text-default-500">Original Title</p>
