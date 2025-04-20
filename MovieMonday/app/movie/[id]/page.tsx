@@ -39,7 +39,7 @@ import ActorAnalyticsModal from "@/components/MoviePage/ActorAnalyticsModal";
 import { useDisclosure } from "@heroui/react";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import StreamingServices from "@/components/MoviePage/StreamingServices";
-import RatingBar from "@/components/MoviePage/RatingBar";
+import ActorCard from "@/components/MoviePage/ActorCard";
 import "./moviePage.css";
 
 export default function MoviePage() {
@@ -161,7 +161,7 @@ export default function MoviePage() {
       throw error;
     }
   };
-  
+
   // Toggle watchlist status
   const toggleWatchlist = async () => {
     if (!token || !movieId || loadingWatchlist) return;
@@ -445,8 +445,7 @@ export default function MoviePage() {
           backgroundColor: !backdropUrl ? "rgba(0,0,0,0.8)" : "transparent",
         }}
       >
-        {/* Enhanced gradient overlay for better text readability in both modes */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/90 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent"></div>
 
         {/* Content container */}
         <div className="container mx-auto px-4 h-full relative z-10">
@@ -621,78 +620,32 @@ export default function MoviePage() {
                     }
                   />
                 </Tabs>
-                
+
                 <Divider className="my-2" />
-                
+
                 {/* Tab Content */}
                 <div className="p-4">
                   {activeTab === "cast" && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                      {credits.cast?.slice(0, 16).map((person) => (
-                        <div
-                          key={person.id}
-                          className="flex flex-col items-center text-center relative cursor-pointer group"
-                          onClick={() => handleActorClick(person)}
-                        >
-                          <div className="relative">
-                            <Avatar
-                              src={
-                                person.profile_path
-                                  ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
-                                  : null
-                              }
-                              name={person.name}
-                              className="w-16 h-16 mb-2 transition-transform group-hover:scale-105"
-                            />
-
-                            {/* Actor Statistics Badge */}
-                            {actorStats[person.name] &&
-                              actorStats[person.name].appearances > 0 && (
-                                <Badge
-                                  content={
-                                    <div className="flex items-center">
-                                      <span className="font-bold text-xs mr-1">
-                                        {actorStats[person.name].appearances}
-                                      </span>
-                                      {actorStats[person.name].wins > 0 && (
-                                        <Trophy className="h-3 w-3" />
-                                      )}
-                                    </div>
-                                  }
-                                  color={
-                                    actorStats[person.name].wins > 0
-                                      ? "success"
-                                      : "primary"
-                                  }
-                                  placement="top-right"
-                                  size="sm"
-                                />
-                              )}
-                          </div>
-
-                          <p className="font-medium text-sm group-hover:text-primary transition-colors">
-                            {person.name}
-                          </p>
-                          <p className="text-xs text-default-500">
-                            {person.character}
-                          </p>
-
-                          {/* Indicator for analytics available */}
-                          {actorStats[person.name] &&
-                            actorStats[person.name].appearances > 0 && (
-                              <div className="text-xs text-primary mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                View stats
-                              </div>
-                            )}
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 px-2">
+                      {credits.cast
+                        ?.slice(0, 20)
+                        .map((person) => (
+                          <ActorCard
+                            key={person.id}
+                            actor={person}
+                            stats={actorStats[person.name] || null}
+                            onClick={handleActorClick}
+                          />
+                        ))}
                     </div>
                   )}
 
                   {activeTab === "crew" && (
                     <>
                       <div className="mb-6">
-                        <h3 className="text-lg font-semibold mb-3">Directors</h3>
+                        <h3 className="text-lg font-semibold mb-3">
+                          Directors
+                        </h3>
                         <div className="flex flex-wrap gap-4">
                           {getDirectors().map((person) => (
                             <div
@@ -944,14 +897,12 @@ export default function MoviePage() {
                 <div className="flex flex-col items-center justify-center">
                   <div className="w-full flex text-6xl justify-center font-bold mb-2">
                     {movieDetails.vote_average?.toFixed(1) || "N/A"}
-                    <Star className="w-14 h-14 ml-2 text-yellow-400"/>
+                    <Star className="w-14 h-14 ml-2 text-yellow-400" />
                   </div>
 
                   <div className="text-sm text-default-500 mb-4">
                     {movieDetails.vote_count?.toLocaleString() || 0} ratings
                   </div>
-
-                  
 
                   {/* Movie Monday Analytics card */}
                   <div className="mt-6 w-full">
@@ -962,89 +913,120 @@ export default function MoviePage() {
                         </h4>
                       </CardHeader>
                       <CardBody className="px-4 py-4">
-                        <div className="space-y-2">
+                        <div className="space-y-4">
                           {/* Actor insights */}
                           <div>
-                            <p className="text-xs font-medium text-default-500">
+                            <p className="text-xs font-medium text-default-500 mb-2">
                               TOP ACTORS
                             </p>
-                            <div className="flex flex-wrap gap-2 mt-2">
+                            <div className="flex flex-wrap gap-2">
                               {credits.cast?.slice(0, 3).map((actor) => {
                                 const stats = actorStats[actor.name] || {
                                   appearances: 0,
                                   wins: 0,
                                 };
+
+                                if (stats.appearances === 0) {
+                                  return (
+                                    <Chip
+                                      key={actor.id}
+                                      variant="flat"
+                                      color="default"
+                                      size="sm"
+                                    >
+                                      {actor.name}
+                                    </Chip>
+                                  );
+                                }
+
+                                // Custom badge layout to match the actor card badges
                                 return (
-                                  <Chip
+                                  <div
                                     key={actor.id}
-                                    variant="flat"
-                                    color={
-                                      stats.wins > 0
-                                        ? "success"
-                                        : stats.appearances > 0
-                                          ? "primary"
-                                          : "default"
-                                    }
-                                    size="sm"
+                                    className="flex items-center gap-1.5 bg-content2 rounded-full pl-3 pr-1 py-1 cursor-pointer"
                                     onClick={() => handleActorClick(actor)}
-                                    className="cursor-pointer"
                                   >
-                                    {actor.name}
-                                    {stats.appearances > 0 && (
-                                      <span className="ml-1 text-xs">
-                                        ({stats.appearances}
-                                        {stats.wins > 0 ? "🏆" : ""})
-                                      </span>
-                                    )}
-                                  </Chip>
+                                    <span className="text-xs font-medium">
+                                      {actor.name}
+                                    </span>
+                                    <div className="flex rounded-full overflow-hidden border border-default-200">
+                                      <div className="bg-primary px-2 py-0.5 text-white text-xs font-medium flex items-center">
+                                        <Film className="h-3 w-3 mr-1" />
+                                        {stats.appearances}
+                                      </div>
+
+                                      {stats.wins > 0 && (
+                                        <div className="bg-warning px-2 py-0.5 text-white text-xs font-medium flex items-center">
+                                          <Trophy className="h-3 w-3 mr-1" />
+                                          {stats.wins}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 );
                               })}
                             </div>
                           </div>
 
                           {/* Director insights */}
-                          <div className="mt-3">
-                            <p className="text-xs font-medium text-default-500">
+                          <div>
+                            <p className="text-xs font-medium text-default-500 mb-2">
                               DIRECTORS
                             </p>
-                            <div className="flex flex-wrap gap-2 mt-2">
+                            <div className="flex flex-wrap gap-2">
                               {getDirectors().map((director) => {
                                 const stats = actorStats[director.name] || {
                                   appearances: 0,
                                   wins: 0,
                                 };
+
+                                if (stats.appearances === 0) {
+                                  return (
+                                    <Chip
+                                      key={director.id}
+                                      variant="flat"
+                                      color="default"
+                                      size="sm"
+                                    >
+                                      {director.name}
+                                    </Chip>
+                                  );
+                                }
+
+                                // Custom badge layout to match the actor card badges
                                 return (
-                                  <Chip
+                                  <div
                                     key={director.id}
-                                    variant="flat"
-                                    color={
-                                      stats.wins > 0
-                                        ? "success"
-                                        : stats.appearances > 0
-                                          ? "primary"
-                                          : "default"
-                                    }
-                                    size="sm"
+                                    className="flex items-center gap-1.5 bg-content2 rounded-full pl-3 pr-1 py-1"
                                   >
-                                    {director.name}
-                                    {stats.appearances > 0 && (
-                                      <span className="ml-1 text-xs">
-                                        ({stats.appearances}
-                                        {stats.wins > 0 ? "🏆" : ""})
-                                      </span>
-                                    )}
-                                  </Chip>
+                                    <span className="text-xs font-medium">
+                                      {director.name}
+                                    </span>
+                                    <div className="flex rounded-full overflow-hidden border border-default-200">
+                                      <div className="bg-primary px-2 py-0.5 text-white text-xs font-medium flex items-center">
+                                        <Film className="h-3 w-3 mr-1" />
+                                        {stats.appearances}
+                                      </div>
+
+                                      {stats.wins > 0 && (
+                                        <div className="bg-warning px-2 py-0.5 text-white text-xs font-medium flex items-center">
+                                          <Trophy className="h-3 w-3 mr-1" />
+                                          {stats.wins}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 );
                               })}
                             </div>
                           </div>
 
                           {/* Genre insights */}
-                          <div className="mt-3">
-                            <p className="text-xs font-medium text-default-500">
+                          <div>
+                            <p className="text-xs font-medium text-default-500 mb-2">
                               GENRES
                             </p>
-                            <div className="flex flex-wrap gap-2 mt-2">
+                            <div className="flex flex-wrap gap-2">
                               {movieDetails.genres?.slice(0, 3).map((genre) => (
                                 <Chip
                                   key={genre.id}

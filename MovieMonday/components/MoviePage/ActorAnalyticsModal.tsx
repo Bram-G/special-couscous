@@ -14,7 +14,7 @@ import {
   Progress,
   Divider
 } from "@heroui/react";
-import { FilmIcon, Trophy, Star, Clock } from "lucide-react";
+import { FilmIcon, Trophy, Star, Clock, Film } from "lucide-react";
 import Link from 'next/link';
 
 interface MovieAppearance {
@@ -44,11 +44,7 @@ interface ActorAnalyticsModalProps {
   actor: ActorData;
 }
 
-const ActorAnalyticsModal: React.FC<ActorAnalyticsModalProps> = ({ 
-  isOpen, 
-  onClose,
-  actor
-}) => {
+const ActorAnalyticsModal: React.FC<ActorAnalyticsModalProps> = ({ isOpen, onClose, actor }) => {
   const { name, profile_path, stats } = actor;
   const winRate = stats.appearances > 0 
     ? ((stats.wins / stats.appearances) * 100).toFixed(0) 
@@ -82,26 +78,24 @@ const ActorAnalyticsModal: React.FC<ActorAnalyticsModalProps> = ({
               <div>
                 <h3 className="text-xl font-bold">{name}</h3>
                 {stats.appearances > 0 ? (
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    <Chip
-                      variant="flat"
-                      color="primary"
-                      size="sm"
-                      startContent={<FilmIcon className="h-3 w-3" />}
-                    >
-                      {stats.appearances} {stats.appearances === 1 ? 'appearance' : 'appearances'}
-                    </Chip>
-                    
-                    {stats.wins > 0 && (
-                      <Chip
-                        variant="flat"
-                        color="success"
-                        size="sm"
-                        startContent={<Trophy className="h-3 w-3" />}
-                      >
-                        {stats.wins} {stats.wins === 1 ? 'win' : 'wins'}
-                      </Chip>
-                    )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex rounded-full overflow-hidden border border-default-200">
+                      <div className="bg-primary px-2 py-1 text-white text-sm font-medium flex items-center">
+                        <FilmIcon className="h-4 w-4 mr-1" />
+                        {stats.appearances}
+                      </div>
+                      
+                      {stats.wins > 0 && (
+                        <div className="bg-warning px-2 py-1 text-white text-sm font-medium flex items-center">
+                          <Trophy className="h-4 w-4 mr-1" />
+                          {stats.wins}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-sm text-default-500">
+                      {stats.appearances === 1 ? 'appearance' : 'appearances'}
+                      {stats.wins > 0 && `, ${stats.wins === 1 ? '1 win' : `${stats.wins} wins`}`}
+                    </span>
                   </div>
                 ) : (
                   <p className="text-sm text-default-500">No Movie Monday appearances yet</p>
@@ -125,7 +119,7 @@ const ActorAnalyticsModal: React.FC<ActorAnalyticsModalProps> = ({
                           </div>
                           <Progress 
                             value={parseInt(winRate)} 
-                            color="success"
+                            color="warning"
                             className="h-2"
                             aria-label="Win rate"
                           />
@@ -150,17 +144,18 @@ const ActorAnalyticsModal: React.FC<ActorAnalyticsModalProps> = ({
                   
                   {/* Movie Appearances */}
                   <div>
-                    <h4 className="font-medium mb-3">Movie Appearances</h4>
+                    <h4 className="font-medium mb-3">Movie Monday Appearances</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {sortedMovies.map((movie) => (
-                        <Link key={movie.id} href={`/movie/${movie.id}`} legacyBehavior>
+                        <Link key={movie.id} href={`/movie/${movie.id}`} passHref legacyBehavior>
                           <a className="block">
                             <Card 
                               isPressable
                               className={movie.isWinner ? "border-2 border-warning" : ""}
                             >
                               <CardBody className="p-0 relative">
-                                <div className="relative pb-[150%]">
+                                {/* Fixed aspect ratio container for movie poster */}
+                                <div className="relative aspect-[2/3] w-full">
                                   <Image
                                     src={
                                       movie.posterPath
@@ -168,7 +163,7 @@ const ActorAnalyticsModal: React.FC<ActorAnalyticsModalProps> = ({
                                         : '/placeholder-poster.jpg'
                                     }
                                     alt={movie.title}
-                                    className="absolute inset-0 object-cover w-full h-full"
+                                    className="object-cover w-full h-full"
                                     removeWrapper
                                   />
                                   {movie.isWinner && (
@@ -177,8 +172,11 @@ const ActorAnalyticsModal: React.FC<ActorAnalyticsModalProps> = ({
                                     </div>
                                   )}
                                 </div>
-                                <div className="p-2">
-                                  <p className="text-sm font-medium line-clamp-1">{movie.title}</p>
+                                {/* Fixed height container for title */}
+                                <div className="p-2 h-10 flex items-center justify-center">
+                                  <p className="text-sm font-medium line-clamp-2 text-center">
+                                    {movie.title}
+                                  </p>
                                 </div>
                               </CardBody>
                             </Card>
