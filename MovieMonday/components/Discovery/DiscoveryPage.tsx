@@ -10,7 +10,7 @@ import MovieDiscoveryCard from "@/components/Discovery/MovieDiscoveryCard";
 import debounce from "lodash/debounce";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
-import ClientOnly from '@/components/ui/client-only';
+import ClientOnly from "@/components/ui/client-only";
 
 // Types for movie data
 interface Movie {
@@ -329,59 +329,65 @@ export default function DiscoveryPage() {
   };
 
   // Fetch popular public watchlists
- const fetchPublicWatchlists = async () => {
-  try {
-    setLoadingPublicWatchlists(true);
-    
-    // Fetch the watchlists with explicit request for items
-    const response = await fetch('http://localhost:8000/api/watchlists/public?sort=popular&limit=5&include_items=true');
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch public watchlists: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('Public watchlists data:', data);
-    
-    // Extract watchlists from the response format
-    const watchlists = data.categories || [];
-    
-    if (watchlists.length === 0) {
-      console.log('No watchlists found in response');
+  const fetchPublicWatchlists = async () => {
+    try {
+      setLoadingPublicWatchlists(true);
+
+      // Fetch the watchlists with explicit request for items
+      const response = await fetch(
+        "http://localhost:8000/api/watchlists/public?sort=popular&limit=5&include_items=true"
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch public watchlists: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Public watchlists data:", data);
+
+      // Extract watchlists from the response format
+      const watchlists = data.categories || [];
+
+      if (watchlists.length === 0) {
+        console.log("No watchlists found in response");
+        setPublicWatchlists([]);
+        setLoadingPublicWatchlists(false);
+        return;
+      }
+
+      // Normalize the watchlist data to ensure consistent structure
+      const normalizedWatchlists = watchlists.map((watchlist) => ({
+        id: watchlist.id,
+        name: watchlist.name || "Unnamed Watchlist",
+        description: watchlist.description || "",
+        likesCount: watchlist.likesCount || 0,
+        slug: watchlist.slug || String(watchlist.id),
+        moviesCount: watchlist.moviesCount || 0,
+        owner: {
+          username: watchlist.owner?.username || "Unknown user",
+          id: watchlist.owner?.id || 0,
+        },
+        items: Array.isArray(watchlist.items)
+          ? watchlist.items.map((item) => ({
+              id: item.id,
+              tmdbMovieId: item.tmdbMovieId || 0,
+              title: item.title || "Unknown movie",
+              posterPath: item.posterPath || null,
+            }))
+          : [],
+      }));
+
+      console.log("Normalized watchlists:", normalizedWatchlists);
+      setPublicWatchlists(normalizedWatchlists);
+    } catch (error) {
+      console.error("Error fetching public watchlists:", error);
       setPublicWatchlists([]);
+    } finally {
       setLoadingPublicWatchlists(false);
-      return;
     }
-    
-    // Normalize the watchlist data to ensure consistent structure
-    const normalizedWatchlists = watchlists.map(watchlist => ({
-      id: watchlist.id,
-      name: watchlist.name || 'Unnamed Watchlist',
-      description: watchlist.description || '',
-      likesCount: watchlist.likesCount || 0,
-      slug: watchlist.slug || String(watchlist.id),
-      moviesCount: watchlist.moviesCount || 0,
-      owner: {
-        username: watchlist.owner?.username || 'Unknown user',
-        id: watchlist.owner?.id || 0
-      },
-      items: Array.isArray(watchlist.items) ? watchlist.items.map(item => ({
-        id: item.id,
-        tmdbMovieId: item.tmdbMovieId || 0,
-        title: item.title || 'Unknown movie',
-        posterPath: item.posterPath || null
-      })) : []
-    }));
-    
-    console.log('Normalized watchlists:', normalizedWatchlists);
-    setPublicWatchlists(normalizedWatchlists);
-  } catch (error) {
-    console.error("Error fetching public watchlists:", error);
-    setPublicWatchlists([]);
-  } finally {
-    setLoadingPublicWatchlists(false);
-  }
-};
+  };
 
   // Debounced search function
   const debouncedSearch = useCallback(
@@ -453,26 +459,9 @@ export default function DiscoveryPage() {
           recommendations and trending titles.
         </p>
       </div>
-  
-      {/* Optional Debug Button (remove in production) */}
-      {process.env.NODE_ENV === 'development' && (
-        <Button
-          variant="flat"
-          size="sm"
-          color="default"
-          className="mb-4"
-          onPress={() => {
-            console.log('Public watchlists:', publicWatchlists);
-            console.log('Watchlist movies:', watchlistMovies);
-          }}
-        >
-          Debug: Log Watchlist Data
-        </Button>
-      )}
-  
+
       {/* Main Content Area */}
       <div className="space-y-10">
-        {/* Search Results - shown when the navbar search is used */}
         {searchQuery && (
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
@@ -484,14 +473,14 @@ export default function DiscoveryPage() {
                 onPress={() => {
                   setSearchQuery("");
                   setSearchResults([]);
-                  // Clear the URL search param too
+
                   router.push("/discover");
                 }}
               >
                 Clear Search
               </Button>
             </div>
-  
+
             {isSearching ? (
               <div className="flex justify-center py-12">
                 <Spinner size="lg" />
@@ -516,7 +505,7 @@ export default function DiscoveryPage() {
             ) : null}
           </div>
         )}
-  
+
         {/* Only show other sections if not searching or with no results */}
         {(!searchQuery || searchResults.length === 0) && (
           <>
@@ -527,7 +516,7 @@ export default function DiscoveryPage() {
               loading={loadingTrending}
               visibleItemCount={5} // Limit visible items to prevent cutoff
             />
-  
+
             {/* Personalized Recommendations */}
             {isAuthenticated ? (
               <MovieCarouselRow
@@ -551,7 +540,7 @@ export default function DiscoveryPage() {
                 </div>
               </Card>
             )}
-  
+
             {/* Top Rated Movies Section */}
             <MovieCarouselRow
               title="Top Rated Movies"
@@ -560,7 +549,7 @@ export default function DiscoveryPage() {
               loading={loadingTopRated}
               visibleItemCount={5}
             />
-  
+
             {/* Popular Public Watchlists Section */}
             {loadingPublicWatchlists ? (
               <div className="mb-12">
@@ -578,7 +567,7 @@ export default function DiscoveryPage() {
                 <p className="text-default-500 mb-6">
                   Discover curated movie collections from the community
                 </p>
-                
+
                 {publicWatchlists.map((watchlist) => (
                   <div key={watchlist.id} className="mb-8">
                     <div className="flex justify-between items-center mb-4">
@@ -604,17 +593,17 @@ export default function DiscoveryPage() {
                         View Watchlist
                       </Button>
                     </div>
-  
+
                     {/* Display watchlist movies */}
                     {watchlist.items && watchlist.items.length > 0 ? (
                       <MovieCarouselRow
                         title=""
                         movies={watchlist.items
-                          .filter(item => item && item.tmdbMovieId)
-                          .map(item => ({
+                          .filter((item) => item && item.tmdbMovieId)
+                          .map((item) => ({
                             id: item.tmdbMovieId,
                             title: item.title,
-                            poster_path: item.posterPath || undefined
+                            poster_path: item.posterPath || undefined,
                           }))}
                         visibleItemCount={5}
                       />
@@ -627,7 +616,7 @@ export default function DiscoveryPage() {
                     )}
                   </div>
                 ))}
-                
+
                 <div className="text-center mt-8">
                   <Button
                     as={Link}
@@ -643,7 +632,7 @@ export default function DiscoveryPage() {
           </>
         )}
       </div>
-  
+
       {/* AddToWatchlist Modal */}
       {selectedMovie && (
         <AddToWatchlistModal

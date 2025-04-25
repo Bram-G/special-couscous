@@ -32,6 +32,7 @@ import {
   Wine,
   FileText,
   AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -147,7 +148,9 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
   // Confirmation modal for unsaved changes
   const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
-  const [pendingDateSelection, setPendingDateSelection] = useState<Date | null>(null);
+  const [pendingDateSelection, setPendingDateSelection] = useState<Date | null>(
+    null
+  );
 
   // Cocktail suggestions
   const [cocktailSuggestions, setCocktailSuggestions] = useState<string[]>([]);
@@ -336,9 +339,12 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
     // Compare the current editable details with the original event details
     return (
-      JSON.stringify(editableDetails.meals) !== JSON.stringify(eventDetails.meals) ||
-      JSON.stringify(editableDetails.cocktails) !== JSON.stringify(eventDetails.cocktails) ||
-      JSON.stringify(editableDetails.desserts) !== JSON.stringify(eventDetails.desserts) ||
+      JSON.stringify(editableDetails.meals) !==
+        JSON.stringify(eventDetails.meals) ||
+      JSON.stringify(editableDetails.cocktails) !==
+        JSON.stringify(eventDetails.cocktails) ||
+      JSON.stringify(editableDetails.desserts) !==
+        JSON.stringify(eventDetails.desserts) ||
       editableDetails.notes !== eventDetails.notes
     );
   };
@@ -616,15 +622,13 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         : selectedMonday?.eventDetails?.meals
           ? [selectedMonday.eventDetails.meals]
           : [],
-      cocktails:
-        selectedMonday?.eventDetails?.cocktails || [],
+      cocktails: selectedMonday?.eventDetails?.cocktails || [],
       desserts: Array.isArray(selectedMonday?.eventDetails?.desserts)
         ? [...selectedMonday.eventDetails.desserts]
         : selectedMonday?.eventDetails?.desserts
           ? [selectedMonday.eventDetails.desserts]
           : [],
-      notes:
-        selectedMonday?.eventDetails?.notes || "",
+      notes: selectedMonday?.eventDetails?.notes || "",
     });
   };
 
@@ -774,7 +778,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   const confirmDiscardChanges = () => {
     // Close the modal
     setShowUnsavedChangesModal(false);
-    
+
     // If there's a pending date selection, process it now
     if (pendingDateSelection) {
       proceedWithDateSelection(pendingDateSelection);
@@ -1055,6 +1059,21 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                   year: "numeric",
                 })}
               </h3>
+
+              <Button
+                color="primary"
+                variant="light"
+                endContent={<ExternalLink className="h-4 w-4" />}
+                onPress={() =>
+                  selectedMonday?.id &&
+                  router.push(`/movie-monday/${selectedMonday.id}`)
+                }
+                isDisabled={
+                  !selectedMonday || selectedMonday.status === "not_created"
+                }
+              >
+                Full Analytics
+              </Button>
             </div>
           </div>
 
@@ -1580,10 +1599,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                             <Textarea
                               placeholder="Add any notes about this event..."
                               value={editableDetails.notes}
-                              onChange={(e) => 
-                                setEditableDetails(prev => ({
+                              onChange={(e) =>
+                                setEditableDetails((prev) => ({
                                   ...prev,
-                                  notes: e.target.value
+                                  notes: e.target.value,
                                 }))
                               }
                               className="min-h-24"
@@ -1724,10 +1743,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       )}
 
       {/* Unsaved Changes Confirmation Modal */}
-      <Modal 
-        isOpen={showUnsavedChangesModal} 
-        onClose={cancelDiscardChanges}
-      >
+      <Modal isOpen={showUnsavedChangesModal} onClose={cancelDiscardChanges}>
         <ModalContent>
           <ModalHeader className="flex gap-2 items-center">
             <AlertTriangle className="text-warning h-6 w-6" />
@@ -1735,21 +1751,19 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
           </ModalHeader>
           <ModalBody>
             <p>
-              You have unsaved changes to the event details. What would you like to do?
+              You have unsaved changes to the event details. What would you like
+              to do?
             </p>
           </ModalBody>
           <ModalFooter>
-            <Button 
-              color="danger" 
-              variant="light" 
+            <Button
+              color="danger"
+              variant="light"
               onPress={confirmDiscardChanges}
             >
               Discard Changes
             </Button>
-            <Button 
-              color="primary" 
-              onPress={cancelDiscardChanges}
-            >
+            <Button color="primary" onPress={cancelDiscardChanges}>
               Continue Editing
             </Button>
           </ModalFooter>

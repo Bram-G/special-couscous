@@ -40,7 +40,7 @@ interface Group {
   name: string;
   createdById: string;
   members: GroupMember[];
-  createdAt?: string; // Add createdAt property
+  createdAt: string; // Add createdAt property
 }
 
 type ConfirmActionType = "leave" | "remove" | null;
@@ -65,14 +65,17 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/api/groups/${group.id}/invite-link`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/groups/${group.id}/invite-link`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
       const data = await response.json();
       // Construct the full URL on the frontend
       const baseUrl = window.location.origin;
@@ -244,7 +247,7 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
       // Handle PostgreSQL timestamp format
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "Unknown";
-      
+
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
@@ -271,12 +274,15 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
       <Card className="w-full h-full">
         <CardHeader className="flex flex-col gap-2">
           <h3 className="text-xl font-bold">Your Group</h3>
-          <p className="text-sm text-default-500">Create or join a group to get started</p>
+          <p className="text-sm text-default-500">
+            Create or join a group to get started
+          </p>
         </CardHeader>
         <CardBody className="flex flex-col items-center justify-center gap-4 py-8">
           <Users className="h-12 w-12 text-default-300" />
           <p className="text-center text-default-500">
-            No group found. Create a new group to start planning your Movie Mondays.
+            No group found. Create a new group to start planning your Movie
+            Mondays.
           </p>
           <Button
             color="primary"
@@ -320,18 +326,21 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
 
   return (
     <Card className="w-full h-full">
-      <CardHeader className="flex justify-between items-start">
-        <div>
+      <CardHeader className="flex-col justify-between items-start">
+        <div className="flex items-start">
           <h3 className="text-xl font-bold">{group.name}</h3>
-          <p className="text-sm text-default-500">
-            {group.members?.length || 0} member{group.members?.length !== 1 ? "s" : ""}
-          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-default-500" />
-          <span className="text-sm text-default-500">
-            Established: {formatDate(group.createdAt)}
-          </span>
+        <div className="flex justify-between h-full w-full items-end gap-2">
+          <p className="text-sm text-default-500">
+            {group.members?.length || 0} member
+            {group.members?.length !== 1 ? "s" : ""}
+          </p>
+          <div className="flex gap-2 ">
+            <Calendar className="h-4 w-4 text-default-400" />
+            <span className="text-xs text-default-400">
+              Created: {formatDate(group.createdAt)}
+            </span>
+          </div>
         </div>
       </CardHeader>
       <Divider />
@@ -343,82 +352,88 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
             <p className="text-xs font-medium text-default-500 uppercase tracking-wider mt-2">
               Owner
             </p>
-            
+
             {/* List Owner First */}
-            {group.members?.filter(member => member.id === group.createdById).map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center gap-3 p-3 rounded-lg bg-default-100"
-              >
-                <Avatar
-                  name={member.username.charAt(0).toUpperCase()}
-                  className="h-10 w-10"
-                  isBordered
-                  color="primary"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{member.username}</p>
-                  <p className="text-xs text-default-500">{member.email}</p>
+            {group.members
+              ?.filter((member) => member.id === group.createdById)
+              .map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-default-100"
+                >
+                  <Avatar
+                    name={member.username.charAt(0).toUpperCase()}
+                    className="h-10 w-10"
+                    isBordered
+                    color="primary"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{member.username}</p>
+                    <p className="text-xs text-default-500">{member.email}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
 
             {/* Members Label */}
-            {group.members?.some(member => member.id !== group.createdById) && (
+            {group.members?.some(
+              (member) => member.id !== group.createdById
+            ) && (
               <p className="text-xs font-medium text-default-500 uppercase tracking-wider mt-4">
                 Members
               </p>
             )}
-            
+
             {/* List Other Members */}
-            {group.members?.filter(member => member.id !== group.createdById).map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center gap-3 p-3 rounded-lg bg-default-100"
-              >
-                <Avatar
-                  name={member.username.charAt(0).toUpperCase()}
-                  className="h-10 w-10"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{member.username}</p>
-                  <p className="text-xs text-default-500">{member.email}</p>
+            {group.members
+              ?.filter((member) => member.id !== group.createdById)
+              .map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-default-100"
+                >
+                  <Avatar
+                    name={member.username.charAt(0).toUpperCase()}
+                    className="h-10 w-10"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{member.username}</p>
+                    <p className="text-xs text-default-500">{member.email}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {group.createdById === currentUserId && (
+                      <Button
+                        color="danger"
+                        variant="light"
+                        isIconOnly
+                        onPress={() => {
+                          setConfirmAction("remove");
+                          setSelectedUserId(member.id);
+                          setShowConfirmModal(true);
+                        }}
+                      >
+                        <UserMinus className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {member.id === currentUserId && (
+                      <Button
+                        color="danger"
+                        variant="light"
+                        size="sm"
+                        endContent={<LogOut className="h-4 w-4" />}
+                        onPress={() => {
+                          setConfirmAction("leave");
+                          setShowConfirmModal(true);
+                        }}
+                      >
+                        Leave
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  {group.createdById === currentUserId && (
-                    <Button
-                      color="danger"
-                      variant="light"
-                      isIconOnly
-                      onPress={() => {
-                        setConfirmAction("remove");
-                        setSelectedUserId(member.id);
-                        setShowConfirmModal(true);
-                      }}
-                    >
-                      <UserMinus className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {member.id === currentUserId && (
-                    <Button
-                      color="danger"
-                      variant="light"
-                      size="sm"
-                      endContent={<LogOut className="h-4 w-4" />}
-                      onPress={() => {
-                        setConfirmAction("leave");
-                        setShowConfirmModal(true);
-                      }}
-                    >
-                      Leave
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
-        
+
         {/* Pinned "Add Member" Button - Always visible at bottom */}
         <Divider className="my-3" />
         <div
@@ -430,16 +445,15 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
           </div>
           <div className="flex-1">
             <p className="font-medium text-default-600">Add member</p>
-            <p className="text-xs text-default-500">Invite someone to join your group</p>
+            <p className="text-xs text-default-500">
+              Invite someone to join your group
+            </p>
           </div>
         </div>
       </CardBody>
 
       {/* Modals */}
-      <Modal
-        isOpen={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-      >
+      <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)}>
         <ModalContent>
           <ModalHeader>Invite Member</ModalHeader>
           <ModalBody>

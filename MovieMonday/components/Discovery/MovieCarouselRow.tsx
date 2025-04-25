@@ -290,7 +290,7 @@ const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
                     }
                     alt={movie.title}
                     className="w-full h-full object-cover transition-transform duration-300 cursor-pointer hover:scale-105"
-                    onClick={() => window.open(`/movie/${movie.id}`, "_blank")}
+                    onClick={() => window.location.assign(`/movie/${movie.id}`)}
                     removeWrapper
                   />
                 </div>
