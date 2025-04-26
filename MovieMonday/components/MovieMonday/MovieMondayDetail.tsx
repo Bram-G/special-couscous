@@ -14,6 +14,7 @@ import {
   Button,
   Tooltip,
   Badge,
+  Avatar,
 } from "@heroui/react";
 import {
   Calendar,
@@ -31,13 +32,158 @@ import {
   Zap,
   Users,
   Info,
-  Link2
+  Link2,
+  History,
+  Clock,
+  TrendingUp,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Types (same as before, but I'll skip them for brevity)
-// ...
+// Enhanced with historical data types
+interface HistoricalStats {
+  // Common items across past Movie Mondays
+  mealFrequencies: Array<{
+    name: string;
+    count: number;
+    lastSeenDate?: string;
+    firstSeenDate?: string;
+  }>;
+  cocktailFrequencies: Array<{
+    name: string;
+    count: number;
+    lastSeenDate?: string;
+    firstSeenDate?: string;
+  }>;
+  dessertFrequencies: Array<{
+    name: string;
+    count: number;
+    lastSeenDate?: string;
+    firstSeenDate?: string;
+  }>;
+  
+  // Actor stats
+  actorAppearances: Array<{
+    id: number;
+    name: string;
+    totalAppearances: number;
+    wins: number;
+    losses: number;
+    appearances: Array<{
+      date: string;
+      movieTitle: string;
+      isWinner: boolean;
+      movieMondayId: number;
+    }>;
+  }>;
+  
+  // Director stats
+  directorAppearances: Array<{
+    id: number;
+    name: string;
+    totalAppearances: number;
+    wins: number;
+    losses: number;
+    appearances: Array<{
+      date: string;
+      movieTitle: string;
+      isWinner: boolean;
+      movieMondayId: number;
+    }>;
+  }>;
+  
+  // Movie stats (for repeated movies)
+  repeatedMovies: Array<{
+    tmdbMovieId: number;
+    title: string;
+    appearances: number;
+    wins: number;
+    firstAppearance: string;
+    appearances: Array<{
+      date: string;
+      isWinner: boolean;
+      movieMondayId: number;
+    }>;
+  }>;
+  
+  // Picker stats
+  pickerStats: {
+    totalPicks: number;
+    winRate: number;
+    mostSelectedGenres: Array<{ name: string; count: number }>;
+  };
+}
+
+interface MovieMondayDetailData {
+  movieMonday: {
+    id: number;
+    date: string;
+    status: string;
+    picker: {
+      id: string;
+      username: string;
+    };
+    movieSelections: Array<{
+      id: number;
+      tmdbMovieId: number;
+      title: string;
+      posterPath: string;
+      isWinner: boolean;
+      genres: string[];
+      releaseYear: number;
+      previousAppearances?: number;
+      cast: Array<{
+        id: number;
+        actorId: number; 
+        name: string;
+        character: string;
+        profilePath: string;
+      }>;
+      crew: Array<{
+        id: number;
+        personId: number;
+        name: string;
+        job: string;
+        department: string;
+        profilePath: string;
+      }>;
+    }>;
+    eventDetails: {
+      id: number;
+      meals: string[];
+      cocktails: string[];
+      desserts: string[];
+      notes: string;
+    };
+  };
+  stats: {
+    actors: Array<{
+      id: number;
+      name: string;
+      count: number;
+      isWinner: number;
+    }>;
+    directors: Array<{
+      id: number;
+      name: string;
+      count: number;
+      isWinner: number;
+    }>;
+    genres: Array<{
+      name: string;
+      count: number;
+      isWinner: number;
+    }>;
+    meals: string[];
+    cocktails: string[];
+    desserts: string[];
+  };
+  // Add historical stats
+  history: HistoricalStats;
+}
 
 const MovieMondayDetail: React.FC = () => {
   const router = useRouter();
@@ -48,6 +194,7 @@ const MovieMondayDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unauthorized, setUnauthorized] = useState(false);
+  const [showHistorySection, setShowHistorySection] = useState(false);
 
   const movieMondayId = params?.id as string;
 
@@ -69,7 +216,7 @@ const MovieMondayDetail: React.FC = () => {
       }
 
       const response = await fetch(
-        `http://localhost:8000/api/movie-monday/${movieMondayId}/details`,
+        `http://localhost:8000/api/movie-monday/${movieMondayId}/details?include_history=true`,
         {
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -113,6 +260,22 @@ const MovieMondayDetail: React.FC = () => {
       month: "long",
       day: "numeric",
     });
+  };
+
+  // Format date to relative time
+  const formatRelativeDate = (dateString: string) => {
+    if (!dateString) return "Unknown";
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.round((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "today";
+    if (diffDays === 1) return "yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.round(diffDays / 7)} weeks ago`;
+    if (diffDays < 365) return `${Math.round(diffDays / 30)} months ago`;
+    return `${Math.round(diffDays / 365)} years ago`;
   };
 
   // Find common elements between movies
@@ -228,12 +391,12 @@ const MovieMondayDetail: React.FC = () => {
     return connections;
   };
 
-  // Generate interesting facts based on movie monday data
+  // Generate interesting facts based on movie monday data and history
   const generateInterestingFacts = () => {
     if (!data || !data.movieMonday || !data.stats) return [];
     
     const facts = [];
-    const { movieMonday, stats } = data;
+    const { movieMonday, stats, history } = data;
     const connections = findConnections();
     
     // Theme connections
@@ -243,7 +406,7 @@ const MovieMondayDetail: React.FC = () => {
         const topActor = connections.actors.sort((a, b) => b.movies.length - a.movies.length)[0];
         if (topActor.movies.length === movieMonday.movieSelections.length) {
           facts.push({
-            text: <>Actor <strong>{topActor.name}</strong> appears in <strong>all {topActor.movies.length} movies</strong> this week!</>,
+            text: <>Actor <strong>{topActor.name}</strong> appears in <strong>all {topActor.movies.length} movies</strong> this week!</> ,
             icon: <Users className="h-5 w-5 text-primary" />,
             priority: 10
           });
@@ -317,64 +480,370 @@ const MovieMondayDetail: React.FC = () => {
           priority: 10
         });
       }
+
+      // If we have history data, check for additional insights
+      if (history && history.repeatedMovies) {
+        const movieHistory = history.repeatedMovies.find(m => m.tmdbMovieId === winningMovie.tmdbMovieId);
+        if (movieHistory && movieHistory.appearances > 1) {
+          facts.push({
+            text: <><strong>{winningMovie.title}</strong> has won {movieHistory.wins} out of {movieHistory.appearances} times it has been selected!</>,
+            icon: <TrendingUp className="h-5 w-5 text-primary" />,
+            priority: 9
+          });
+        }
+      }
     }
     
-    // Facts about actors
-    if (stats.actors && stats.actors.length > 0) {
-      // Actor with most appearances but few wins
-      const frequentActor = stats.actors.find(a => a.count > 2 && a.isWinner === 0);
-      if (frequentActor) {
+    // Food/drink facts with history
+    if (history && movieMonday.eventDetails) {
+      // Meal history facts
+      movieMonday.eventDetails.meals?.forEach(meal => {
+        const mealHistory = history.mealFrequencies?.find(m => m.name === meal);
+        if (mealHistory && mealHistory.count > 1) {
+          facts.push({
+            text: <><strong>{meal}</strong> has been served <strong>{mealHistory.count}</strong> times for Movie Monday!</>,
+            icon: <Utensils className="h-5 w-5 text-primary" />,
+            priority: 8
+          });
+        }
+      });
+      
+      // Cocktail history facts
+      movieMonday.eventDetails.cocktails?.forEach(cocktail => {
+        const cocktailHistory = history.cocktailFrequencies?.find(c => c.name === cocktail);
+        if (cocktailHistory && cocktailHistory.count > 1) {
+          facts.push({
+            text: <><strong>{cocktail}</strong> has been mixed <strong>{cocktailHistory.count}</strong> times for Movie Monday gatherings!</>,
+            icon: <Wine className="h-5 w-5 text-danger" />,
+            priority: 7
+          });
+        }
+      });
+      
+      // Dessert history facts
+      movieMonday.eventDetails.desserts?.forEach(dessert => {
+        const dessertHistory = history.dessertFrequencies?.find(d => d.name === dessert);
+        if (dessertHistory && dessertHistory.count > 1) {
+          facts.push({
+            text: <><strong>{dessert}</strong> has been enjoyed <strong>{dessertHistory.count}</strong> times as a Movie Monday dessert!</>,
+            icon: <Cake className="h-5 w-5 text-warning" />,
+            priority: 6
+          });
+        }
+      });
+    }
+    
+    // Actor history facts
+    if (history && history.actorAppearances) {
+      // Find actors in current selections that have interesting histories
+      movieMonday.movieSelections.forEach(movie => {
+        movie.cast.forEach(actor => {
+          const actorHistory = history.actorAppearances.find(a => a.id === actor.actorId);
+          
+          if (actorHistory) {
+            // Actor with many appearances but few/no wins
+            if (actorHistory.totalAppearances > 3 && actorHistory.wins === 0) {
+              facts.push({
+                text: <><strong>{actor.name}</strong> has appeared in <strong>{actorHistory.totalAppearances}</strong> Movie Monday selections but never won!</>,
+                icon: <AlertCircle className="h-5 w-5 text-danger" />,
+                priority: 9
+              });
+            } 
+            // Actor with good win rate
+            else if (actorHistory.wins > 0 && (actorHistory.wins / actorHistory.totalAppearances) > 0.5) {
+              facts.push({
+                text: <><strong>{actor.name}</strong> has a winning record with <strong>{actorHistory.wins}</strong> wins out of {actorHistory.totalAppearances} appearances!</>,
+                icon: <Star className="h-5 w-5 text-warning" />,
+                priority: 8
+              });
+            }
+            // Actor who keeps appearing
+            else if (actorHistory.totalAppearances > 5) {
+              facts.push({
+                text: <><strong>{actor.name}</strong> is a Movie Monday regular with <strong>{actorHistory.totalAppearances}</strong> appearances!</>,
+                icon: <Users className="h-5 w-5 text-primary" />,
+                priority: 7
+              });
+            }
+          }
+        });
+      });
+    }
+    
+    // Director history facts
+    if (history && history.directorAppearances) {
+      // Find directors in current selections with interesting histories
+      movieMonday.movieSelections.forEach(movie => {
+        const directors = movie.crew.filter(c => c.job === "Director");
+        directors.forEach(director => {
+          const directorHistory = history.directorAppearances.find(d => d.id === director.personId);
+          
+          if (directorHistory && directorHistory.totalAppearances > 1) {
+            if (directorHistory.wins > 0) {
+              facts.push({
+                text: <>Director <strong>{director.name}</strong> has a {Math.round((directorHistory.wins / directorHistory.totalAppearances) * 100)}% win rate across {directorHistory.totalAppearances} Movie Mondays!</>,
+                icon: <Film className="h-5 w-5 text-success" />,
+                priority: 8
+              });
+            } else {
+              facts.push({
+                text: <>Director <strong>{director.name}</strong> has been featured <strong>{directorHistory.totalAppearances}</strong> times but hasn't won yet!</>,
+                icon: <Film className="h-5 w-5 text-success" />,
+                priority: 7
+              });
+            }
+          }
+        });
+      });
+    }
+    
+    // Picker stats
+    if (history && history.pickerStats) {
+      const { pickerStats } = history;
+      
+      // If the picker has made selections before
+      if (pickerStats.totalPicks > 1) {
         facts.push({
-          text: <><strong>{frequentActor.name}</strong> has appeared in <strong>{frequentActor.count}</strong> selections but hasn't won yet!</>,
-          icon: <Users className="h-5 w-5 text-primary" />,
+          text: <><strong>{movieMonday.picker.username}</strong> has selected movies for <strong>{pickerStats.totalPicks}</strong> Movie Mondays with a {Math.round(pickerStats.winRate * 100)}% success rate!</>,
+          icon: <UserCircle className="h-5 w-5 text-primary" />,
           priority: 8
         });
-      }
-      
-      // Actor with multiple wins
-      const winningActor = stats.actors.find(a => a.isWinner > 1);
-      if (winningActor) {
-        facts.push({
-          text: <><strong>{winningActor.name}</strong> is a Movie Monday favorite with <strong>{winningActor.isWinner}</strong> winning movies!</>,
-          icon: <Star className="h-5 w-5 text-warning" />,
-          priority: 9
-        });
-      }
-    }
-    
-    // Facts about directors
-    if (stats.directors && stats.directors.length > 0) {
-      const frequentDirector = stats.directors.find(d => d.count > 1);
-      if (frequentDirector) {
-        facts.push({
-          text: <>Director <strong>{frequentDirector.name}</strong> has had <strong>{frequentDirector.count}</strong> films featured in Movie Mondays!</>,
-          icon: <Film className="h-5 w-5 text-success" />,
-          priority: 7
-        });
+        
+        // If the picker has genre preferences
+        if (pickerStats.mostSelectedGenres && pickerStats.mostSelectedGenres.length > 0) {
+          const favoriteGenre = pickerStats.mostSelectedGenres[0];
+          facts.push({
+            text: <><strong>{movieMonday.picker.username}</strong> favors <strong>{favoriteGenre.name}</strong> films, selecting them {favoriteGenre.count} times!</>,
+            icon: <Film className="h-5 w-5 text-primary" />,
+            priority: 7
+          });
+        }
       }
     }
     
-    // Facts about food/drinks
-    if (stats.meals && stats.meals.length > 0) {
-      const popularMeal = stats.meals[0]; // Assuming sorted by popularity
-      facts.push({
-        text: <><strong>{popularMeal}</strong> has been the most popular meal choice for Movie Mondays!</>,
-        icon: <Utensils className="h-5 w-5 text-primary" />,
-        priority: 6
-      });
-    }
+    // Sort by priority and take top 4
+    return facts.sort((a, b) => b.priority - a.priority).slice(0, 4);
+  };
+
+  // Render the historical comparison section
+  const renderHistoricalSection = () => {
+    if (!data || !data.history) return null;
     
-    if (stats.cocktails && stats.cocktails.length > 0) {
-      const popularCocktail = stats.cocktails[0]; // Assuming sorted by popularity
-      facts.push({
-        text: <><strong>{popularCocktail}</strong> has been the signature Movie Monday cocktail!</>,
-        icon: <Wine className="h-5 w-5 text-danger" />,
-        priority: 5
-      });
-    }
+    const { history, movieMonday } = data;
     
-    // Sort by priority and take top 3
-    return facts.sort((a, b) => b.priority - a.priority).slice(0, 3);
+    return (
+      <Card className="mt-6">
+        <CardHeader className="flex gap-2">
+          <History className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-bold">Historical Insights</h3>
+        </CardHeader>
+        <CardBody>
+          <div className="space-y-6">
+            {/* Repeat appearances section */}
+            {history.repeatedMovies && history.repeatedMovies.length > 0 && (
+              <div>
+                <h4 className="font-medium text-default-700 mb-3">Repeat Movie Appearances</h4>
+                <div className="space-y-3">
+                  {history.repeatedMovies.slice(0, 3).map(movie => (
+                    <div key={movie.tmdbMovieId} className="p-3 bg-default-50 rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-medium">{movie.title}</span>
+                        <Chip size="sm" color="primary">
+                          {movie.appearances} times
+                        </Chip>
+                      </div>
+                      <div className="text-sm">
+                        <div className="flex justify-between">
+                          <span>First appearance:</span>
+                          <span>{formatRelativeDate(movie.firstAppearance)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Win rate:</span>
+                          <span>{movie.wins} / {movie.appearances} ({Math.round((movie.wins / movie.appearances) * 100)}%)</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Actor history section */}
+            {history.actorAppearances && history.actorAppearances.length > 0 && (
+              <div>
+                <h4 className="font-medium text-default-700 mb-3">Actor Success Rates</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {history.actorAppearances
+                    .filter(actor => actor.totalAppearances > 1)
+                    .sort((a, b) => (b.wins / b.totalAppearances) - (a.wins / a.totalAppearances))
+                    .slice(0, 4)
+                    .map(actor => (
+                      <div key={actor.id} className="p-3 bg-default-50 rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-medium">{actor.name}</span>
+                          <div className="flex items-center gap-1">
+                            <Trophy className="h-4 w-4 text-warning" />
+                            <span>{actor.wins} / {actor.totalAppearances}</span>
+                          </div>
+                        </div>
+                        <Progress 
+                          value={(actor.wins / actor.totalAppearances) * 100}
+                          color="warning"
+                          size="sm"
+                          className="h-2 mb-2"
+                        />
+                        <p className="text-xs text-default-500">
+                          {actor.wins === 0 
+                            ? `0% win rate over ${actor.totalAppearances} appearances` 
+                            : `${Math.round((actor.wins / actor.totalAppearances) * 100)}% win rate`}
+                        </p>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            )}
+            
+            {/* Menu favorites section */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Meals */}
+              {history.mealFrequencies && history.mealFrequencies.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-default-700 mb-2 flex items-center">
+                    <Utensils className="h-4 w-4 mr-1" />
+                    Top Meals
+                  </h4>
+                  <div className="space-y-2">
+                    {history.mealFrequencies.slice(0, 3).map((meal, index) => (
+                      <Tooltip
+                        key={index}
+                        content={`Served ${meal.count} times, last seen ${formatRelativeDate(meal.lastSeenDate)}`}
+                      >
+                        <div className="p-2 bg-default-100 rounded-lg flex justify-between items-center cursor-help">
+                          <span className="truncate">{meal.name}</span>
+                          <Badge size="sm" content={meal.count} color="primary" />
+                        </div>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Cocktails */}
+              {history.cocktailFrequencies && history.cocktailFrequencies.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-default-700 mb-2 flex items-center">
+                    <Wine className="h-4 w-4 mr-1" />
+                    Top Cocktails
+                  </h4>
+                  <div className="space-y-2">
+                    {history.cocktailFrequencies.slice(0, 3).map((cocktail, index) => (
+                      <Tooltip
+                        key={index}
+                        content={`Mixed ${cocktail.count} times, last seen ${formatRelativeDate(cocktail.lastSeenDate)}`}
+                      >
+                        <div className="p-2 bg-default-100 rounded-lg flex justify-between items-center cursor-help">
+                          <span className="truncate">{cocktail.name}</span>
+                          <Badge size="sm" content={cocktail.count} color="danger" />
+                        </div>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Desserts */}
+              {history.dessertFrequencies && history.dessertFrequencies.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-default-700 mb-2 flex items-center">
+                    <Cake className="h-4 w-4 mr-1" />
+                    Top Desserts
+                  </h4>
+                  <div className="space-y-2">
+                    {history.dessertFrequencies.slice(0, 3).map((dessert, index) => (
+                      <Tooltip
+                        key={index}
+                        content={`Enjoyed ${dessert.count} times, last seen ${formatRelativeDate(dessert.lastSeenDate)}`}
+                      >
+                        <div className="p-2 bg-default-100 rounded-lg flex justify-between items-center cursor-help">
+                          <span className="truncate">{dessert.name}</span>
+                          <Badge size="sm" content={dessert.count} color="warning" />
+                        </div>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Directors section */}
+            {history.directorAppearances && history.directorAppearances && history.directorAppearances.length > 0 && (
+              <div>
+                <h4 className="font-medium text-default-700 mb-3">Director Stats</h4>
+                <div className="space-y-3">
+                  {history.directorAppearances
+                    .filter(director => director.totalAppearances > 1)
+                    .sort((a, b) => b.totalAppearances - a.totalAppearances)
+                    .slice(0, 3)
+                    .map(director => (
+                      <div key={director.id} className="p-3 bg-default-50 rounded-lg">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-medium">{director.name}</span>
+                          <span>{director.totalAppearances} appearances</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span>{director.wins} wins ({Math.round((director.wins / director.totalAppearances) * 100)}% success)</span>
+                          <div className="flex items-center gap-1">
+                            <Film className="h-4 w-4 text-success" />
+                            <span>{director.appearances.length} films</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Picker stats section */}
+            {history.pickerStats && (
+              <div>
+                <h4 className="font-medium text-default-700 mb-3">Picker Performance</h4>
+                <div className="p-3 bg-default-50 rounded-lg">
+                  <div className="flex justify-between mb-2">
+                    <span className="font-medium">{movieMonday.picker.username}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{Math.round(history.pickerStats.winRate * 100)}% win rate</span>
+                      <Trophy className="h-4 w-4 text-warning" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Total selections:</span>
+                      <span>{history.pickerStats.totalPicks} Movie Mondays</span>
+                    </div>
+                    
+                    {history.pickerStats.mostSelectedGenres && 
+                     history.pickerStats.mostSelectedGenres.length > 0 && (
+                      <div>
+                        <span>Favorite genres:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {history.pickerStats.mostSelectedGenres.slice(0, 3).map((genre, index) => (
+                            <Chip key={index} size="sm" variant="flat">
+                              {genre.name} ({genre.count})
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardBody>
+      </Card>
+    );
   };
 
   if (loading) {
@@ -493,7 +962,7 @@ const MovieMondayDetail: React.FC = () => {
               <Sparkles className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-bold">Movie Monday Insights</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {interestingFacts.map((fact, index) => (
                 <div key={index} className="flex items-start gap-2 p-3 bg-background/60 backdrop-blur-sm rounded-lg">
                   <div className="mt-1 flex-shrink-0">{fact.icon}</div>
@@ -1053,8 +1522,7 @@ const MovieMondayDetail: React.FC = () => {
                                         <ul className="list-disc pl-4">
                                           {decade.movies.map(m => (
                                             <li key={m.tmdbMovieId} className={m.isWinner ? "text-warning" : ""}>
-                                              {m.title} ({m.releaseYear}) {m.isWinner && "(Winner)"}
-                                            </li>
+                                              {m.title} ({m.releaseYear}) {m.isWinner && "(Winner)"}</li>
                                           ))}
                                         </ul>
                                       </div>
@@ -1121,9 +1589,9 @@ const MovieMondayDetail: React.FC = () => {
                   <Utensils className="h-4 w-4 mr-2" />
                   Meals
                 </h4>
-                {stats.meals && stats.meals.length > 0 ? (
+                {movieMonday.eventDetails?.meals && movieMonday.eventDetails.meals.length > 0 ? (
                   <div className="space-y-2">
-                    {stats.meals.map((meal, index) => (
+                    {movieMonday.eventDetails.meals.map((meal, index) => (
                       <div key={index} className="p-2 bg-default-100 rounded-lg">
                         {meal}
                       </div>
@@ -1140,9 +1608,9 @@ const MovieMondayDetail: React.FC = () => {
                   <Wine className="h-4 w-4 mr-2" />
                   Cocktails
                 </h4>
-                {stats.cocktails && stats.cocktails.length > 0 ? (
+                {movieMonday.eventDetails?.cocktails && movieMonday.eventDetails.cocktails.length > 0 ? (
                   <div className="space-y-2">
-                    {stats.cocktails.map((cocktail, index) => (
+                    {movieMonday.eventDetails.cocktails.map((cocktail, index) => (
                       <div key={index} className="p-2 bg-default-100 rounded-lg">
                         {cocktail}
                       </div>
@@ -1159,9 +1627,9 @@ const MovieMondayDetail: React.FC = () => {
                   <Cake className="h-4 w-4 mr-2" />
                   Desserts
                 </h4>
-                {stats.desserts && stats.desserts.length > 0 ? (
+                {movieMonday.eventDetails?.desserts && movieMonday.eventDetails.desserts.length > 0 ? (
                   <div className="space-y-2">
-                    {stats.desserts.map((dessert, index) => (
+                    {movieMonday.eventDetails.desserts.map((dessert, index) => (
                       <div key={index} className="p-2 bg-default-100 rounded-lg">
                         {dessert}
                       </div>
@@ -1292,10 +1760,31 @@ const MovieMondayDetail: React.FC = () => {
             </div>
           </CardBody>
         </Card>
+        
+        {/* Historical Insights Toggle */}
+        {data.history && (
+          <div className="flex items-center justify-between mt-8">
+            <h2 className="text-xl font-bold flex items-center">
+              <History className="w-5 h-5 mr-2 text-primary" />
+              Historical Insights
+            </h2>
+            <Button
+              variant="light"
+              color="primary"
+              onPress={() => setShowHistorySection(!showHistorySection)}
+              startContent={showHistorySection ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              size="sm"
+            >
+              {showHistorySection ? "Hide History" : "Show History"}
+            </Button>
+          </div>
+        )}
+        {/* Historical Comparison Section */}
+        {showHistorySection && data.history && renderHistoricalSection()}
       </div>
     </div>
-  </div>
-);
+    </div>
+  );
 };
 
 export default MovieMondayDetail;
