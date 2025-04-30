@@ -3,8 +3,8 @@ import { Card, CardBody, CardHeader, Button, Spinner } from "@heroui/react";
 import { BarChart2, ExternalLink, Award, Film, Users, Wine, Drama, Utensils } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { PieChartComponent } from './analytics/PieChartComponent';
-import { BarChartComponent } from './analytics/BarChartComponent';
+import { PieChartComponent } from '../analytics/PieChartComponent';
+import { BarChartComponent } from '../analytics/BarChartComponent';
 import { 
   getGenreAnalytics, 
   getWinRateAnalytics, 
@@ -19,7 +19,7 @@ import {
   getMoviesByCocktail,
   getMoviesByMeal 
 } from '@/utils/analyticsUtils';
-import MovieDetailsModal from './analytics/MovieDetailsModal';
+import MovieDetailsModal from '../analytics/MovieDetailsModal';
 
 // Function to normalize item names for display - removes JSON notation
 function normalizeItemName(item) {

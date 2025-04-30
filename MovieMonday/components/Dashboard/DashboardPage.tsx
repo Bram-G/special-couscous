@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Spinner } from '@heroui/react';
 import DashboardCalendar from './DashboardCalendar';
-import GroupManagement from './GroupManagement'; 
+import GroupManagement from '../GroupManagement'; 
 import DashboardWatchlistSection from './DashboardWatchlistSection';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
