@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Image } from "@heroui/react";
 import { motion } from "framer-motion";
+import { useTheme } from "next-themes";
 
 type Movie = {
   id: number;
@@ -13,6 +14,7 @@ type Movie = {
 const InfiniteMovieScroll = () => {
   const [trendingMovies, setTrendingMovies] = useState<Movie[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const fetchTrendingMovies = async () => {

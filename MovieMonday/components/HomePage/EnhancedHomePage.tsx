@@ -6,10 +6,13 @@ import MovieMondayStats from "../MovieMondayStats";
 import { useAuth } from "@/contexts/AuthContext";
 import DiscoveryPage from "../Discovery/DiscoveryPage";
 import { Link } from "@heroui/react";
+import { useTheme } from "next-themes";
+import { Film, Info } from "lucide-react";
 
-export default function DynamicHomePage() {
+export default function EnhancedHomePage() {
   const { isAuthenticated, isLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const { theme } = useTheme();
 
   // After mounting, we have access to authentication state
   useEffect(() => {
@@ -28,28 +31,31 @@ export default function DynamicHomePage() {
     return <DiscoveryPage />;
   }
 
-  // If not authenticated, show the landing page with hero
+  const gradientClass = theme === 'light' 
+    ? "from-white via-white/80 to-transparent" 
+    : "from-black to-transparent";
+  
+  const textColorClass = theme === 'light' ? "text-black" : "text-white";
+  const textSecondaryColorClass = theme === 'light' ? "text-black/90" : "text-white/90";
+  
   return (
     <>
-      <section className="relative h-screen overflow-hidden">
-        {/* Movie poster background on right side */}
+      <section className="relative rounded-sm h-screen overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 w-1/2 lg:w-3/5">
           <InfiniteMovieScroll />
-          {/* Add a left-to-right gradient overlay for text readability */}
-          <div className="absolute left-0 top-0 bottom-0 w-full bg-gradient-to-r from-black to-transparent"></div>
+          <div className={`absolute left-0 top-0 bottom-0 w-5/6 bg-gradient-to-r ${gradientClass}`}></div>
         </div>
 
         {/* Content container */}
         <div className="relative h-full flex flex-col md:flex-row">
-          {/* Left section - Text content that can overflow */}
           <div className="flex-1 flex flex-col justify-center px-6 md:px-12 lg:px-16 z-10">
             <div className="max-w-2xl md:max-w-3xl">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-8">
-                <span className="block text-white">
+                <span className={`block ${textColorClass}`}>
                   Make Mondays the Highlight of your week
                 </span>
               </h1>
-              <p className="text-xl md:text-xl text-white/90 mb-10">
+              <p className={`text-xl md:text-xl ${textSecondaryColorClass} mb-10`}>
                 Turn your Mondays into a celebration of connection with Movie
                 Monday! Gather your friends for a night of movies, cocktails,
                 homemade dinners, and sweet desserts. It's more than just a movie
@@ -72,8 +78,8 @@ export default function DynamicHomePage() {
           </div>
         </div>
 
-        {/* Dark overlay for mobile view */}
-        <div className="absolute inset-0 bg-black/60 md:hidden"></div>
+        {/* Dark overlay for mobile view - adapt for light/dark modes */}
+        <div className={`absolute inset-0 ${theme === 'light' ? 'bg-white/60' : 'bg-black/60'} md:hidden`}></div>
       </section>
       
       {/* Quick Discovery Summary for unauthenticated users */}
@@ -109,21 +115,74 @@ export default function DynamicHomePage() {
         </div>
       </section>
       
-      {/* Stats Section */}
-      <MovieMondayStats />
+      {/* Stats Section with adaptive styling */}
+      <MovieMondayStatsWrapper />
       
       {/* About Section Preview */}
-      <section className="py-16 bg-content1">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-6">About Movie Monday</h2>
-          <p className="text-xl max-w-3xl mx-auto mb-8">
-            Learn more about how Movie Monday started and why it's the perfect way to kick off your week.
-          </p>
-          <Button as={Link} href="/about" variant="flat" color="primary">
-            Learn More About Us
-          </Button>
+      <section className="py-16 my-16 bg-gradient-to-r from-primary-900/20 to-secondary-900/20 dark:from-primary-900/30 dark:to-secondary-900/30 rounded-xl overflow-hidden relative">
+  {/* Decorative elements */}
+  <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10 pointer-events-none">
+    <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full bg-primary"></div>
+    <div className="absolute top-1/4 right-0 w-32 h-32 rounded-full bg-secondary"></div>
+    <div className="absolute bottom-0 left-1/3 w-48 h-48 rounded-full bg-primary"></div>
+  </div>
+  
+  <div className="container mx-auto px-4 text-center relative z-10">
+    <div className="inline-block mb-6">
+      <h2 className="text-3xl md:text-4xl font-bold pb-2 border-b-4 border-primary">Movie Monday Rules</h2>
+    </div>
+    
+    <div className="max-w-4xl mx-auto bg-background/80 backdrop-blur-sm p-6 rounded-lg shadow-lg mb-8">
+      <div className="flex flex-col md:flex-row gap-8 items-center">
+        <div className="md:w-1/4 flex-shrink-0 flex justify-center">
+          <div className="relative w-32 h-32 md:w-40 md:h-40">
+            <div className="absolute inset-0 rounded-full bg-primary/10 animate-pulse"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Film className="w-16 h-16 md:w-20 md:h-20 text-primary" />
+            </div>
+          </div>
         </div>
-      </section>
+        
+        <div className="md:w-3/4 text-left space-y-4">
+          <p className="text-lg">
+            Each Monday, a different group member takes their turn as the movie selector. That person chooses three movies and presents them to the group. Everyone votes on which movie they'd like to watch, and the movie with the most votes wins. If there's a tie, the movie selector gets to make the final decision.
+          </p>
+          <p className="text-lg text-default-700">
+            The Movie Monday app tracks your viewing history, meal choices, and voting patterns, revealing interesting insights about your group's tastes and discovering fun connections between films over time.
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <Button 
+      as={Link} 
+      href="/about" 
+      variant="flat" 
+      color="primary"
+      size="lg"
+      className="font-medium px-8 py-6"
+      startContent={<Info className="h-5 w-5" />}
+    >
+      Learn More About Us
+    </Button>
+  </div>
+</section>
     </>
+  );
+}
+
+// Wrapper for the MovieMondayStats component to ensure theme compatibility
+function MovieMondayStatsWrapper() {
+  const { theme } = useTheme();
+  
+  // Apply theme-specific styling to the stats component
+  const themeClass = theme === 'light' 
+    ? 'bg-gray-100 text-gray-900' 
+    : 'bg-gray-900 text-white';
+
+  return (
+    <div className={themeClass}>
+      <MovieMondayStats />
+    </div>
   );
 }

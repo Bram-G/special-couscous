@@ -1,4 +1,4 @@
-// Updated MovieCarouselRow.tsx with fixed height and improved layout
+// Updated MovieCarouselRow.tsx with centered carousels and improved hover states
 import React, { useState, useRef, useEffect } from "react";
 import { Card, Image, Button, Spinner, useDisclosure } from "@heroui/react";
 import { Heart, ChevronLeft, ChevronRight, Eye, Info } from "lucide-react";
@@ -28,6 +28,7 @@ interface MovieCarouselRowProps {
   reason?: (
     movie: Movie
   ) => { type: string; text: string; detail?: string } | null;
+  visibleItemCount?: number;
 }
 
 const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
@@ -39,6 +40,7 @@ const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
   onSuccess,
   onAddToWatchlist,
   reason,
+  visibleItemCount,
 }) => {
   const router = useRouter();
   const { token, isAuthenticated } = useAuth();
@@ -51,7 +53,7 @@ const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
   );
   const carouselRef = useRef<HTMLDivElement>(null);
   
-  // Add missing state for currentIndex and moviesPerPage
+  // Add state for currentIndex and moviesPerPage
   const [currentIndex, setCurrentIndex] = useState(0);
   const [moviesPerPage, setMoviesPerPage] = useState(5);
 
@@ -90,13 +92,13 @@ const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
   // Add navigation handlers
   const handleNext = () => {
     if (currentIndex + moviesPerPage < movies.length) {
-      setCurrentIndex(prev => prev + moviesPerPage);
+      setCurrentIndex(prev => prev + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      setCurrentIndex(prev => Math.max(0, prev - moviesPerPage));
+      setCurrentIndex(prev => Math.max(0, prev - 1));
     }
   };
 
@@ -196,16 +198,27 @@ const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
     return new Date(dateString).getFullYear();
   };
 
+  // Calculate visible movies based on the current page
+  const calculateVisibleMovies = () => {
+    // If we have fewer movies than can fit on a page, show all of them
+    if (movies.length <= moviesPerPage) {
+      return movies;
+    }
+    
+    // Calculate the visible movies from the current index
+    return movies.slice(
+      currentIndex,
+      currentIndex + moviesPerPage
+    );
+  };
+
   // Calculate if we can navigate left or right
   const canGoNext =
     movies.length > 0 && currentIndex + moviesPerPage < movies.length;
   const canGoPrevious = currentIndex > 0;
 
   // Get the visible movies for the current page
-  const visibleMovies = movies.slice(
-    currentIndex,
-    currentIndex + moviesPerPage
-  );
+  const visibleMovies = calculateVisibleMovies();
 
   if (loading) {
     return (
@@ -270,144 +283,149 @@ const MovieCarouselRow: React.FC<MovieCarouselRowProps> = ({
           </Button>
         )}
 
-        {/* Movie carousel */}
-        <div className="flex gap-4 px-3 overflow-hidden">
-          {visibleMovies.map((movie) => (
-            <div
-              key={movie.id}
-              className="relative flex-none w-48 transition-opacity duration-300"
-              onMouseEnter={() => setHoveredMovieId(movie.id)}
-              onMouseLeave={() => setHoveredMovieId(null)}
-            >
-              {/* Movie card with poster */}
-              <div className="w-full" style={{ height: "360px" }}> {/* Fixed height container */}
-                <div className="h-72 overflow-hidden rounded-md">
-                  <Image
-                    src={
-                      movie.poster_path
-                        ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                        : "/placeholder-poster.jpg"
-                    }
-                    alt={movie.title}
-                    className="w-full h-full object-cover transition-transform duration-300 cursor-pointer hover:scale-105"
-                    onClick={() => window.location.assign(`/movie/${movie.id}`)}
-                    removeWrapper
-                  />
-                </div>
+        {/* Movie carousel - center full carousels, left-align partial ones */}
+        <div className={`flex overflow-hidden px-3 ${movies.length >= moviesPerPage ? "justify-center" : ""}`}>
+          <div className="flex gap-4">
+            {visibleMovies.map((movie) => (
+              <div
+                key={movie.id}
+                className="relative flex-none w-48 transition-opacity duration-300"
+                onMouseEnter={() => setHoveredMovieId(movie.id)}
+                onMouseLeave={() => setHoveredMovieId(null)}
+              >
+                {/* Movie card with poster */}
+                <div className="w-full" style={{ height: "360px" }}> {/* Fixed height container */}
+                  <div className="h-72 overflow-hidden rounded-md">
+                    <Image
+                      src={
+                        movie.poster_path
+                          ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                          : "/placeholder-poster.jpg"
+                      }
+                      alt={movie.title}
+                      className="w-full h-full object-cover transition-transform duration-300 cursor-pointer hover:scale-105"
+                      onClick={() => window.location.assign(`/movie/${movie.id}`)}
+                      removeWrapper
+                    />
+                  </div>
 
-                {/* Movie title shown below poster */}
-                <div className="mt-2 w-full px-1">
-                  <p className="text-sm font-medium line-clamp-1">{movie.title}</p>
-                  {movie.release_date && (
-                    <p className="text-xs text-default-500">
-                      {getReleaseYear(movie.release_date)}
-                    </p>
-                  )}
-                </div>
+                  {/* Movie title shown below poster */}
+                  <div className="mt-2 w-full px-1">
+                    <p className="text-sm font-medium line-clamp-1">{movie.title}</p>
+                    {movie.release_date && (
+                      <p className="text-xs text-default-500">
+                        {getReleaseYear(movie.release_date)}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Hover menu - with AnimatePresence for clean animations */}
-                <AnimatePresence>
-                  {hoveredMovieId === movie.id && (
-                    <motion.div
-                      className="absolute left-0 right-0 bottom-[72px] z-50"
-                      initial={{ y: "100%" }}
-                      animate={{ y: 0 }}
-                      exit={{ y: "100%" }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="bg-gradient-to-t from-black to-black/70 p-3 text-white">
-                        <p className="text-sm font-medium truncate mb-2">
-                          {movie.title}
-                        </p>
-                        <div className="flex flex-wrap items-center justify-between gap-1 mb-2">
-                          <span className="text-xs">
-                            {getReleaseYear(movie.release_date)}
-                          </span>
-                          {movie.vote_average && (
-                            <div className="bg-primary rounded-full px-2 py-0.5 text-xs">
-                              {movie.vote_average.toFixed(1)}
+                  {/* Hover menu - with AnimatePresence for clean animations */}
+                  <AnimatePresence>
+                    {hoveredMovieId === movie.id && (
+                      <motion.div
+                        className="absolute left-0 right-0 bottom-[72px] z-50"
+                        initial={{ y: "100%" }}
+                        animate={{ y: 0 }}
+                        exit={{ y: "100%" }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {/* Completely redesigned background for better visibility in both modes */}
+                        <div className="bg-black/85 backdrop-blur-sm dark:bg-black/90 p-3 rounded-t-md shadow-lg text-white">
+                          <p className="text-sm font-medium truncate mb-2">
+                            {movie.title}
+                          </p>
+                          <div className="flex flex-wrap items-center justify-between gap-1 mb-2">
+                            <span className="text-xs">
+                              {getReleaseYear(movie.release_date)}
+                            </span>
+                            {movie.vote_average && (
+                              <div className="bg-primary rounded-full px-2 py-0.5 text-xs font-medium">
+                                {movie.vote_average.toFixed(1)}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Recommendation reason, if provided */}
+                          {reason && reason(movie) && (
+                            <div className="mb-2 text-xs text-white">
+                              {reason(movie)?.text}
                             </div>
                           )}
-                        </div>
 
-                        {/* Recommendation reason, if provided */}
-                        {reason && reason(movie) && (
-                          <div className="mb-2 text-xs text-white/80">
-                            {reason(movie)?.text}
-                          </div>
-                        )}
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              size="sm"
+                              color="primary"
+                              variant="solid"
+                              startContent={<Eye className="h-3.5 w-3.5" />}
+                              as={Link}
+                              href={`/movie/${movie.id}`}
+                              className="w-full"
+                            >
+                              View Details
+                            </Button>
 
-                        <div className="flex flex-col gap-2">
-                          <Button
-                            size="sm"
-                            color="primary"
-                            variant="solid"
-                            startContent={<Eye className="h-3.5 w-3.5" />}
-                            as={Link}
-                            href={`/movie/${movie.id}`}
-                            className="w-full"
-                          >
-                            View Details
-                          </Button>
-
-                          {isAuthenticated ? (
-                            watchlistStatus[movie.id] ? (
-                              // Already in watchlist
-                              <Button
-                                size="sm"
-                                color="success"
-                                variant="flat"
-                                className="bg-white/20 backdrop-blur-sm"
-                                onPress={() => handleOpenWatchlistModal(movie)}
-                              >
-                                <Heart className="h-3 w-3 fill-current" />
-                              </Button>
+                            {isAuthenticated ? (
+                              watchlistStatus[movie.id] ? (
+                                // Already in watchlist
+                                <Button
+                                  size="sm"
+                                  color="success"
+                                  variant="solid"
+                                  onPress={() => handleOpenWatchlistModal(movie)}
+                                >
+                                  <Heart className="h-3 w-3 fill-current" />
+                                </Button>
+                              ) : (
+                                // Not in watchlist
+                                <Button
+                                  size="sm"
+                                  color="default"
+                                  variant="solid"
+                                  onPress={() => handleAddToWatchlist(movie)}
+                                  isLoading={loadingStates[movie.id]}
+                                >
+                                  <Heart className="h-3 w-3" />
+                                </Button>
+                              )
                             ) : (
-                              // Not in watchlist
+                              // Not authenticated
                               <Button
                                 size="sm"
+                                variant="solid"
                                 color="default"
-                                variant="flat"
-                                className="bg-white/20 backdrop-blur-sm"
-                                onPress={() => handleAddToWatchlist(movie)}
-                                isLoading={loadingStates[movie.id]}
+                                onPress={() => {
+                                  // Store the current URL for redirection after login
+                                  localStorage.setItem(
+                                    "redirectAfterLogin",
+                                    window.location.pathname
+                                  );
+                                  router.push("/login");
+                                }}
                               >
                                 <Heart className="h-3 w-3" />
                               </Button>
-                            )
-                          ) : (
-                            // Not authenticated
-                            <Button
-                              size="sm"
-                              variant="flat"
-                              className="bg-white/20 backdrop-blur-sm"
-                              onPress={() => {
-                                // Store the current URL for redirection after login
-                                localStorage.setItem(
-                                  "redirectAfterLogin",
-                                  window.location.pathname
-                                );
-                                router.push("/login");
-                              }}
-                            >
-                              <Heart className="h-3 w-3" />
-                            </Button>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        {/* Show more indicator if there are more movies */}
+        {/* Gradient indicators for more content */}
+        {canGoPrevious && (
+          <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-background to-transparent opacity-60 pointer-events-none"></div>
+        )}
         {canGoNext && (
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-16 h-full bg-gradient-to-l from-background to-transparent opacity-60 pointer-events-none"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent opacity-60 pointer-events-none"></div>
         )}
       </div>
+      
       {/* Only render the modal when it's open and we have a selected movie */}
       {isOpen && selectedMovie && (
         <AddToWatchlistModal
