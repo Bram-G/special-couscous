@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Card, Spinner, Button, Link, useDisclosure } from "@heroui/react";
+import { Card, Spinner, Button, Link, useDisclosure, Input } from "@heroui/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { title } from "@/components/primitives";
-import MovieCarouselRow from "@/components/Discovery/MovieCarouselRow";
-import MovieDiscoveryCard from "@/components/Discovery/MovieDiscoveryCard";
+import { Search, Film, X, Flame, Star, Clock, TrendingUp, Info } from "lucide-react";
 import debounce from "lodash/debounce";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import ClientOnly from "@/components/ui/client-only";
+import EnhancedMovieCarousel from "@/components/Discovery/EnhancedMovieCarousel";
+import EnhancedWatchlistSection from "@/components/Discovery/EnhancedWatchlistSection";
+import FixedMovieDiscoveryCard from "@/components/Discovery/FixedMovieDiscoveryCard";
 
 // Types for movie data
 interface Movie {
@@ -18,20 +19,11 @@ interface Movie {
   title: string;
   poster_path: string;
   backdrop_path?: string;
-  release_date: string;
-  vote_average: number;
-  overview: string;
-  genre_ids: number[];
+  release_date?: string;
+  vote_average?: number;
+  overview?: string;
+  genre_ids?: number[];
   popularity?: number;
-}
-
-interface WatchlistMovie {
-  id: number;
-  tmdbMovieId: number;
-  title: string;
-  posterPath: string;
-  watched?: boolean;
-  isWinner?: boolean;
 }
 
 interface PublicWatchlist {
@@ -62,12 +54,7 @@ export default function DiscoveryPage() {
   const [trending, setTrending] = useState<Movie[]>([]);
   const [recommended, setRecommended] = useState<Movie[]>([]);
   const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
-  const [publicWatchlists, setPublicWatchlists] = useState<PublicWatchlist[]>(
-    []
-  );
-  const [watchlistMovies, setWatchlistMovies] = useState<{
-    [key: string]: Movie[];
-  }>({});
+  const [publicWatchlists, setPublicWatchlists] = useState<PublicWatchlist[]>([]);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -83,8 +70,7 @@ export default function DiscoveryPage() {
   // Watchlist modal state
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const { inWatchlist, allWatchlistMovieIds, isLoading } =
-    useWatchlistStatus(0);
+  const { allWatchlistMovieIds } = useWatchlistStatus(0);
 
   // Check for search query in URL
   useEffect(() => {
@@ -105,17 +91,11 @@ export default function DiscoveryPage() {
     };
 
     // Add event listener
-    window.addEventListener(
-      "navbarSearch",
-      handleNavbarSearch as EventListener
-    );
+    window.addEventListener("navbarSearch", handleNavbarSearch as EventListener);
 
     // Clean up
     return () => {
-      window.removeEventListener(
-        "navbarSearch",
-        handleNavbarSearch as EventListener
-      );
+      window.removeEventListener("navbarSearch", handleNavbarSearch as EventListener);
     };
   }, []);
 
@@ -206,68 +186,38 @@ export default function DiscoveryPage() {
         return;
       }
 
-      // Log for debugging
-      console.log(
-        "Fetched watchlist items for recommendations:",
-        watchlistItems
-      );
-
       // Get recommendations based on 2-3 random movies from watchlists
       const sampleSize = Math.min(3, watchlistItems.length);
       const sampleMovies = [...watchlistItems]
         .sort(() => 0.5 - Math.random())
         .slice(0, sampleSize);
 
-      // Ensure we're using the correct property (tmdbMovieId)
       if (sampleMovies.length === 0 || !sampleMovies[0].tmdbMovieId) {
-        console.error("Invalid watchlist item format:", sampleMovies);
         setRecommended([]);
         setLoadingRecommended(false);
         return;
       }
 
-      // Fetch recommendations for each sample movie - with better error handling
+      // Fetch recommendations for each sample movie
       const recommendationPromises = sampleMovies.map((movie) =>
         fetch(
           `https://api.themoviedb.org/3/movie/${movie.tmdbMovieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`
         )
           .then((res) => {
-            if (!res.ok) {
-              console.warn(
-                `Failed to get recommendations for movie ${movie.tmdbMovieId}`,
-                res.status
-              );
-              return { results: [] };
-            }
+            if (!res.ok) return { results: [] };
             return res.json();
           })
-          .catch((err) => {
-            console.error(
-              `Error fetching recommendations for movie ${movie.tmdbMovieId}:`,
-              err
-            );
-            return { results: [] };
-          })
+          .catch(() => ({ results: [] }))
       );
 
       const results = await Promise.all(recommendationPromises);
-
-      // Combine all recommendations and remove duplicates
-      const allRecommendations = results.flatMap(
-        (result) => result.results || []
-      );
+      const allRecommendations = results.flatMap((result) => result.results || []);
 
       if (allRecommendations.length === 0) {
-        console.log("No recommendations found for any of the sample movies");
         setRecommended([]);
         setLoadingRecommended(false);
         return;
       }
-
-      // Add debug logging
-      console.log(
-        `Found ${allRecommendations.length} total recommendations before deduplication`
-      );
 
       // Use a Map for efficient deduplication by movie ID
       const uniqueRecommendationsMap = new Map();
@@ -277,18 +227,12 @@ export default function DiscoveryPage() {
         }
       });
 
-      const uniqueRecommendations = Array.from(
-        uniqueRecommendationsMap.values()
-      );
+      const uniqueRecommendations = Array.from(uniqueRecommendationsMap.values());
 
       // Remove movies that are already in watchlist
       const watchlistIds = new Set(watchlistItems.map((m) => m.tmdbMovieId));
       const filteredRecommendations = uniqueRecommendations.filter(
         (movie) => !watchlistIds.has(movie.id)
-      );
-
-      console.log(
-        `After filtering out watchlist movies, ${filteredRecommendations.length} recommendations remain`
       );
 
       if (filteredRecommendations.length === 0) {
@@ -339,19 +283,15 @@ export default function DiscoveryPage() {
       );
 
       if (!response.ok) {
-        throw new Error(
-          `Failed to fetch public watchlists: ${response.status}`
-        );
+        throw new Error(`Failed to fetch public watchlists: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Public watchlists data:", data);
-
+      
       // Extract watchlists from the response format
       const watchlists = data.categories || [];
 
       if (watchlists.length === 0) {
-        console.log("No watchlists found in response");
         setPublicWatchlists([]);
         setLoadingPublicWatchlists(false);
         return;
@@ -366,8 +306,8 @@ export default function DiscoveryPage() {
         slug: watchlist.slug || String(watchlist.id),
         moviesCount: watchlist.moviesCount || 0,
         owner: {
-          username: watchlist.owner?.username || "Unknown user",
-          id: watchlist.owner?.id || 0,
+          username: watchlist.User?.username || watchlist.owner?.username || "User",
+          id: watchlist.User?.id || watchlist.owner?.id || 0,
         },
         items: Array.isArray(watchlist.items)
           ? watchlist.items.map((item) => ({
@@ -379,7 +319,6 @@ export default function DiscoveryPage() {
           : [],
       }));
 
-      console.log("Normalized watchlists:", normalizedWatchlists);
       setPublicWatchlists(normalizedWatchlists);
     } catch (error) {
       console.error("Error fetching public watchlists:", error);
@@ -399,7 +338,8 @@ export default function DiscoveryPage() {
   );
 
   // Handle search input changes
-  const handleSearchChange = (query: string) => {
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const query = event.target.value;
     setSearchQuery(query);
     debouncedSearch(query);
   };
@@ -441,31 +381,48 @@ export default function DiscoveryPage() {
 
   // Utility to get movie recommendation reason
   const getRecommendationReason = (movie: Movie) => {
-    if (!movie) return null;
-
-    return {
-      type: "generic",
-      text: "Recommended for you",
-      detail: "Based on your watchlist",
-    };
+    // We're no longer displaying this in the hover state
+    return null;
   };
 
   return (
-    <div className="container mx-auto px-4 mb-8">
+    <div className="container mx-auto px-4 pb-16">
       <div className="flex flex-col items-center justify-center gap-4 py-6 md:py-8">
-        <h1 className={title({ size: "lg" })}>Discover Movies</h1>
+        <h1 className="text-4xl font-bold text-center">Discover Movies</h1>
         <p className="text-center text-default-500 max-w-3xl">
           Find your next favorite movie for Movie Monday with personalized
           recommendations and trending titles.
         </p>
       </div>
 
+      {/* Search section */}
+      <div className="mb-8 max-w-2xl mx-auto">
+        <div className="relative">
+          <Input
+            isClearable
+            placeholder="Search movies..."
+            value={searchQuery}
+            onClear={() => {
+              setSearchQuery("");
+              setSearchResults([]);
+              router.push("/discover");
+            }}
+            onChange={handleSearchChange}
+            startContent={<Search className="text-default-400" />}
+            size="lg"
+            radius="lg"
+            className="w-full"
+          />
+        </div>
+      </div>
+
       {/* Main Content Area */}
-      <div className="space-y-10">
+      <div className="space-y-6">
         {searchQuery && (
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">
+          <div className="mb-10">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold flex items-center">
+                <Search className="mr-2 h-6 w-6 text-primary" />
                 Search Results for "{searchQuery}"
               </h2>
               <Button
@@ -473,9 +430,9 @@ export default function DiscoveryPage() {
                 onPress={() => {
                   setSearchQuery("");
                   setSearchResults([]);
-
                   router.push("/discover");
                 }}
+                startContent={<X className="h-4 w-4" />}
               >
                 Clear Search
               </Button>
@@ -486,9 +443,11 @@ export default function DiscoveryPage() {
                 <Spinner size="lg" />
               </div>
             ) : searchResults.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 gap-y-6">
                 {searchResults.map((movie) => (
-                  <MovieDiscoveryCard key={movie.id} movie={movie} />
+                  <div key={movie.id} className="aspect-[2/3]">
+                    <FixedMovieDiscoveryCard movie={movie} />
+                  </div>
                 ))}
               </div>
             ) : searchQuery ? (
@@ -509,126 +468,135 @@ export default function DiscoveryPage() {
         {/* Only show other sections if not searching or with no results */}
         {(!searchQuery || searchResults.length === 0) && (
           <>
-            {/* Trending Now Section - with limited number of visible items */}
-            <MovieCarouselRow
-              title="Trending Now"
-              movies={trending}
-              loading={loadingTrending}
-              visibleItemCount={5} // Limit visible items to prevent cutoff
-            />
+            {/* Featured collections with icons */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+              <Card 
+                isPressable
+                onPress={() => window.scrollTo({ top: document.getElementById('trending')?.offsetTop - 100, behavior: 'smooth' })}
+                className="p-6"
+              >
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center">
+                    <Flame className="h-8 w-8 text-danger" />
+                  </div>
+                  <h3 className="text-xl font-bold">Trending Now</h3>
+                  <p className="text-default-500 text-sm">
+                    The hottest movies people are watching this week
+                  </p>
+                </div>
+              </Card>
+              
+              <Card 
+                isPressable
+                onPress={() => window.scrollTo({ top: document.getElementById('top-rated')?.offsetTop - 100, behavior: 'smooth' })}
+                className="p-6"
+              >
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-warning-100 dark:bg-warning-900/30 flex items-center justify-center">
+                    <Star className="h-8 w-8 text-warning" />
+                  </div>
+                  <h3 className="text-xl font-bold">Top Rated</h3>
+                  <p className="text-default-500 text-sm">
+                    The highest rated films of all time by viewers
+                  </p>
+                </div>
+              </Card>
+              
+              <Card 
+                isPressable
+                onPress={() => window.scrollTo({ top: document.getElementById('watchlists')?.offsetTop - 100, behavior: 'smooth' })}
+                className="p-6"
+              >
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+                    <Film className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold">Watchlists</h3>
+                  <p className="text-default-500 text-sm">
+                    Curated collections by the community
+                  </p>
+                </div>
+              </Card>
+            </div>
+
+            {/* Trending Now Section */}
+            <section id="trending" className="mb-6">
+              <EnhancedMovieCarousel
+                title="Trending This Week"
+                subtitle="The hottest films everyone is watching right now"
+                movies={trending}
+                loading={loadingTrending}
+              />
+            </section>
 
             {/* Personalized Recommendations */}
             {isAuthenticated ? (
-              <MovieCarouselRow
-                title="Recommended For You"
-                subtitle="Based on your watchlist"
-                movies={recommended}
-                loading={loadingRecommended}
-                reason={getRecommendationReason}
-                emptyMessage="Add movies to your watchlist to get personalized recommendations"
-                visibleItemCount={5}
-              />
+              <section className="mb-6">
+                <EnhancedMovieCarousel
+                  title="Recommended For You"
+                  subtitle="Customized suggestions based on your watchlist"
+                  movies={recommended}
+                  loading={loadingRecommended}
+                  reason={getRecommendationReason}
+                  emptyMessage="Add movies to your watchlist to get personalized recommendations"
+                />
+              </section>
             ) : (
-              <Card className="mb-8">
-                <div className="flex flex-col items-center justify-center py-12 gap-4">
-                  <p className="text-center text-xl font-medium mb-2">
-                    Sign in to see personalized recommendations
-                  </p>
-                  <Button as={Link} href="/login" color="primary">
-                    Sign in
-                  </Button>
+              <Card className="mb-12 overflow-hidden">
+                <div className="p-8 flex flex-col md:flex-row items-center gap-6">
+                  <div className="md:w-1/2">
+                    <h3 className="text-2xl font-bold mb-3">
+                      Get Personalized Recommendations
+                    </h3>
+                    <p className="text-default-600 mb-4">
+                      Sign in to see movie recommendations based on your watchlist and viewing history.
+                      Create custom watchlists and track what you want to watch next.
+                    </p>
+                    <Button
+                      as={Link}
+                      href="/login"
+                      color="primary"
+                      size="lg"
+                    >
+                      Sign In
+                    </Button>
+                  </div>
+                  
+                  <div className="md:w-1/2 relative h-48 overflow-hidden rounded-lg">
+                    <div className="absolute inset-0 flex gap-1">
+                      {topRatedMovies.slice(0, 5).map((movie) => (
+                        <div key={movie.id} className="h-full w-1/5 overflow-hidden">
+                          <img
+                            src={movie.poster_path ? `https://image.tmdb.org/t/p/w200${movie.poster_path}` : '/placeholder-poster.jpg'}
+                            alt=""
+                            className="h-full w-full object-cover opacity-60"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent"></div>
+                  </div>
                 </div>
               </Card>
             )}
 
             {/* Top Rated Movies Section */}
-            <MovieCarouselRow
-              title="Top Rated Movies"
-              subtitle="The best films of all time according to users"
-              movies={topRatedMovies}
-              loading={loadingTopRated}
-              visibleItemCount={5}
-            />
+            <section id="top-rated" className="mb-6">
+              <EnhancedMovieCarousel
+                title="Top Rated Movies"
+                subtitle="The best films of all time according to users"
+                movies={topRatedMovies}
+                loading={loadingTopRated}
+              />
+            </section>
 
             {/* Popular Public Watchlists Section */}
-            {loadingPublicWatchlists ? (
-              <div className="mb-12">
-                <h2 className="text-2xl font-bold mb-2">Popular Watchlists</h2>
-                <p className="text-default-500 mb-6">
-                  Discovering curated movie collections from the community...
-                </p>
-                <div className="flex justify-center py-12">
-                  <Spinner size="lg" />
-                </div>
-              </div>
-            ) : publicWatchlists.length > 0 ? (
-              <div className="mb-12">
-                <h2 className="text-2xl font-bold mb-2">Popular Watchlists</h2>
-                <p className="text-default-500 mb-6">
-                  Discover curated movie collections from the community
-                </p>
-
-                {publicWatchlists.map((watchlist) => (
-                  <div key={watchlist.id} className="mb-8">
-                    <div className="flex justify-between items-center mb-4">
-                      <div>
-                        <h2 className="text-xl font-bold flex items-center">
-                          {watchlist.name || "Untitled Watchlist"}
-                          <span className="ml-2 text-sm font-normal text-default-500">
-                            by {watchlist.owner?.username || "Unknown user"}
-                          </span>
-                        </h2>
-                        {watchlist.description && (
-                          <p className="text-sm text-default-500">
-                            {watchlist.description}
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        as={Link}
-                        href={`/watchlist/${watchlist.slug || watchlist.id}`}
-                        variant="light"
-                        color="primary"
-                      >
-                        View Watchlist
-                      </Button>
-                    </div>
-
-                    {/* Display watchlist movies */}
-                    {watchlist.items && watchlist.items.length > 0 ? (
-                      <MovieCarouselRow
-                        title=""
-                        movies={watchlist.items
-                          .filter((item) => item && item.tmdbMovieId)
-                          .map((item) => ({
-                            id: item.tmdbMovieId,
-                            title: item.title,
-                            poster_path: item.posterPath || undefined,
-                          }))}
-                        visibleItemCount={5}
-                      />
-                    ) : (
-                      <Card className="py-6">
-                        <div className="text-center text-default-500">
-                          No movies available in this watchlist
-                        </div>
-                      </Card>
-                    )}
-                  </div>
-                ))}
-
-                <div className="text-center mt-8">
-                  <Button
-                    as={Link}
-                    href="/explore-watchlists"
-                    color="primary"
-                    variant="flat"
-                  >
-                    Explore More Watchlists
-                  </Button>
-                </div>
-              </div>
-            ) : null}
+            <section id="watchlists" className="mb-6">
+              <EnhancedWatchlistSection
+                watchlists={publicWatchlists}
+                loading={loadingPublicWatchlists}
+              />
+            </section>
           </>
         )}
       </div>

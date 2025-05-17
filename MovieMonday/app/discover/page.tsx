@@ -1,5 +1,4 @@
 "use client";
-
 import React from "react";
 import DiscoveryPage from "../../components/Discovery/DiscoveryPage";
 
