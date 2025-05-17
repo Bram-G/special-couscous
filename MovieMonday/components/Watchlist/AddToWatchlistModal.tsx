@@ -1,4 +1,3 @@
-// Enhanced AddToWatchlistModal with multiple selection support
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -14,7 +13,7 @@ import {
   Input,
   Divider
 } from "@heroui/react";
-import { Plus, Heart } from "lucide-react";
+import { Plus, Check, X } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 
 interface WatchlistCategory {
@@ -55,6 +54,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
   const [newWatchlistIsPublic, setNewWatchlistIsPublic] = useState(false);
   const [createWatchlistLoading, setCreateWatchlistLoading] = useState(false);
   const [movieWatchlistStatus, setMovieWatchlistStatus] = useState<{[key: string]: boolean}>({});
+  const [processingWatchlists, setProcessingWatchlists] = useState<{[key: string]: boolean}>({});
 
   // Fetch watchlists when the modal opens
   useEffect(() => {
@@ -81,14 +81,6 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
       if (response.ok) {
         const data = await response.json();
         setWatchlists(data);
-        
-        // If there's at least one watchlist, select the default one
-        if (data.length > 0) {
-          const defaultWatchlist = data.find(w => w.name === 'My Watchlist');
-          if (defaultWatchlist) {
-            setSelectedWatchlists([defaultWatchlist.id.toString()]);
-          }
-        }
       } else {
         setError('Failed to fetch watchlists');
       }
@@ -134,6 +126,96 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
       }
     } catch (error) {
       console.error('Error checking movie watchlist status:', error);
+    }
+  };
+
+  const handleToggleWatchlist = async (watchlistId: string, isSelected: boolean) => {
+    if (!token) return;
+    
+    // Mark as processing
+    setProcessingWatchlists(prev => ({
+      ...prev,
+      [watchlistId]: true
+    }));
+    
+    try {
+      if (isSelected) {
+        // Add to watchlist
+        const response = await fetch(`http://localhost:8000/api/watchlists/categories/${watchlistId}/movies`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            tmdbMovieId: movieDetails.id,
+            title: movieDetails.title,
+            posterPath: movieDetails.posterPath
+          })
+        });
+        
+        if (response.ok) {
+          // Update local state
+          setMovieWatchlistStatus(prev => ({
+            ...prev,
+            [watchlistId]: true
+          }));
+          
+          // Refresh full status if needed
+          checkMovieWatchlistStatus();
+        }
+      } else {
+        // Find the watchlist item ID
+        const statusResponse = await fetch(
+          `http://localhost:8000/api/watchlists/status/${movieDetails.id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          const watchlistInfo = statusData.watchlists?.find(w => w.watchlistId.toString() === watchlistId);
+          
+          if (watchlistInfo) {
+            // Remove from watchlist
+            const deleteResponse = await fetch(
+              `http://localhost:8000/api/watchlists/categories/${watchlistId}/movies/${watchlistInfo.itemId}`,
+              {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+            
+            if (deleteResponse.ok) {
+              // Update local state
+              setMovieWatchlistStatus(prev => {
+                const newState = { ...prev };
+                delete newState[watchlistId];
+                return newState;
+              });
+              
+              // Refresh full status
+              checkMovieWatchlistStatus();
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating watchlist:', error);
+    } finally {
+      // Clear processing state
+      setProcessingWatchlists(prev => {
+        const newState = { ...prev };
+        delete newState[watchlistId];
+        return newState;
+      });
     }
   };
 
@@ -205,6 +287,9 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
         setNewWatchlistDescription('');
         setNewWatchlistIsPublic(false);
         setShowNewWatchlistForm(false);
+        
+        // Add movie to the new watchlist
+        await handleToggleWatchlist(newWatchlist.id.toString(), true);
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to create watchlist');
@@ -230,17 +315,13 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={handleOnClose} size="md">
       <ModalContent>
-        <ModalHeader>Add to Watchlist</ModalHeader>
+        <ModalHeader>Manage Watchlists</ModalHeader>
         <ModalBody>
           {error && (
             <div className="bg-danger-50 text-danger p-3 rounded-md mb-4 text-sm">
               {error}
             </div>
           )}
-
-          <p className="mb-4">
-            <strong>{movieDetails?.title}</strong>
-          </p>
 
           {loading ? (
             <div className="flex justify-center items-center py-8">
@@ -260,32 +341,44 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
             </div>
           ) : (
             <>
-              {!showNewWatchlistForm && (
+              {!showNewWatchlistForm ? (
                 <>
-                  <p className="text-sm font-medium mb-2">Select watchlists:</p>
-                  <CheckboxGroup
-                    value={selectedWatchlists}
-                    onValueChange={setSelectedWatchlists}
-                    className="gap-2"
-                  >
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
                     {watchlists.map((watchlist) => (
-                      <Checkbox 
+                      <div 
                         key={watchlist.id} 
-                        value={watchlist.id.toString()}
-                        isDisabled={movieWatchlistStatus[watchlist.id]}
+                        className={`flex items-center p-2 border ${
+                          selectedWatchlists.includes(watchlist.id.toString()) 
+                            ? 'border-primary bg-primary-50 dark:bg-primary-900/20' 
+                            : 'border-default-200'
+                        } rounded-md`}
                       >
-                        <div className="flex justify-between items-center w-full">
-                          <span>{watchlist.name}</span>
-                          {movieWatchlistStatus[watchlist.id] && (
-                            <span className="text-xs text-success ml-2">Already added</span>
-                          )}
-                          <span className="text-xs text-default-500 ml-auto">
-                            {watchlist.moviesCount} movies
-                          </span>
-                        </div>
-                      </Checkbox>
+                        <Checkbox 
+                          value={watchlist.id.toString()}
+                          isSelected={selectedWatchlists.includes(watchlist.id.toString())}
+                          isDisabled={processingWatchlists[watchlist.id.toString()]}
+                          onValueChange={(isSelected) => {
+                            if (isSelected) {
+                              setSelectedWatchlists(prev => [...prev, watchlist.id.toString()]);
+                            } else {
+                              setSelectedWatchlists(prev => prev.filter(id => id !== watchlist.id.toString()));
+                            }
+                            handleToggleWatchlist(watchlist.id.toString(), isSelected);
+                          }}
+                        >
+                          <div className="flex justify-between gap-2 items-center w-full">
+                            <span className="text-sm font-medium">{watchlist.name}</span>
+                            <span className="text-xs text-default-500 ml-auto">
+                              {watchlist.moviesCount} movies
+                            </span>
+                          </div>
+                        </Checkbox>
+                        {processingWatchlists[watchlist.id.toString()] && (
+                          <Spinner size="sm" className="ml-2" />
+                        )}
+                      </div>
                     ))}
-                  </CheckboxGroup>
+                  </div>
                   
                   <Button
                     className="mt-4 w-full"
@@ -296,12 +389,20 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
                     Create New Watchlist
                   </Button>
                 </>
-              )}
-
-              {showNewWatchlistForm && (
+              ) : (
                 <>
                   <Divider className="my-4" />
-                  <h3 className="text-md font-medium mb-3">Create New Watchlist</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-medium">Create New Watchlist</h3>
+                    <Button 
+                      isIconOnly 
+                      variant="light" 
+                      onPress={() => setShowNewWatchlistForm(false)}
+                      size="sm"
+                    >
+                      <X size={18} />
+                    </Button>
+                  </div>
                   <div className="space-y-4">
                     <Input
                       label="Name"
@@ -327,7 +428,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
                       Make watchlist public
                     </Checkbox>
                     
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mt-4">
                       <Button
                         variant="flat"
                         className="flex-1"
@@ -341,6 +442,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
                         onPress={handleCreateWatchlist}
                         isLoading={createWatchlistLoading}
                         isDisabled={!newWatchlistName.trim()}
+                        startContent={<Plus size={16} />}
                       >
                         Create
                       </Button>
@@ -352,18 +454,22 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
           )}
         </ModalBody>
         <ModalFooter>
-          <Button variant="flat" onPress={handleOnClose}>
-            Cancel
-          </Button>
-          <Button
-            color="primary"
-            onPress={handleAddToWatchlists}
-            isLoading={submitting}
-            isDisabled={!selectedWatchlists.length || loading || showNewWatchlistForm}
-            startContent={<Heart />}
-          >
-            Add to Selected Watchlists
-          </Button>
+          {!showNewWatchlistForm && (
+            <>
+              <Button variant="flat" onPress={handleOnClose}>
+                Close
+              </Button>
+              <Button
+                color="primary"
+                onPress={handleAddToWatchlists}
+                isLoading={submitting}
+                isDisabled={!selectedWatchlists.length || loading}
+                startContent={<Plus size={16} />}
+              >
+                Apply Changes
+              </Button>
+            </>
+          )}
         </ModalFooter>
       </ModalContent>
     </Modal>

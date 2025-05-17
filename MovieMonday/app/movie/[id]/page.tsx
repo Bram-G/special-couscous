@@ -40,6 +40,7 @@ import { useDisclosure } from "@heroui/react";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import StreamingServices from "@/components/MoviePage/StreamingServices";
 import ActorCard from "@/components/MoviePage/ActorCard";
+import AddToWatchlistButton from "@/components/Watchlist/AddToWatchlistButton";
 import "./moviePage.css";
 
 export default function MoviePage() {
@@ -509,34 +510,34 @@ export default function MoviePage() {
               )}
 
               {/* Action buttons for mobile */}
-              <div className="flex md:hidden gap-2 mt-4">
-                <Button
-                  color={inWatchlist ? "success" : "primary"}
-                  variant="solid"
-                  startContent={
-                    <Heart className={inWatchlist ? "fill-current" : ""} />
-                  }
-                  onPress={toggleWatchlist}
-                  isLoading={loadingWatchlist || isLoadingWatchlist}
-                >
-                  {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
-                </Button>
+              <div className="fixed bottom-0 left-0 right-0 md:hidden bg-background/80 backdrop-blur-md border-t border-default-200 p-3 z-10">
+                <div className="flex gap-2">
+                  <AddToWatchlistButton
+                    movie={{
+                      id: movieDetails.id,
+                      title: movieDetails.title,
+                      posterPath: movieDetails.poster_path,
+                    }}
+                    fullWidth
+                    size="md"
+                    variant="solid"
+                    color="primary"
+                  />
 
-                <Button
-                  color="secondary"
-                  variant="solid"
-                  startContent={<Calendar />}
-                  onPress={
-                    isAuthenticated
-                      ? () => setShowMovieMondayModal(true)
-                      : () => handleLoginRedirect("moviemonday")
-                  }
-                  className="flex-1"
-                >
-                  {isAuthenticated
-                    ? "Add to Movie Monday"
-                    : "Sign in to Add to Monday"}
-                </Button>
+                  <Button
+                    color="secondary"
+                    variant="solid"
+                    startContent={<Calendar />}
+                    onPress={
+                      isAuthenticated
+                        ? () => setShowMovieMondayModal(true)
+                        : () => handleLoginRedirect("moviemonday")
+                    }
+                    fullWidth
+                  >
+                    {isAuthenticated ? "Movie Monday" : "Sign in"}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -860,17 +861,17 @@ export default function MoviePage() {
           <div className="w-full md:w-1/3">
             {/* Action buttons (desktop) */}
             <div className="hidden md:flex flex-col gap-3">
-              <Button
-                color={inWatchlist ? "success" : "primary"}
+              <AddToWatchlistButton
+                movie={{
+                  id: movieDetails.id,
+                  title: movieDetails.title,
+                  posterPath: movieDetails.poster_path,
+                }}
+                fullWidth
+                size="lg"
                 variant="solid"
-                startContent={
-                  <Heart className={inWatchlist ? "fill-current" : ""} />
-                }
-                onPress={toggleWatchlist}
-                isLoading={loadingWatchlist || isLoadingWatchlist}
-              >
-                {inWatchlist ? "In Watchlist" : "Add to Watchlist"}
-              </Button>
+                color="primary"
+              />
 
               <Button
                 color="secondary"
@@ -887,7 +888,6 @@ export default function MoviePage() {
                   : "Sign in to Add to Monday"}
               </Button>
             </div>
-
             {/* Ratings card with improved analytics content */}
             <Card className="mt-6">
               <CardHeader className="px-4 py-4">

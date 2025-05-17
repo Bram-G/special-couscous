@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Card, Image, Button, useDisclosure, Tooltip } from "@heroui/react";
-import { Heart, Eye, Check, Info } from "lucide-react";
+import { Heart, Plus, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
@@ -32,7 +32,7 @@ const FixedMovieDiscoveryCard: React.FC<MovieCardProps> = ({
   const { isOpen, onOpen, onClose } = useDisclosure();
   
   // Use our custom hook to check watchlist status
-  const { inWatchlist, inDefaultWatchlist, refresh } = useWatchlistStatus(movie.id);
+  const { inWatchlist, refresh } = useWatchlistStatus(movie.id);
   
   const handleMovieClick = () => {
     router.push(`/movie/${movie.id}`);
@@ -46,7 +46,7 @@ const FixedMovieDiscoveryCard: React.FC<MovieCardProps> = ({
   const handleQuickAdd = async () => {
     if (!isAuthenticated || !token) {
       // Redirect to login
-      localStorage.setItem('redirectAfterLogin', '/dashboard');
+      localStorage.setItem('redirectAfterLogin', window.location.pathname);
       router.push('/login');
       return;
     }
@@ -115,37 +115,39 @@ const FixedMovieDiscoveryCard: React.FC<MovieCardProps> = ({
                 )}
               </div>
               
-              {/* Action buttons */}
-              <div className="flex justify-between items-center mt-2">
-                <Button
-                  size="sm"
-                  color="primary"
-                  variant="solid"
-                  className="flex-1 mr-1 bg-primary/90"
-                  onPress={handleMovieClick}
-                  startContent={<Eye className="h-4 w-4" />}
+              {/* Action buttons - Two side by side buttons replacing the old Eye + Save layout */}
+              <div className="flex justify-between items-center mt-2 gap-2">
+                {/* Quick Save button */}
+                <Tooltip 
+                  content={showSuccessTooltip ? "Added to Watchlist" : (inWatchlist ? "In your watchlist" : "Add to watchlist")}
+                  placement="top"
+                  isOpen={showSuccessTooltip}
                 >
-                  View
-                </Button>
-                
-                {isAuthenticated && (
-                  <Tooltip 
-                    content={showSuccessTooltip ? "Added to Watchlist" : (inWatchlist ? "In your watchlist" : "Add to watchlist")}
-                    placement="top"
-                    isOpen={showSuccessTooltip}
+                  <Button
+                    size="sm"
+                    color={inWatchlist ? "success" : "primary"}
+                    variant="solid"
+                    className="flex-1 bg-primary/90"
+                    onPress={handleQuickAdd}
+                    isLoading={loading}
+                    startContent={inWatchlist ? <Check className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
                   >
-                    <Button
-                      size="sm"
-                      color={inWatchlist ? "success" : "default"}
-                      variant="solid"
-                      className="flex-1 ml-1"
-                      onPress={handleQuickAdd}
-                      isLoading={loading}
-                      startContent={inWatchlist ? <Check className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
-                    >
-                      {inWatchlist ? "Saved" : "Save"}
-                    </Button>
-                  </Tooltip>
+                    {inWatchlist ? "Saved" : "Save"}
+                  </Button>
+                </Tooltip>
+                
+                {/* Add to specific watchlist button */}
+                {isAuthenticated && (
+                  <Button
+                    size="sm"
+                    color="default"
+                    variant="solid"
+                    className="flex-1 bg-default/80"
+                    onPress={onOpen}
+                    startContent={<Plus className="h-4 w-4" />}
+                  >
+                    Add to...
+                  </Button>
                 )}
               </div>
               

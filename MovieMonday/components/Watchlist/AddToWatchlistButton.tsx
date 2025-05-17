@@ -1,7 +1,6 @@
-// MovieMonday/components/Watchlist/AddToWatchlistButton.tsx
 import React, { useState } from 'react';
 import { Button, useDisclosure, Tooltip } from "@heroui/react";
-import { Heart, Plus, Check, Loader2 } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AddToWatchlistModal from './AddToWatchlistModal';
@@ -23,7 +22,6 @@ interface AddToWatchlistButtonProps {
   text?: string;
   showText?: boolean;
   onSuccess?: () => void;
-  useQuickAdd?: boolean;
 }
 
 const AddToWatchlistButton: React.FC<AddToWatchlistButtonProps> = ({
@@ -35,76 +33,17 @@ const AddToWatchlistButton: React.FC<AddToWatchlistButtonProps> = ({
   className = '',
   text = 'Add to Watchlist',
   showText = true,
-  onSuccess,
-  useQuickAdd = false
+  onSuccess
 }) => {
   const { isAuthenticated, token } = useAuth();
   const router = useRouter();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [showSuccessTooltip, setShowSuccessTooltip] = useState(false);
   
   // Use our custom hook to check if this movie is already in a watchlist
   const { inWatchlist, refresh, isLoading } = useWatchlistStatus(movie.id);
   
-  // Handle quick add to default watchlist
-  const handleQuickAdd = async () => {
-    if (!isAuthenticated || !token) {
-      // Store the current URL for redirection after login
-      localStorage.setItem('redirectAfterLogin', window.location.pathname);
-      router.push('/login');
-      return;
-    }
-    
-    // If the movie is already in a watchlist, show the modal instead
-    if (inWatchlist) {
-      onOpen();
-      return;
-    }
-    
-    try {
-      setQuickAddLoading(true);
-      
-      const response = await fetch('http://localhost:8000/api/watchlists/quick-add', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          tmdbMovieId: movie.id,
-          title: movie.title,
-          posterPath: movie.posterPath
-        }),
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        // Update the status
-        await refresh();
-        
-        // Show success tooltip
-        setShowSuccessTooltip(true);
-        setTimeout(() => {
-          setShowSuccessTooltip(false);
-        }, 2000);
-        
-        // Call success handler if provided
-        if (onSuccess) onSuccess();
-      } else {
-        // If there's an error, fall back to the modal
-        onOpen();
-      }
-    } catch (error) {
-      console.error('Error adding to watchlist:', error);
-      // Fall back to the modal on error
-      onOpen();
-    } finally {
-      setQuickAddLoading(false);
-    }
-  };
-  
-  // Handle button click based on auth status and quick add preference
+  // Handle button click based on auth status
   const handleClick = () => {
     if (!isAuthenticated) {
       // Store the current URL for redirection after login
@@ -113,11 +52,8 @@ const AddToWatchlistButton: React.FC<AddToWatchlistButtonProps> = ({
       return;
     }
     
-    if (useQuickAdd) {
-      handleQuickAdd();
-    } else {
-      onOpen();
-    }
+    // Open the watchlist modal
+    onOpen();
   };
   
   // Determine the button's appearance based on whether the movie is in a watchlist
@@ -125,7 +61,7 @@ const AddToWatchlistButton: React.FC<AddToWatchlistButtonProps> = ({
     if (isLoading) {
       return {
         color: 'default' as const,
-        startContent: <Loader2 className="h-4 w-4 animate-spin" />,
+        startContent: <div className="w-4 h-4 border-2 border-t-transparent border-primary rounded-full animate-spin"></div>,
         children: showText ? 'Loading...' : null
       };
     }
@@ -140,7 +76,7 @@ const AddToWatchlistButton: React.FC<AddToWatchlistButtonProps> = ({
     
     return {
       color,
-      startContent: showText ? <Heart className="h-4 w-4" /> : <Plus className="h-4 w-4" />,
+      startContent: <Plus className="h-4 w-4" />,
       children: showText ? text : null
     };
   };
@@ -150,7 +86,7 @@ const AddToWatchlistButton: React.FC<AddToWatchlistButtonProps> = ({
   return (
     <>
       <Tooltip 
-        content={showSuccessTooltip ? "Added to watchlist!" : inWatchlist ? "View in watchlist" : "Add to watchlist"}
+        content={inWatchlist ? "Manage watchlists" : "Add to watchlist"}
         isOpen={showSuccessTooltip}
       >
         <Button
@@ -162,7 +98,6 @@ const AddToWatchlistButton: React.FC<AddToWatchlistButtonProps> = ({
           startContent={buttonProps.startContent}
           isIconOnly={!showText}
           onPress={handleClick}
-          isLoading={quickAddLoading}
         >
           {buttonProps.children}
         </Button>
@@ -170,7 +105,17 @@ const AddToWatchlistButton: React.FC<AddToWatchlistButtonProps> = ({
       
       <AddToWatchlistModal
         isOpen={isOpen}
-        onClose={onClose}
+        onClose={() => {
+          onClose();
+          // Show success tooltip briefly after closing the modal
+          setShowSuccessTooltip(true);
+          setTimeout(() => {
+            setShowSuccessTooltip(false);
+          }, 1500);
+          // Refresh the watchlist status
+          refresh();
+          if (onSuccess) onSuccess();
+        }}
         movieDetails={movie}
         onSuccess={() => {
           refresh();
