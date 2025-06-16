@@ -560,9 +560,9 @@ export default function MoviePage() {
             </div>
 
             {/* Overview section */}
-            <div className="mb-6">
+            <div className="mb-6 text-left">
               <h2 className="text-xl font-bold mb-2">Overview</h2>
-              <p>{movieDetails.overview}</p>
+              <p className="text-default-500 text-m" >{movieDetails.overview}</p>
             </div>
 
             {/* Cast, Crew, and Details Section with integrated tabs */}
@@ -852,7 +852,7 @@ export default function MoviePage() {
 
             {/* Recommendations */}
             <div className="mt-12">
-              <h2 className="text-2xl font-bold mb-4">Recommendations</h2>
+            
               <EnhancedRecommendations movieId={movieId} />
             </div>
           </div>

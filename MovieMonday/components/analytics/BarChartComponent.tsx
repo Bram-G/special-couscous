@@ -26,9 +26,9 @@ interface BarChartComponentProps {
   height?: number;
   emptyStateMessage?: string;
   customTooltip?: React.FC<TooltipProps<any, any>>;
-  maxBars?: number; // Maximum number of bars to display
-  scrollable?: boolean; // Whether to make the chart horizontally scrollable
-  onBarClick?: (name: string) => void; // New callback for bar clicks
+  maxBars?: number;
+  scrollable?: boolean;
+  onBarClick?: (name: string) => void;
 }
 
 const CustomBarTooltip = ({ active, payload, label }: any) => {
@@ -52,13 +52,13 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
   data,
   dataKey = "value",
   barColor = "#8884d8",
-  height = 300,
+  height = 350, // Increased default height to accommodate axis labels
   xAxisLabel,
   yAxisLabel,
   emptyStateMessage,
   customTooltip = CustomBarTooltip,
-  maxBars = 10, // Default to 10 bars
-  scrollable = false, // Default not scrollable
+  maxBars = 10,
+  scrollable = false,
   onBarClick,
 }) => {
   if (!data || data.length === 0) {
@@ -74,26 +74,63 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
   // Calculate width for scrollable chart
   const chartWidth =
     scrollable && data.length > maxBars
-      ? Math.max(100, data.length * 100) // 100px per bar for more spacing
+      ? Math.max(100, data.length * 80) // Back to tighter spacing - 80px per bar
       : "100%";
 
-  // Function to truncate long names
-  const truncateName = (name: string, maxLength = 10) => {
-    // For scrollable charts, we can use longer names
-    const actualMaxLength = scrollable ? 20 : maxLength;
-    return name.length > actualMaxLength
-      ? `${name.substring(0, actualMaxLength)}...`
-      : name;
+  // Smart name truncation function
+  const truncateName = (name: string) => {
+    // Calculate max characters based on available space
+    const baseMaxLength = scrollable ? 15 : 12;
+    
+    // For very long names, be more aggressive with truncation
+    if (name.length > baseMaxLength) {
+      // Try to find a good break point (space, dash, etc.)
+      const truncated = name.substring(0, baseMaxLength);
+      const lastSpace = truncated.lastIndexOf(' ');
+      const lastDash = truncated.lastIndexOf('-');
+      
+      // If we can break at a natural point within reasonable distance
+      if (lastSpace > baseMaxLength - 4) {
+        return name.substring(0, lastSpace) + "...";
+      } else if (lastDash > baseMaxLength - 4) {
+        return name.substring(0, lastDash) + "...";
+      } else {
+        return truncated + "...";
+      }
+    }
+    
+    return name;
   };
 
-  // Fix data by truncating names for display (keeps original in tooltip)
+  // Process data with truncated display names
   const processedData = chartData.map((item) => ({
     ...item,
     displayName: truncateName(item.name),
   }));
 
+  // Custom tick formatter for X-axis to handle rotated text
+  const CustomXAxisTick = (props: any) => {
+    const { x, y, payload } = props;
+    
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text
+          x={0}
+          y={0}
+          dy={16}
+          textAnchor="end"
+          fill="#666"
+          fontSize="11"
+          transform="rotate(-45)"
+        >
+          {payload.value}
+        </text>
+      </g>
+    );
+  };
+
   // Handle bar click
-  const handleClick = (data, index) => {
+  const handleClick = (data: any) => {
     if (onBarClick && data.name) {
       onBarClick(data.name);
     }
@@ -106,12 +143,12 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
           <BarChart
             data={processedData}
             margin={{
-              top: 30,
+              top: 30, // Increased top margin to balance the chart
               right: 30,
-              left: 20,
-              bottom: 10,
+              left: yAxisLabel ? 80 : 60,
+              bottom: 90, // Increased bottom margin for rotated labels + space for X-axis title
             }}
-            onClick={onBarClick ? handleClick : undefined} // Add the click handler if provided
+            onClick={onBarClick ? handleClick : undefined}
           >
             <CartesianGrid
               strokeDasharray="3 3"
@@ -120,42 +157,46 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
             />
             <XAxis
               dataKey="displayName"
+              tick={<CustomXAxisTick />}
+              interval={0} // Show all labels
+              height={70} // Increased height for rotated labels
               label={
                 xAxisLabel
-                  ? { value: xAxisLabel, position: "insideBottom", offset: -20 }
+                  ? { 
+                      value: xAxisLabel, 
+                      position: "insideBottom", 
+                      offset: -10, // Moved further down to avoid overlap
+                      style: { textAnchor: 'middle' }
+                    }
                   : undefined
               }
-              tick={{ fontSize: 12 }}
-              interval={0} // Show all labels
-              angle={0} // Keep labels flat
-              textAnchor="middle" // Center align text
-              height={50} // Add more height for the axis to fit labels
             />
             <YAxis
               label={
                 yAxisLabel
-                  ? { value: yAxisLabel, angle: -90, position: "insideLeft" }
+                  ? { 
+                      value: yAxisLabel, 
+                      angle: -90, 
+                      position: "insideLeft",
+                      style: { textAnchor: 'middle' }
+                    }
                   : undefined
               }
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 11 }}
+              width={yAxisLabel ? 60 : 40} // Increased width when we have a label
             />
             <Tooltip
               content={customTooltip}
-              cursor={{ fill: "rgba(180, 180, 180, 0.1)" }} // Subtle highlight
-              wrapperStyle={{ zIndex: 100 }} // Ensure tooltip is above other elements
-              position={{ y: 0 }} // Position tooltip at top of bar
+              cursor={{ fill: "rgba(180, 180, 180, 0.1)" }}
+              wrapperStyle={{ zIndex: 100 }}
             />
             <Bar
               dataKey={dataKey}
               fill={barColor}
               radius={[4, 4, 0, 0]}
-              maxBarSize={50} // Limit maximum bar width
-              className={onBarClick ? "cursor-pointer" : ""} // Add cursor pointer if clickable
-              onClick={(data) => {
-                if (onBarClick && data.name) {
-                  onBarClick(data.name);
-                }
-              }}
+              maxBarSize={50}
+              className={onBarClick ? "cursor-pointer" : ""}
+              onClick={handleClick}
             />
           </BarChart>
         </ResponsiveContainer>

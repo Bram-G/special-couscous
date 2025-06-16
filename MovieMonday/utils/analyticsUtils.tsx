@@ -98,6 +98,7 @@ export function getGenreAnalytics(movieMondayData: MovieMonday[]) {
 }
 
 // Gets actor-related analytics
+
 export function getActorAnalytics(movieMondayData: MovieMonday[]) {
   // Initialize counters
   const actorCounts: Record<
@@ -148,7 +149,7 @@ export function getActorAnalytics(movieMondayData: MovieMonday[]) {
     }))
     .sort((a, b) => b.value - a.value);
 
-  // Actors in winning movies
+  // Actors in winning movies - LIMITED TO TOP 100
   const topWinningActors = Object.entries(actorCounts)
     .map(([name, data]) => ({
       name,
@@ -156,9 +157,10 @@ export function getActorAnalytics(movieMondayData: MovieMonday[]) {
       value: data.wins,
     }))
     .filter((actor) => actor.value > 0)
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 25); // LIMIT TO TOP 50
 
-  // Actors in losing movies
+  // Actors in losing movies - LIMITED TO TOP 100
   const topLosingActors = Object.entries(actorCounts)
     .map(([name, data]) => ({
       name,
@@ -166,12 +168,17 @@ export function getActorAnalytics(movieMondayData: MovieMonday[]) {
       value: data.count - data.wins, // Movies that didn't win
     }))
     .filter((actor) => actor.value > 0)
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 25); // LIMIT TO TOP 100
+
+  // Get the most seen actor (highest total appearances)
+  const mostSeenActor = topActors.length > 0 ? topActors[0] : null;
 
   return {
     topActors,
     topWinningActors,
     topLosingActors,
+    mostSeenActor,
     totalActors,
     totalUniqueActors: uniqueActors.size,
   };

@@ -398,90 +398,102 @@ export default function AnalyticsPage() {
         </>
       );
     };
-    const renderActorsTab = () => {
-      // Updated to show top actors and losing actors
-      const actorData = hasData
-        ? getActorAnalytics(movieData)
-        : {
-            topActors: PLACEHOLDER_DATA.actors,
-            topWinningActors: PLACEHOLDER_DATA.winningActors,
-            topLosingActors: PLACEHOLDER_DATA.actors.map((item, i) => ({
-              name: `${item.name} ${i % 2 === 0 ? "👎" : ""}`,
-              value: Math.floor(item.value * 0.7),
-            })),
-            totalUniqueActors: 15,
-            totalActors: 25,
-          };
+   const renderActorsTab = () => {
+  const actorData = hasData
+    ? getActorAnalytics(movieData)
+    : {
+        topActors: PLACEHOLDER_DATA.actors,
+        topWinningActors: PLACEHOLDER_DATA.winningActors,
+        topLosingActors: PLACEHOLDER_DATA.actors.map((item, i) => ({
+          name: `${item.name} ${i % 2 === 0 ? "👎" : ""}`,
+          value: Math.floor(item.value * 0.7),
+        })),
+        mostSeenActor: PLACEHOLDER_DATA.actors[0] || { name: "N/A", value: 0 },
+        totalUniqueActors: 15,
+        totalActors: 25,
+      };
 
-      return (
-        <>
-          {placeholderNote}
+  return (
+    <>
+      {placeholderNote}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card className="p-6 text-center">
-              <h3 className="text-2xl font-bold text-primary">
-                {actorData.totalActors}
-              </h3>
-              <p className="text-default-600">Total Actor Appearances</p>
-            </Card>
+      {/* Stats cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card className="p-6 text-center">
+          <h3 className="text-2xl font-bold text-primary">
+            {actorData.totalUniqueActors}
+          </h3>
+          <p className="text-default-600">Unique Actors</p>
+        </Card>
 
-            <Card className="p-6 text-center">
-              <h3 className="text-2xl font-bold text-primary">
-                {actorData.totalUniqueActors}
-              </h3>
-              <p className="text-default-600">Unique Actors</p>
-            </Card>
+        <Card className="p-6 text-center">
+          <h3 className="text-2xl font-bold text-primary">
+            {actorData.mostSeenActor?.name || "N/A"}
+          </h3>
+          <p className="text-default-600">Most Seen Actor</p>
+          {actorData.mostSeenActor?.value && (
+            <p className="text-sm text-default-500 mt-1">
+              {actorData.mostSeenActor.value} appearances
+            </p>
+          )}
+        </Card>
 
-            <Card className="p-6 text-center">
-              <h3 className="text-2xl font-bold text-primary">
-                {actorData.topLosingActors.length > 0
-                  ? actorData.topLosingActors[0].name
-                  : "N/A"}
-              </h3>
-              <p className="text-default-600">Most Frequently Rejected Actor</p>
-            </Card>
-          </div>
+        <Card className="p-6 text-center">
+          <h3 className="text-2xl font-bold text-primary">
+            {actorData.topLosingActors.length > 0
+              ? actorData.topLosingActors[0].name
+              : "N/A"}
+          </h3>
+          <p className="text-default-600">Most Frequently Rejected Actor</p>
+          {actorData.topLosingActors.length > 0 && (
+            <p className="text-sm text-default-500 mt-1">
+              {actorData.topLosingActors[0].value} rejections
+            </p>
+          )}
+        </Card>
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AnalyticsCard
-              title="Actors in Rejected Movies"
-              subtitle="Actors that appear most often in movies that lost voting"
-            >
-              <BarChartComponent
-                data={actorData.topLosingActors}
-                barColor="#f97316"
-                height={350}
-                xAxisLabel="Actors"
-                yAxisLabel="Number of Rejections"
-                onBarClick={(name) =>
-                  handleChartItemClick(name, "actor", "losing")
-                }
-                maxBars={15}
-                scrollable={true}
-              />
-            </AnalyticsCard>
+      {/* Charts with improved height and configuration */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <AnalyticsCard
+          title="Actors in Winning Movies"
+          subtitle="Actors that appear most often in movies that won voting (Top 100)"
+        >
+          <BarChartComponent
+            data={actorData.topWinningActors}
+            barColor="#10b981" // Green for winning
+            height={400} // Slightly increased height for better balance
+            xAxisLabel="Actors"
+            yAxisLabel="Winning Movies"
+            onBarClick={(name) =>
+              handleChartItemClick(name, "actor", "winning")
+            }
+            maxBars={15}
+            scrollable={true}
+          />
+        </AnalyticsCard>
 
-            <AnalyticsCard
-              title="Actors in Winning Movies"
-              subtitle="Actors that appear most often in movies that won voting"
-            >
-              <BarChartComponent
-                data={actorData.topWinningActors}
-                barColor="#8b5cf6"
-                height={350}
-                xAxisLabel="Actors"
-                yAxisLabel="Number of Winning Movies"
-                onBarClick={(name) =>
-                  handleChartItemClick(name, "actor", "winning")
-                }
-                maxBars={15}
-                scrollable={true}
-              />
-            </AnalyticsCard>
-          </div>
-        </>
-      );
-    };
+        <AnalyticsCard
+          title="Actors in Rejected Movies"
+          subtitle="Actors that appear most often in movies that lost voting (Top 100)"
+        >
+          <BarChartComponent
+            data={actorData.topLosingActors}
+            barColor="#f97316" // Orange for losing
+            height={400} // Slightly increased height for better balance
+            xAxisLabel="Actors"
+            yAxisLabel="Rejections"
+            onBarClick={(name) =>
+              handleChartItemClick(name, "actor", "losing")
+            }
+            maxBars={15}
+            scrollable={true}
+          />
+        </AnalyticsCard>
+      </div>
+    </>
+  );
+};
 
     const renderDirectorsTab = () => {
       // Updated to show directors and winning directors

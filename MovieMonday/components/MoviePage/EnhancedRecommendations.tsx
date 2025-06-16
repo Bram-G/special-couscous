@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardBody, Image, Button, Spinner } from "@heroui/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import Link from 'next/link';
+import React, { useState, useEffect, useRef } from "react";
+import { Button, Card, Spinner } from "@heroui/react";
+import { ChevronLeft, ChevronRight, Info } from "lucide-react";
+import FixedMovieDiscoveryCard from "../Discovery/FixedMovieDiscoveryCard";
 
 interface Movie {
   id: number;
   title: string;
-  poster_path: string;
-  vote_average: number;
-  release_date: string;
+  poster_path?: string;
+  release_date?: string;
+  vote_average?: number;
 }
 
 interface EnhancedRecommendationsProps {
@@ -20,36 +20,25 @@ const EnhancedRecommendations: React.FC<EnhancedRecommendationsProps> = ({ movie
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [slidesToShow, setSlidesToShow] = useState(5);
   
-  // Number of visible items based on screen width
-  const [visibleItems, setVisibleItems] = useState(4);
-  
+  // Calculate how many slides to show based on screen width (same logic as EnhancedMovieCarousel)
   useEffect(() => {
-    // Function to handle resize and update visible items
-    const handleResize = () => {
-      if (window.innerWidth < 640) {
-        setVisibleItems(1);
-      } else if (window.innerWidth < 768) {
-        setVisibleItems(2);
-      } else if (window.innerWidth < 1024) {
-        setVisibleItems(3);
-      } else {
-        setVisibleItems(4);
-      }
+    const updateSlidesToShow = () => {
+      const width = window.innerWidth;
+      if (width < 640) setSlidesToShow(2);
+      else if (width < 768) setSlidesToShow(3);
+      else if (width < 1280) setSlidesToShow(4);
+      else setSlidesToShow(5);
     };
-
-    // Set initial value
-    handleResize();
     
-    // Add event listener
-    window.addEventListener('resize', handleResize);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
+    updateSlidesToShow();
+    window.addEventListener('resize', updateSlidesToShow);
+    return () => window.removeEventListener('resize', updateSlidesToShow);
   }, []);
 
+  // Fetch recommendations whenever movieId changes
   useEffect(() => {
     const fetchRecommendations = async () => {
       if (!movieId) return;
@@ -92,128 +81,141 @@ const EnhancedRecommendations: React.FC<EnhancedRecommendationsProps> = ({ movie
     };
     
     fetchRecommendations();
+    // Reset index when movieId changes
+    setCurrentIndex(0);
   }, [movieId]);
 
-  const handlePrevious = () => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev));
+  // Calculate if we can navigate forward or backward
+  const canGoNext = currentIndex + slidesToShow < recommendations.length;
+  const canGoPrevious = currentIndex > 0;
+  
+  // Get visible movies for the current "page"
+  const visibleMovies = recommendations.slice(currentIndex, currentIndex + slidesToShow);
+  
+  // Handle navigation (same logic as EnhancedMovieCarousel)
+  const goNext = () => {
+    if (canGoNext) {
+      // Move by a full "page" of movies instead of just one
+      const nextIndex = Math.min(currentIndex + slidesToShow, recommendations.length - slidesToShow);
+      setCurrentIndex(nextIndex);
+    }
   };
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => 
-      (prev < recommendations.length - visibleItems ? prev + 1 : prev)
-    );
-  };
-
-  // Format release year
-  const getYear = (dateString: string) => {
-    if (!dateString) return '';
-    return new Date(dateString).getFullYear();
+  
+  const goPrevious = () => {
+    if (canGoPrevious) {
+      // Move by a full "page" of movies instead of just one
+      const prevIndex = Math.max(currentIndex - slidesToShow, 0);
+      setCurrentIndex(prevIndex);
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center p-8">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center text-default-500 p-8">
-        {error}
+      <div className="mb-10">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold">Similar Movies</h2>
+          <p className="text-default-500 text-sm">Movies you might also enjoy</p>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <Spinner size="lg" />
+        </div>
       </div>
     );
   }
 
   if (recommendations.length === 0) {
     return (
-      <div className="text-center text-default-500 p-8">
-        No recommendations available.
+      <div className="mb-10">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold">Similar Movies</h2>
+          <p className="text-default-500 text-sm">Movies you might also enjoy</p>
+        </div>
+        <Card className="w-full">
+          <div className="flex flex-col items-center justify-center p-8">
+            <Info className="h-12 w-12 text-default-300 mb-4" />
+            <p className="text-center text-lg">No recommendations available</p>
+          </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="relative">
-      <div className="flex items-center">
-        <Button
-          isIconOnly
-          variant="light"
-          onPress={handlePrevious}
-          disabled={currentIndex === 0}
-          className="mr-2 z-10"
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </Button>
-        
-        <div className="flex-1 overflow-hidden">
-          <div
-            className="flex transition-transform duration-300"
-            style={{
-              transform: `translateX(-${currentIndex * (100 / visibleItems)}%)`,
-              width: `${(recommendations.length * 100) / visibleItems}%`,
-            }}
-          >
-            {recommendations.map((movie) => (
-              <div
-                key={movie.id}
-                className="pr-4"
-                style={{ width: `${100 / visibleItems}%` }}
-              >
-                <Link href={`/movie/${movie.id}`} legacyBehavior>
-                  <a className="block">
-                    <Card className="w-full h-full hover:shadow-md transition-shadow cursor-pointer overflow-hidden group">
-                      <CardBody className="p-0 relative">
-                        {/* Poster image */}
-                        <div className="relative aspect-[2/3] w-full">
-                          <Image
-                            src={
-                              movie.poster_path
-                                ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                                : '/placeholder-poster.jpg'
-                            }
-                            alt={movie.title}
-                            className="object-cover w-full h-full transform transition-transform group-hover:scale-105"
-                            removeWrapper
-                          />
-                          
-                          {/* Gradient overlay for text readability */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent h-24"></div>
-                          
-                          {/* Rating badge */}
-                          {movie.vote_average > 0 && (
-                            <div className="absolute top-2 right-2 bg-primary rounded-full w-10 h-10 flex items-center justify-center text-white font-bold text-sm">
-                              {movie.vote_average.toFixed(1)}
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Movie info overlay */}
-                        <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
-                          <h3 className="font-medium text-sm line-clamp-1">{movie.title}</h3>
-                          {movie.release_date && (
-                            <p className="text-xs opacity-80">{getYear(movie.release_date)}</p>
-                          )}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </a>
-                </Link>
-              </div>
-            ))}
-          </div>
+    <div className="mb-10">
+      {/* Header - matches EnhancedMovieCarousel style */}
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h2 className="text-xl font-bold">Similar Movies</h2>
+          <p className="text-default-500 text-sm">Movies you might also enjoy</p>
         </div>
         
-        <Button
-          isIconOnly
-          variant="light"
-          onPress={handleNext}
-          disabled={currentIndex >= recommendations.length - visibleItems}
-          className="ml-2 z-10"
+        {/* Navigation controls - always visible, same style as EnhancedMovieCarousel */}
+        <div className="flex gap-2">
+          <Button
+            isIconOnly
+            variant="flat"
+            onPress={goPrevious}
+            isDisabled={!canGoPrevious}
+            className="rounded-full"
+            size="sm"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          
+          <Button
+            isIconOnly
+            variant="flat"
+            onPress={goNext}
+            isDisabled={!canGoNext}
+            className="rounded-full"
+            size="sm"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+      
+      {/* Carousel - using CSS grid for consistent sizing, same as EnhancedMovieCarousel */}
+      <div ref={carouselRef} className="relative overflow-hidden">
+        <div 
+          className={`grid grid-cols-${slidesToShow} gap-4`}
+          style={{ 
+            display: 'grid',
+            gridTemplateColumns: `repeat(${slidesToShow}, minmax(0, 1fr))`,
+            gap: '1rem'
+          }}
         >
-          <ChevronRight className="h-6 w-6" />
-        </Button>
+          {visibleMovies.map((movie) => (
+            <div key={movie.id} className="aspect-[2/3]">
+              <FixedMovieDiscoveryCard 
+                movie={movie}
+                compact={true}
+              />
+            </div>
+          ))}
+          
+          {/* Fill empty slots with placeholder elements to maintain grid */}
+          {visibleMovies.length < slidesToShow && 
+            Array(slidesToShow - visibleMovies.length).fill(0).map((_, index) => (
+              <div key={`placeholder-${index}`} className="w-full"></div>
+            ))
+          }
+        </div>
+        
+        {/* Progress indicator - same as EnhancedMovieCarousel */}
+        {recommendations.length > slidesToShow && (
+          <div className="flex justify-center mt-4 gap-1">
+            {Array(Math.ceil(recommendations.length / slidesToShow)).fill(0).map((_, index) => {
+              const isActive = Math.floor(currentIndex / slidesToShow) === index;
+              return (
+                <div 
+                  key={index}
+                  className={`h-1 rounded-full transition-all ${isActive ? 'w-8 bg-primary' : 'w-4 bg-default-200'}`}
+                ></div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

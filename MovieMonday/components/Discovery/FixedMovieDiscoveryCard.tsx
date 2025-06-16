@@ -19,11 +19,13 @@ interface MovieCardProps {
     text: string;
     detail?: string;
   } | null;
+  compact?: boolean; // New prop to enable compact mode
 }
 
 const FixedMovieDiscoveryCard: React.FC<MovieCardProps> = ({
   movie,
-  reason
+  reason,
+  compact = false // Default to false for backward compatibility
 }) => {
   const router = useRouter();
   const { isAuthenticated, token } = useAuth();
@@ -115,41 +117,82 @@ const FixedMovieDiscoveryCard: React.FC<MovieCardProps> = ({
                 )}
               </div>
               
-              {/* Action buttons - Two side by side buttons replacing the old Eye + Save layout */}
-              <div className="flex justify-between items-center mt-2 gap-2">
-                {/* Quick Save button */}
-                <Tooltip 
-                  content={showSuccessTooltip ? "Added to Watchlist" : (inWatchlist ? "In your watchlist" : "Add to watchlist")}
-                  placement="top"
-                  isOpen={showSuccessTooltip}
-                >
-                  <Button
-                    size="sm"
-                    color={inWatchlist ? "success" : "primary"}
-                    variant="solid"
-                    className="flex-1 bg-primary/90"
-                    onPress={handleQuickAdd}
-                    isLoading={loading}
-                    startContent={inWatchlist ? <Check className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
+              {/* Action buttons - Different layouts based on compact mode */}
+              {compact ? (
+                // Compact mode: Icon-only buttons that are larger and easier to tap
+                <div className="flex justify-center items-center mt-2 gap-3">
+                  {/* Quick Save button - Icon only */}
+                  <Tooltip 
+                    content={showSuccessTooltip ? "Added to Watchlist" : (inWatchlist ? "In your watchlist" : "Add to watchlist")}
+                    placement="top"
+                    isOpen={showSuccessTooltip}
                   >
-                    {inWatchlist ? "Saved" : "Save"}
-                  </Button>
-                </Tooltip>
-                
-                {/* Add to specific watchlist button */}
-                {isAuthenticated && (
-                  <Button
-                    size="sm"
-                    color="default"
-                    variant="solid"
-                    className="flex-1 bg-default/80"
-                    onPress={onOpen}
-                    startContent={<Plus className="h-4 w-4" />}
+                    <Button
+                      isIconOnly
+                      size="md" // Larger size for better touch targets
+                      color={inWatchlist ? "success" : "primary"}
+                      variant="solid"
+                      className="bg-primary/90 min-w-10 h-10" // Ensure consistent size
+                      onPress={handleQuickAdd}
+                      isLoading={loading}
+                    >
+                      {inWatchlist ? <Check className="h-5 w-5" /> : <Heart className="h-5 w-5" />}
+                    </Button>
+                  </Tooltip>
+                  
+                  {/* Add to specific watchlist button - Icon only */}
+                  {isAuthenticated && (
+                    <Tooltip content="Add to specific watchlist" placement="top">
+                      <Button
+                        isIconOnly
+                        size="md"
+                        color="default"
+                        variant="solid"
+                        className="bg-default/80 min-w-10 h-10"
+                        onPress={onOpen}
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </Tooltip>
+                  )}
+                </div>
+              ) : (
+                // Normal mode: Buttons with text (original layout)
+                <div className="flex justify-between items-center mt-2 gap-2">
+                  {/* Quick Save button */}
+                  <Tooltip 
+                    content={showSuccessTooltip ? "Added to Watchlist" : (inWatchlist ? "In your watchlist" : "Add to watchlist")}
+                    placement="top"
+                    isOpen={showSuccessTooltip}
                   >
-                    Add to...
-                  </Button>
-                )}
-              </div>
+                    <Button
+                      size="sm"
+                      color={inWatchlist ? "success" : "primary"}
+                      variant="solid"
+                      className="flex-1 bg-primary/90"
+                      onPress={handleQuickAdd}
+                      isLoading={loading}
+                      startContent={inWatchlist ? <Check className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
+                    >
+                      {inWatchlist ? "Saved" : "Save"}
+                    </Button>
+                  </Tooltip>
+                  
+                  {/* Add to specific watchlist button */}
+                  {isAuthenticated && (
+                    <Button
+                      size="sm"
+                      color="default"
+                      variant="solid"
+                      className="flex-1 bg-default/80"
+                      onPress={onOpen}
+                      startContent={<Plus className="h-4 w-4" />}
+                    >
+                      Add to...
+                    </Button>
+                  )}
+                </div>
+              )}
               
               {/* Recommendation reason if provided */}
               {reason && (
