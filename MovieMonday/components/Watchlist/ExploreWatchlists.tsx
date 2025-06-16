@@ -16,7 +16,7 @@ import {
 import { Film, Heart, ListIcon, Search, UserCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 interface WatchlistCategory {
   id: number;
   name: string;
@@ -69,7 +69,7 @@ const ExploreWatchlists: React.FC = () => {
     }
 
     try {
-      let url = `http://localhost:8000/api/watchlists/public?sort=${selectedTab}&limit=${limit}&offset=${newOffset}`;
+      let url = `${API_BASE_URL}/api/watchlists/public?sort=${selectedTab}&limit=${limit}&offset=${newOffset}`;
 
       // Add search query if present
       if (searchQuery) {

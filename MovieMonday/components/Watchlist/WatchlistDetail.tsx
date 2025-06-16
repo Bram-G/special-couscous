@@ -79,7 +79,7 @@ interface WatchlistCategory {
     username: string;
   };
 }
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // Sortable Item Component
 const SortableItem = ({
   id,
@@ -282,7 +282,7 @@ const WatchlistDetail = () => {
       setLoading(true);
 
       // API endpoint
-      const url = `http://localhost:8000/api/watchlists/categories/${slug}`;
+      const url = `${API_BASE_URL}/api/watchlists/categories/${slug}`;
       const headers: HeadersInit = {
         "Content-Type": "application/json",
       };
@@ -358,7 +358,7 @@ const WatchlistDetail = () => {
       setReordering(true);
       try {
         const response = await fetch(
-          `http://localhost:8000/api/watchlists/categories/${watchlist.id}/reorder`,
+          `${API_BASE_URL}/api/watchlists/categories/${watchlist.id}/reorder`,
           {
             method: "POST",
             headers: {
@@ -403,7 +403,7 @@ const WatchlistDetail = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/watchlists/categories/${watchlist.id}/movies/${movieToDelete}`,
+        `${API_BASE_URL}/api/watchlists/categories/${watchlist.id}/like0/api/watchlists/categories/${watchlist.id}/movies/${movieToDelete}`,
         {
           method: "DELETE",
           headers: {

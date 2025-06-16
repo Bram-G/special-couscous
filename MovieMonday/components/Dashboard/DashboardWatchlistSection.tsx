@@ -11,7 +11,7 @@ import {
 } from "@heroui/react";
 import { Plus, Film, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 import { useAuth } from "@/contexts/AuthContext";
 
 interface WatchlistItem {
@@ -46,7 +46,7 @@ const DashboardWatchlistSection: React.FC = () => {
       setLoading(true);
       // Updated API call to include items with their posters
       const response = await fetch(
-        "http://localhost:8000/api/watchlists/categories?include_items=true",
+        `${API_BASE_URL}/api/watchlists/categories?include_items=true`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

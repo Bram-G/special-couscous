@@ -12,7 +12,7 @@ import {
   Utensils,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 import { title } from "@/components/primitives";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/protectedRoute";
@@ -268,7 +268,7 @@ export default function AnalyticsPage() {
       try {
         // This would be replaced with a real API call to fetch movie data
         const response = await fetch(
-          "http://localhost:8000/api/movie-monday/all",
+          `${API_BASE_URL}/api/movie-monday/all`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

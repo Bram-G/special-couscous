@@ -54,7 +54,7 @@ const WatchlistDashboard: React.FC = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   // Fetch watchlists
   useEffect(() => {
     fetchWatchlists();
@@ -66,7 +66,7 @@ const WatchlistDashboard: React.FC = () => {
     try {
       setLoading(true);
       const response = await fetch(
-        "http://localhost:8000/api/watchlists/categories",
+        `${API_BASE_URL}/api/watchlists/categories`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -113,8 +113,8 @@ const WatchlistDashboard: React.FC = () => {
     try {
       const endpoint =
         editMode && currentEditId
-          ? `http://localhost:8000/api/watchlists/categories/${currentEditId}`
-          : "http://localhost:8000/api/watchlists/categories";
+          ? `${API_BASE_URL}/api/watchlists/categories/${currentEditId}`
+          : `${API_BASE_URL}/api/watchlists/categories`;
 
       const method = editMode ? "PUT" : "POST";
 
@@ -161,7 +161,7 @@ const WatchlistDashboard: React.FC = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/watchlists/categories/${confirmDeleteId}`,
+        `${API_BASE_URL}/api/watchlists/categories/${confirmDeleteId}`,
         {
           method: "DELETE",
           headers: {

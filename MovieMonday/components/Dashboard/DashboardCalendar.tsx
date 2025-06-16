@@ -101,7 +101,7 @@ interface DateButtonStatus {
   variant: ButtonVariant;
   color: ButtonColor;
 }
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   slidesPerView = 5,
   onDateSelect,
@@ -192,7 +192,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
         try {
           const formattedDate = formatDateForAPI(date);
           const response = await fetch(
-            `http://localhost:8000/api/movie-monday/${formattedDate}`,
+            `${API_BASE_URL}/api/movie-monday/${formattedDate}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             },
@@ -224,7 +224,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       try {
         // Fetch cocktail suggestions
         const cocktailResponse = await fetch(
-          "http://localhost:8000/api/movie-monday/cocktails",
+          "${API_BASE_URL}/api/movie-monday/cocktails",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -246,7 +246,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
         // Fetch meal suggestions
         const mealResponse = await fetch(
-          "http://localhost:8000/api/movie-monday/meals",
+          `${API_BASE_URL}/api/movie-monday/meals`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -268,7 +268,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
         // Fetch dessert suggestions
         const dessertResponse = await fetch(
-          "http://localhost:8000/api/movie-monday/desserts",
+          `${API_BASE_URL}/api/movie-monday/desserts`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -387,7 +387,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       const formattedDate = `${year}-${month}-${day}`;
 
       const response = await fetch(
-        `http://localhost:8000/api/movie-monday/${formattedDate}`,
+        `${API_BASE_URL}/api/movie-monday/${formattedDate}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -598,7 +598,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       const dateString = date.toISOString().split("T")[0];
 
       const response = await fetch(
-        "http://localhost:8000/api/movie-monday/create",
+        `${API_BASE_URL}/api/movie-monday/create`,
         {
           method: "POST",
           headers: {
@@ -666,7 +666,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     try {
       // Send updated event details to the server
       const response = await fetch(
-        `http://localhost:8000/api/movie-monday/${selectedMonday.id}/event-details`,
+        `${API_BASE_URL}/api/movie-monday/${selectedMonday.id}/event-details`,
         {
           method: "POST",
           headers: {
@@ -699,7 +699,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/movie-monday/update-picker`,
+        `${API_BASE_URL}/api/movie-monday/update-picker`,
         {
           method: "PUT",
           headers: {
@@ -727,7 +727,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/movie-monday/${selectedMonday.id}/movies/${movieSelectionId}`,
+        `${API_BASE_URL}/api/movie-monday/${selectedMonday.id}/movies/${movieSelectionId}`,
         {
           method: "DELETE",
           headers: {
@@ -751,7 +751,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/movie-monday/${selectedMonday.id}/set-winner`,
+        `${API_BASE_URL}/api/movie-monday/${selectedMonday.id}/set-winner`,
         {
           method: "POST",
           headers: {

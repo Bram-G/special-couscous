@@ -29,7 +29,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useDisclosure } from "@heroui/react";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 import { useAuth } from "@/contexts/AuthContext";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import MovieMondaySelector from "@/components/MovieMondaySelector";
@@ -135,7 +135,7 @@ export default function MoviePage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/movie-monday/add-movie`,
+        `${API_BASE_URL}/api/movie-monday/add-movie`,
         {
           method: "POST",
           headers: {
@@ -174,7 +174,7 @@ export default function MoviePage() {
         // If movie is in a watchlist, find the watchlist ID and remove it
         // Get updated status first to have the latest data
         const response = await fetch(
-          `http://localhost:8000/api/watchlists/status/${movieId}`,
+          `${API_BASE_URL}/api/watchlists/status/${movieId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -197,7 +197,7 @@ export default function MoviePage() {
 
           // Remove from watchlist
           const deleteResponse = await fetch(
-            `http://localhost:8000/api/watchlists/categories/${defaultEntry.watchlistId}/movies/${defaultEntry.itemId}`,
+            `${API_BASE_URL}/api/watchlists/categories/${defaultEntry.watchlistId}/movies/${defaultEntry.itemId}`,
             {
               method: "DELETE",
               headers: {
@@ -215,7 +215,7 @@ export default function MoviePage() {
       } else {
         // Add to watchlist using quick-add endpoint
         const addResponse = await fetch(
-          "http://localhost:8000/api/watchlists/quick-add",
+          `${API_BASE_URL}/api/watchlists/quick-add`,
           {
             method: "POST",
             headers: {
@@ -286,7 +286,7 @@ export default function MoviePage() {
       const actorNames = castList.map((actor) => actor.name);
 
       const response = await fetch(
-        "http://localhost:8000/api/movie-monday/all",
+        `${API_BASE_URL}/api/movie-monday/all`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
