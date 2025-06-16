@@ -12,19 +12,19 @@ import {
   DropdownMenu,
   DropdownItem,
   Avatar,
-  Button
+  Button,
 } from "@heroui/react";
-import { Link } from "@heroui/link";
 import { link as linkStyles } from "@heroui/theme";
 import NextLink from "next/link";
 import clsx from "clsx";
-import { ThemeSwitch } from "@/components/theme-switch";
-import { useAuth } from "@/contexts/AuthContext";
-import { MovieSearch } from "@/components/MovieSearch";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { ChartPieIcon } from "lucide-react";
+
+import { MovieSearch } from "@/components/MovieSearch";
+import { useAuth } from "@/contexts/AuthContext";
+import { ThemeSwitch } from "@/components/theme-switch";
 
 // Logo component that switches based on theme
 const ThemeSwitchableLogo = () => {
@@ -35,27 +35,32 @@ const ThemeSwitchableLogo = () => {
   useEffect(() => {
     setMounted(true);
   }, []);
-  
+
   // Determine what theme to use for the logo
-  const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'dark';
-  const logoPath = currentTheme === 'dark' 
-    ? "/svgs/logo_full_dark.svg" 
-    : "/svgs/logo_full_light.svg";
-  
+  const currentTheme = mounted
+    ? theme === "system"
+      ? resolvedTheme
+      : theme
+    : "dark";
+  const logoPath =
+    currentTheme === "dark"
+      ? "/svgs/logo_full_dark.svg"
+      : "/svgs/logo_full_light.svg";
+
   return (
     <div className="h-8 flex items-center">
       {mounted ? (
-        <Image 
-          src={logoPath}
-          alt="Movie Monday Logo" 
-          width={150}
-          height={30}
-          className="h-7 w-auto"
+        <Image
           priority
+          alt="Movie Monday Logo"
+          className="h-7 w-auto"
+          height={30}
+          src={logoPath}
+          width={150}
         />
       ) : (
         // Show a placeholder during SSR/before hydration
-        <div className="h-7 w-32 bg-default-100 animate-pulse rounded"></div>
+        <div className="h-7 w-32 bg-default-100 animate-pulse rounded" />
       )}
     </div>
   );
@@ -64,15 +69,18 @@ const ThemeSwitchableLogo = () => {
 // Function to get user initials
 const getUserInitials = (username: string | undefined): string => {
   if (!username) return "?";
-  
+
   // For single word usernames, take first two letters
   if (!username.includes(" ")) {
     return username.substring(0, Math.min(username.length, 2)).toUpperCase();
   }
-  
+
   // For multiple words, take first letter of each word
   const nameParts = username.split(" ");
-  return (nameParts[0][0] + (nameParts.length > 1 ? nameParts[1][0] : '')).toUpperCase();
+
+  return (
+    nameParts[0][0] + (nameParts.length > 1 ? nameParts[1][0] : "")
+  ).toUpperCase();
 };
 
 export const Navbar = () => {
@@ -104,11 +112,14 @@ export const Navbar = () => {
         </NavbarBrand>
       </NavbarContent>
 
-      <NavbarContent className="hidden sm:flex basis-1/5 sm:basis-full" justify="end">
+      <NavbarContent
+        className="hidden sm:flex basis-1/5 sm:basis-full"
+        justify="end"
+      >
         <NavbarItem className="hidden lg:flex items-center">
           <MovieSearch />
         </NavbarItem>
-        
+
         <NavbarItem className="flex items-center">
           <ThemeSwitch />
         </NavbarItem>
@@ -120,30 +131,35 @@ export const Navbar = () => {
               <>
                 <NavbarItem className="flex items-center">
                   <Button
-                    as={NextLink}
-                    href="/dashboard"
                     isIconOnly
-                    variant="light"
+                    as={NextLink}
                     className="min-w-0 flex items-center justify-center"
+                    href="/dashboard"
+                    variant="light"
                   >
                     <ChartPieIcon className="h-5 w-5" />
                   </Button>
                 </NavbarItem>
                 <NavbarItem className="flex items-center">
-                  <Dropdown placement="bottom-end" classNames={{
-                    base: "min-w-0",
-                    content: "min-w-0 p-0"
-                  }}>
+                  <Dropdown
+                    classNames={{
+                      base: "min-w-0",
+                      content: "min-w-0 p-0",
+                    }}
+                    placement="bottom-end"
+                  >
                     <DropdownTrigger>
-                      <Avatar 
-                        as="button" 
-                        color="primary"
-                        size="sm"
-                        name={user?.username ? getUserInitials(user.username) : "U"}
+                      <Avatar
+                        as="button"
                         className="transition-transform cursor-pointer"
+                        color="primary"
+                        name={
+                          user?.username ? getUserInitials(user.username) : "U"
+                        }
+                        size="sm"
                       />
                     </DropdownTrigger>
-                    <DropdownMenu 
+                    <DropdownMenu
                       aria-label="User menu"
                       className="p-0 min-w-0"
                       itemClasses={{
@@ -162,7 +178,11 @@ export const Navbar = () => {
                       <DropdownItem key="settings" href="/settings">
                         Settings
                       </DropdownItem>
-                      <DropdownItem key="logout" color="danger" onClick={handleLogout}>
+                      <DropdownItem
+                        key="logout"
+                        color="danger"
+                        onClick={handleLogout}
+                      >
                         Logout
                       </DropdownItem>
                     </DropdownMenu>
@@ -170,14 +190,14 @@ export const Navbar = () => {
                 </NavbarItem>
               </>
             )}
-            
+
             {!isAuthenticated && (
               <NavbarItem className="flex items-center">
                 <Button
                   as={NextLink}
                   className="text-sm font-normal"
-                  href="/login"
                   color="primary"
+                  href="/login"
                   variant="flat"
                 >
                   Login
@@ -192,21 +212,21 @@ export const Navbar = () => {
         <NavbarItem>
           <ThemeSwitch />
         </NavbarItem>
-        
+
         {mounted && isAuthenticated && (
           <NavbarItem>
             <Button
-              as={NextLink}
-              href="/dashboard"
               isIconOnly
-              variant="light"
+              as={NextLink}
               className="min-w-0"
+              href="/dashboard"
+              variant="light"
             >
               <ChartPieIcon className="h-5 w-5" />
             </Button>
           </NavbarItem>
         )}
-        
+
         <NavbarMenuToggle />
       </NavbarContent>
 
@@ -215,7 +235,7 @@ export const Navbar = () => {
         <NavbarMenuItem className="mb-4">
           <MovieSearch />
         </NavbarMenuItem>
-        
+
         {mounted && (
           <>
             {isAuthenticated ? (
@@ -224,7 +244,7 @@ export const Navbar = () => {
                   <NextLink
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm"
+                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm",
                     )}
                     href="/dashboard"
                   >
@@ -235,7 +255,7 @@ export const Navbar = () => {
                   <NextLink
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm"
+                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm",
                     )}
                     href="/watchlist"
                   >
@@ -246,7 +266,7 @@ export const Navbar = () => {
                   <NextLink
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm"
+                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm",
                     )}
                     href="/analytics"
                   >
@@ -257,7 +277,7 @@ export const Navbar = () => {
                   <NextLink
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm"
+                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm",
                     )}
                     href="/settings"
                   >
@@ -281,7 +301,7 @@ export const Navbar = () => {
                   <NextLink
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium"
+                      "data-[active=true]:text-primary data-[active-true]:font-medium",
                     )}
                     href="/"
                   >
@@ -292,7 +312,7 @@ export const Navbar = () => {
                   <NextLink
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium"
+                      "data-[active=true]:text-primary data-[active-true]:font-medium",
                     )}
                     href="/about"
                   >
@@ -301,11 +321,11 @@ export const Navbar = () => {
                 </NavbarMenuItem>
                 <NavbarMenuItem>
                   <Button
+                    as={NextLink}
                     className="text-sm font-normal w-full"
                     color="primary"
-                    variant="solid"
-                    as={NextLink}
                     href="/login"
+                    variant="solid"
                   >
                     Login
                   </Button>

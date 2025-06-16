@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from "react";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 
 /**
  * Hook to integrate the Navbar search with the Discovery page
@@ -16,7 +16,7 @@ export function useNavbarSearchIntegration() {
 
   // Check if we're on the discovery page
   useEffect(() => {
-    setIsDiscoveryPage(pathname === '/discover');
+    setIsDiscoveryPage(pathname === "/discover");
   }, [pathname]);
 
   // Function to handle search
@@ -29,29 +29,30 @@ export function useNavbarSearchIntegration() {
     } else {
       // If already on discovery page, dispatch a custom event
       // that the discovery page will listen for
-      const searchEvent = new CustomEvent('navbarSearch', {
+      const searchEvent = new CustomEvent("navbarSearch", {
         detail: { query },
         bubbles: true,
       });
+
       window.dispatchEvent(searchEvent);
-      
+
       // Update URL with search parameter
       if (query.trim()) {
         router.push(`/discover?search=${encodeURIComponent(query.trim())}`);
       } else {
-        router.push('/discover');
+        router.push("/discover");
       }
     }
   };
 
   // Get initial search query from URL
   const getInitialSearchQuery = () => {
-    return searchParams.get('search') || '';
+    return searchParams.get("search") || "";
   };
 
   return {
     isDiscoveryPage,
     handleSearch,
-    getInitialSearchQuery
+    getInitialSearchQuery,
   };
 }

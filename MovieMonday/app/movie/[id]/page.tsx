@@ -10,15 +10,12 @@ import {
   Chip,
   Tabs,
   Tab,
-  Tooltip,
   Divider,
   Avatar,
   Spinner,
-  Badge,
   Link,
 } from "@heroui/react";
 import {
-  Heart,
   Calendar,
   Star,
   Clock,
@@ -31,12 +28,13 @@ import {
   Trophy,
   ExternalLink,
 } from "lucide-react";
+import { useDisclosure } from "@heroui/react";
+
 import { useAuth } from "@/contexts/AuthContext";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import MovieMondaySelector from "@/components/MovieMondaySelector";
 import EnhancedRecommendations from "@/components/MoviePage/EnhancedRecommendations";
 import ActorAnalyticsModal from "@/components/MoviePage/ActorAnalyticsModal";
-import { useDisclosure } from "@heroui/react";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import StreamingServices from "@/components/MoviePage/StreamingServices";
 import ActorCard from "@/components/MoviePage/ActorCard";
@@ -85,6 +83,7 @@ export default function MoviePage() {
   useEffect(() => {
     // Extract movie ID from pathname
     const extractedId = pathname.split("/").pop();
+
     setMovieId(extractedId);
 
     // Fetch movie details
@@ -94,7 +93,7 @@ export default function MoviePage() {
       try {
         setLoading(true);
         const response = await fetch(
-          `https://api.themoviedb.org/3/movie/${extractedId}?append_to_response=credits,videos,release_dates&api_key=${process.env.NEXT_PUBLIC_API_Key}`
+          `https://api.themoviedb.org/3/movie/${extractedId}?append_to_response=credits,videos,release_dates&api_key=${process.env.NEXT_PUBLIC_API_Key}`,
         );
 
         if (!response.ok) {
@@ -102,6 +101,7 @@ export default function MoviePage() {
         }
 
         const data = await response.json();
+
         setMovieDetails(data);
         setCredits(data.credits || { cast: [], crew: [] });
 
@@ -129,6 +129,7 @@ export default function MoviePage() {
         movieId,
         title: movieDetails?.title,
       });
+
       return;
     }
 
@@ -147,7 +148,7 @@ export default function MoviePage() {
             title: movieDetails.title,
             posterPath: movieDetails.poster_path,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -180,7 +181,7 @@ export default function MoviePage() {
               "Content-Type": "application/json",
             },
             credentials: "include",
-          }
+          },
         );
 
         if (!response.ok) {
@@ -204,7 +205,7 @@ export default function MoviePage() {
                 "Content-Type": "application/json",
               },
               credentials: "include",
-            }
+            },
           );
 
           if (!deleteResponse.ok) {
@@ -227,13 +228,14 @@ export default function MoviePage() {
               title: movieDetails?.title,
               posterPath: movieDetails?.poster_path,
             }),
-          }
+          },
         );
 
         if (!addResponse.ok) {
           const errorData = await addResponse.json();
+
           throw new Error(
-            `Failed to add movie to watchlist: ${errorData.message || "Unknown error"}`
+            `Failed to add movie to watchlist: ${errorData.message || "Unknown error"}`,
           );
         }
       }
@@ -254,7 +256,7 @@ export default function MoviePage() {
     try {
       setLoadingProviders(true);
       const response = await fetch(
-        `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=${process.env.NEXT_PUBLIC_API_Key}`
+        `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=${process.env.NEXT_PUBLIC_API_Key}`,
       );
       const data = await response.json();
 
@@ -266,7 +268,7 @@ export default function MoviePage() {
           : [];
 
       setWatchProviders(
-        usProviders.length > 0 ? usProviders : firstRegionProviders
+        usProviders.length > 0 ? usProviders : firstRegionProviders,
       );
     } catch (error) {
       console.error("Error fetching watch providers:", error);
@@ -290,7 +292,7 @@ export default function MoviePage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -306,7 +308,7 @@ export default function MoviePage() {
                 movie.cast &&
                 movie.cast.some(
                   (castMember) =>
-                    castMember.name.toLowerCase() === actorName.toLowerCase()
+                    castMember.name.toLowerCase() === actorName.toLowerCase(),
                 );
 
               if (actorInCast) {
@@ -352,6 +354,7 @@ export default function MoviePage() {
     if (!minutes) return "Unknown";
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
+
     return `${hours}h ${remainingMinutes}m`;
   };
 
@@ -359,6 +362,7 @@ export default function MoviePage() {
   const formatDate = (dateString) => {
     if (!dateString) return "Unknown";
     const date = new Date(dateString);
+
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -369,23 +373,26 @@ export default function MoviePage() {
   // Get release year
   const getReleaseYear = (dateString) => {
     if (!dateString) return "";
+
     return new Date(dateString).getFullYear();
   };
 
   // Get directors from crew
   const getDirectors = () => {
     if (!credits || !credits.crew) return [];
+
     return credits.crew.filter((person) => person.job === "Director");
   };
 
   // Get writers from crew
   const getWriters = () => {
     if (!credits || !credits.crew) return [];
+
     return credits.crew.filter(
       (person) =>
         person.job === "Screenplay" ||
         person.job === "Writer" ||
-        person.job === "Story"
+        person.job === "Story",
     );
   };
 
@@ -396,7 +403,7 @@ export default function MoviePage() {
     }
 
     const trailers = movieDetails.videos.results.filter(
-      (video) => video.type === "Trailer" && video.site === "YouTube"
+      (video) => video.type === "Trailer" && video.site === "YouTube",
     );
 
     return trailers.length > 0 ? trailers[0] : null;
@@ -446,7 +453,7 @@ export default function MoviePage() {
           backgroundColor: !backdropUrl ? "rgba(0,0,0,0.8)" : "transparent",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
 
         {/* Content container */}
         <div className="container mx-auto px-4 h-full relative z-10">
@@ -454,10 +461,10 @@ export default function MoviePage() {
             {/* Poster */}
             <div className="hidden md:block w-64 flex-shrink-0 shadow-xl rounded-lg overflow-hidden">
               <Image
-                src={posterUrl}
+                removeWrapper
                 alt={movieDetails.title}
                 className="w-full h-auto"
-                removeWrapper
+                src={posterUrl}
               />
             </div>
 
@@ -474,7 +481,7 @@ export default function MoviePage() {
 
                 {movieDetails.runtime && (
                   <>
-                    <span className="w-1 h-1 rounded-full bg-foreground/80"></span>
+                    <span className="w-1 h-1 rounded-full bg-foreground/80" />
                     <span className="flex items-center">
                       <Clock className="w-4 h-4 mr-1" />
                       {formatRuntime(movieDetails.runtime)}
@@ -484,7 +491,7 @@ export default function MoviePage() {
 
                 {movieDetails.vote_average > 0 && (
                   <>
-                    <span className="w-1 h-1 rounded-full bg-foreground/80"></span>
+                    <span className="w-1 h-1 rounded-full bg-foreground/80" />
                     <span className="flex items-center">
                       <Star className="w-4 h-4 mr-1 text-yellow-400" />
                       {movieDetails.vote_average.toFixed(1)}
@@ -496,7 +503,7 @@ export default function MoviePage() {
               {/* Genres */}
               <div className="flex flex-wrap gap-2 mt-4">
                 {movieDetails.genres?.map((genre) => (
-                  <Chip key={genre.id} color="primary" variant="flat" size="sm">
+                  <Chip key={genre.id} color="primary" size="sm" variant="flat">
                     {genre.name}
                   </Chip>
                 ))}
@@ -513,27 +520,27 @@ export default function MoviePage() {
               <div className="fixed bottom-0 left-0 right-0 md:hidden bg-background/80 backdrop-blur-md border-t border-default-200 p-3 z-10">
                 <div className="flex gap-2">
                   <AddToWatchlistButton
+                    fullWidth
+                    color="primary"
                     movie={{
                       id: movieDetails.id,
                       title: movieDetails.title,
                       posterPath: movieDetails.poster_path,
                     }}
-                    fullWidth
                     size="md"
                     variant="solid"
-                    color="primary"
                   />
 
                   <Button
+                    fullWidth
                     color="secondary"
-                    variant="solid"
                     startContent={<Calendar />}
+                    variant="solid"
                     onPress={
                       isAuthenticated
                         ? () => setShowMovieMondayModal(true)
                         : () => handleLoginRedirect("moviemonday")
                     }
-                    fullWidth
                   >
                     {isAuthenticated ? "Movie Monday" : "Sign in"}
                   </Button>
@@ -552,17 +559,17 @@ export default function MoviePage() {
             {/* Mobile poster */}
             <div className="block md:hidden w-48 mb-6 mx-auto">
               <Image
-                src={posterUrl}
+                removeWrapper
                 alt={movieDetails.title}
                 className="w-full h-auto rounded-lg shadow-lg"
-                removeWrapper
+                src={posterUrl}
               />
             </div>
 
             {/* Overview section */}
             <div className="mb-6 text-left">
               <h2 className="text-xl font-bold mb-2">Overview</h2>
-              <p className="text-default-500 text-m" >{movieDetails.overview}</p>
+              <p className="text-default-500 text-m">{movieDetails.overview}</p>
             </div>
 
             {/* Cast, Crew, and Details Section with integrated tabs */}
@@ -571,9 +578,9 @@ export default function MoviePage() {
                 {/* Tabs Navigation */}
                 <Tabs
                   aria-label="Movie information"
+                  className="py-4 justify-center"
                   selectedKey={activeTab}
                   onSelectionChange={setActiveTab}
-                  className="py-4 justify-center"
                 >
                   <Tab
                     key="cast"
@@ -654,13 +661,13 @@ export default function MoviePage() {
                               className="flex items-center gap-3"
                             >
                               <Avatar
+                                className="w-12 h-12"
+                                name={person.name}
                                 src={
                                   person.profile_path
                                     ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
                                     : null
                                 }
-                                name={person.name}
-                                className="w-12 h-12"
                               />
                               <div>
                                 <p className="font-medium">{person.name}</p>
@@ -684,13 +691,13 @@ export default function MoviePage() {
                               className="flex items-center gap-3"
                             >
                               <Avatar
+                                className="w-12 h-12"
+                                name={person.name}
                                 src={
                                   person.profile_path
                                     ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
                                     : null
                                 }
-                                name={person.name}
-                                className="w-12 h-12"
                               />
                               <div>
                                 <p className="font-medium">{person.name}</p>
@@ -758,10 +765,10 @@ export default function MoviePage() {
                                   >
                                     {company.logo_path ? (
                                       <Image
-                                        src={`https://image.tmdb.org/t/p/w92${company.logo_path}`}
+                                        removeWrapper
                                         alt={company.name}
                                         className="h-12 object-contain mb-1"
-                                        removeWrapper
+                                        src={`https://image.tmdb.org/t/p/w92${company.logo_path}`}
                                       />
                                     ) : (
                                       <div className="h-12 w-24 bg-default-100 flex items-center justify-center rounded mb-1">
@@ -774,7 +781,7 @@ export default function MoviePage() {
                                       {company.name}
                                     </p>
                                   </div>
-                                )
+                                ),
                               )}
                             </div>
                           </div>
@@ -829,7 +836,7 @@ export default function MoviePage() {
                                       </p>
                                     </div>
                                     <div>
-                                      <Chip size="sm" color="primary">
+                                      <Chip color="primary" size="sm">
                                         {release.certification || "Not Rated"}
                                       </Chip>
                                     </div>
@@ -852,7 +859,6 @@ export default function MoviePage() {
 
             {/* Recommendations */}
             <div className="mt-12">
-            
               <EnhancedRecommendations movieId={movieId} />
             </div>
           </div>
@@ -862,21 +868,21 @@ export default function MoviePage() {
             {/* Action buttons (desktop) */}
             <div className="hidden md:flex flex-col gap-3">
               <AddToWatchlistButton
+                fullWidth
+                color="primary"
                 movie={{
                   id: movieDetails.id,
                   title: movieDetails.title,
                   posterPath: movieDetails.poster_path,
                 }}
-                fullWidth
                 size="lg"
                 variant="solid"
-                color="primary"
               />
 
               <Button
                 color="secondary"
-                variant="solid"
                 startContent={<Calendar />}
+                variant="solid"
                 onPress={
                   isAuthenticated
                     ? () => setShowMovieMondayModal(true)
@@ -930,9 +936,9 @@ export default function MoviePage() {
                                   return (
                                     <Chip
                                       key={actor.id}
-                                      variant="flat"
                                       color="default"
                                       size="sm"
+                                      variant="flat"
                                     >
                                       {actor.name}
                                     </Chip>
@@ -984,9 +990,9 @@ export default function MoviePage() {
                                   return (
                                     <Chip
                                       key={director.id}
-                                      variant="flat"
                                       color="default"
                                       size="sm"
+                                      variant="flat"
                                     >
                                       {director.name}
                                     </Chip>
@@ -1030,9 +1036,9 @@ export default function MoviePage() {
                               {movieDetails.genres?.slice(0, 3).map((genre) => (
                                 <Chip
                                   key={genre.id}
-                                  variant="flat"
                                   color="default"
                                   size="sm"
+                                  variant="flat"
                                 >
                                   {genre.name}
                                 </Chip>
@@ -1043,16 +1049,16 @@ export default function MoviePage() {
 
                         {isAuthenticated ? (
                           <Link
-                            href="/analytics"
                             className="flex items-center justify-end text-xs text-primary mt-4"
+                            href="/analytics"
                           >
                             View full analytics{" "}
                             <ExternalLink className="h-3 w-3 ml-1" />
                           </Link>
                         ) : (
                           <Link
-                            href="/login"
                             className="flex items-center justify-end text-xs text-primary mt-4"
+                            href="/login"
                           >
                             Sign in to see your analytics{" "}
                             <ExternalLink className="h-3 w-3 ml-1" />
@@ -1085,14 +1091,14 @@ export default function MoviePage() {
                 {/* Trailer button */}
                 {getTrailer() && (
                   <Button
+                    as="a"
                     className="w-full mt-4"
                     color="primary"
-                    variant="flat"
-                    startContent={<PlayCircle />}
-                    as="a"
                     href={`https://www.youtube.com/watch?v=${getTrailer().key}`}
-                    target="_blank"
                     rel="noopener noreferrer"
+                    startContent={<PlayCircle />}
+                    target="_blank"
+                    variant="flat"
                   >
                     Watch Trailer
                   </Button>
@@ -1160,12 +1166,12 @@ export default function MoviePage() {
       {movieDetails && (
         <AddToWatchlistModal
           isOpen={isWatchlistModalOpen}
-          onClose={onWatchlistModalClose}
           movieDetails={{
             id: parseInt(movieId),
             title: movieDetails.title,
             posterPath: movieDetails.poster_path,
           }}
+          onClose={onWatchlistModalClose}
           onSuccess={() => {
             refreshWatchlist();
           }}
@@ -1175,17 +1181,17 @@ export default function MoviePage() {
       {/* Movie Monday Selector Modal */}
       <MovieMondaySelector
         isOpen={showMovieMondayModal}
+        token={token}
         onOpenChange={() => setShowMovieMondayModal(false)}
         onSelect={handleAddToMovieMonday}
-        token={token}
       />
 
       {/* Actor Analytics Modal */}
       {selectedActor && (
         <ActorAnalyticsModal
+          actor={selectedActor}
           isOpen={showActorAnalyticsModal}
           onClose={() => setShowActorAnalyticsModal(false)}
-          actor={selectedActor}
         />
       )}
     </div>

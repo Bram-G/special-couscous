@@ -1,5 +1,5 @@
-import React from 'react';
-import { Card, CardHeader, CardBody, CardFooter, Link } from "@heroui/react";
+import React from "react";
+import { Card, CardHeader, CardBody, Link } from "@heroui/react";
 import { ExternalLink } from "lucide-react";
 
 interface AnalyticsCardProps {
@@ -11,13 +11,13 @@ interface AnalyticsCardProps {
   onClick?: () => void;
 }
 
-export const AnalyticsCard = ({ 
-  title, 
-  subtitle, 
-  children, 
+export const AnalyticsCard = ({
+  title,
+  subtitle,
+  children,
   linkTo,
   className = "",
-  onClick
+  onClick,
 }: AnalyticsCardProps) => {
   return (
     <Card className={`w-full ${className}`} onClick={onClick}>
@@ -25,16 +25,18 @@ export const AnalyticsCard = ({
         <div className="flex w-full justify-between items-center">
           <h3 className="text-lg font-semibold">{title}</h3>
           {linkTo && (
-            <Link href={linkTo} className="text-sm text-primary flex items-center gap-1" onClick={(e) => onClick && e.preventDefault()}>
+            <Link
+              className="text-sm text-primary flex items-center gap-1"
+              href={linkTo}
+              onClick={(e) => onClick && e.preventDefault()}
+            >
               View more <ExternalLink className="h-3 w-3" />
             </Link>
           )}
         </div>
         {subtitle && <p className="text-sm text-default-500">{subtitle}</p>}
       </CardHeader>
-      <CardBody className="px-4 py-2">
-        {children}
-      </CardBody>
+      <CardBody className="px-4 py-2">{children}</CardBody>
     </Card>
   );
 };

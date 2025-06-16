@@ -1,7 +1,8 @@
 // Save as hooks/useWatchlistStatus.ts
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from "react";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 interface WatchlistInfo {
   watchlistId: number;
@@ -25,7 +26,9 @@ interface UseWatchlistStatusResult {
  * @param movieId The TMDB movie ID to check
  * @returns Status information about the movie in the user's watchlists
  */
-export default function useWatchlistStatus(movieId: number): UseWatchlistStatusResult {
+export default function useWatchlistStatus(
+  movieId: number,
+): UseWatchlistStatusResult {
   const { token, isAuthenticated } = useAuth();
   const [inWatchlist, setInWatchlist] = useState(false);
   const [inDefaultWatchlist, setInDefaultWatchlist] = useState(false);
@@ -33,7 +36,7 @@ export default function useWatchlistStatus(movieId: number): UseWatchlistStatusR
   const [watchlistInfo, setWatchlistInfo] = useState<WatchlistInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Function to check watchlist status
   const checkWatchlistStatus = async () => {
     // Skip if no movie ID, not authenticated, or no token
@@ -42,35 +45,40 @@ export default function useWatchlistStatus(movieId: number): UseWatchlistStatusR
       setInDefaultWatchlist(false);
       setWatchlistIds([]);
       setWatchlistInfo([]);
+
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Use the status endpoint to check all watchlists at once
-      const response = await fetch(`http://localhost:8000/api/watchlists/status/${movieId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const response = await fetch(
+        `http://localhost:8000/api/watchlists/status/${movieId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
         },
-        credentials: 'include'
-      });
-      
+      );
+
       if (!response.ok) {
         throw new Error(`Failed to check watchlist status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       // Update state based on response
       setInWatchlist(data.inWatchlist || false);
       setInDefaultWatchlist(data.inDefaultWatchlist || false);
-      
+
       // Extract watchlist IDs and info
       if (data.watchlists && Array.isArray(data.watchlists)) {
         const ids = data.watchlists.map((w: any) => w.watchlistId);
+
         setWatchlistIds(ids);
         setWatchlistInfo(data.watchlists);
       } else {
@@ -78,26 +86,26 @@ export default function useWatchlistStatus(movieId: number): UseWatchlistStatusR
         setWatchlistInfo([]);
       }
     } catch (err) {
-      console.error('Error checking watchlist status:', err);
-      setError(err.message || 'Failed to check watchlist status');
+      console.error("Error checking watchlist status:", err);
+      setError(err.message || "Failed to check watchlist status");
       // Don't reset status on error to prevent UI flicker
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   // Initial check
   useEffect(() => {
     if (movieId) {
       checkWatchlistStatus();
     }
   }, [movieId, token, isAuthenticated]);
-  
+
   // Provide a way to manually refresh the status
   const refresh = async () => {
     await checkWatchlistStatus();
   };
-  
+
   return {
     inWatchlist,
     inDefaultWatchlist,
@@ -105,6 +113,6 @@ export default function useWatchlistStatus(movieId: number): UseWatchlistStatusR
     watchlistInfo,
     isLoading,
     error,
-    refresh
+    refresh,
   };
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   LineChart,
   Line,
@@ -7,9 +7,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  TooltipProps
-} from 'recharts';
-import { EmptyState } from './EmptyState';
+  TooltipProps,
+} from "recharts";
+
+import { EmptyState } from "./EmptyState";
 
 interface LineChartComponentProps {
   data: any[];
@@ -34,14 +35,14 @@ export const LineChartComponent: React.FC<LineChartComponentProps> = ({
   xAxisLabel,
   yAxisLabel,
   emptyStateMessage,
-  customTooltip
+  customTooltip,
 }) => {
   if (!data || data.length === 0) {
     return <EmptyState message={emptyStateMessage} />;
   }
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ResponsiveContainer height={height} width="100%">
       <LineChart
         data={data}
         margin={{
@@ -51,25 +52,33 @@ export const LineChartComponent: React.FC<LineChartComponentProps> = ({
           bottom: 30,
         }}
       >
-        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-        <XAxis 
-          dataKey={xAxisDataKey} 
-          label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -20 } : undefined}
+        <CartesianGrid opacity={0.3} strokeDasharray="3 3" vertical={false} />
+        <XAxis
+          dataKey={xAxisDataKey}
+          label={
+            xAxisLabel
+              ? { value: xAxisLabel, position: "insideBottom", offset: -20 }
+              : undefined
+          }
           tick={{ fontSize: 12 }}
         />
-        <YAxis 
-          label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft' } : undefined}
+        <YAxis
+          label={
+            yAxisLabel
+              ? { value: yAxisLabel, angle: -90, position: "insideLeft" }
+              : undefined
+          }
           tick={{ fontSize: 12 }}
         />
         <Tooltip content={customTooltip} />
         {lines.map((line, index) => (
           <Line
             key={index}
-            type="monotone"
+            activeDot={{ r: 8 }}
             dataKey={line.dataKey}
             name={line.name || line.dataKey}
             stroke={line.color}
-            activeDot={{ r: 8 }}
+            type="monotone"
           />
         ))}
       </LineChart>

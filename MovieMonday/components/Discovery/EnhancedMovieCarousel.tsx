@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Button, Card, Spinner, Tooltip } from "@heroui/react";
+import { Button, Card, Spinner } from "@heroui/react";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
+
 import FixedMovieDiscoveryCard from "./FixedMovieDiscoveryCard";
 
 interface Movie {
@@ -18,7 +19,9 @@ interface EnhancedMovieCarouselProps {
   loading?: boolean;
   emptyMessage?: string;
   onSuccess?: () => void;
-  reason?: (movie: Movie) => { type: string; text: string; detail?: string } | null;
+  reason?: (
+    movie: Movie,
+  ) => { type: string; text: string; detail?: string } | null;
 }
 
 const EnhancedMovieCarousel: React.FC<EnhancedMovieCarouselProps> = ({
@@ -27,47 +30,54 @@ const EnhancedMovieCarousel: React.FC<EnhancedMovieCarouselProps> = ({
   movies,
   loading = false,
   emptyMessage = "No movies found",
-  reason
+  reason,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const [slidesToShow, setSlidesToShow] = useState(5);
-  
+
   // Calculate how many slides to show based on screen width
   useEffect(() => {
     const updateSlidesToShow = () => {
       const width = window.innerWidth;
+
       if (width < 640) setSlidesToShow(2);
       else if (width < 768) setSlidesToShow(3);
       else if (width < 1280) setSlidesToShow(4);
       else setSlidesToShow(5);
     };
-    
+
     updateSlidesToShow();
-    window.addEventListener('resize', updateSlidesToShow);
-    return () => window.removeEventListener('resize', updateSlidesToShow);
+    window.addEventListener("resize", updateSlidesToShow);
+
+    return () => window.removeEventListener("resize", updateSlidesToShow);
   }, []);
 
   // Calculate if we can navigate forward or backward
   const canGoNext = currentIndex + slidesToShow < movies.length;
   const canGoPrevious = currentIndex > 0;
-  
+
   // Get visible movies for the current "page"
   const visibleMovies = movies.slice(currentIndex, currentIndex + slidesToShow);
-  
+
   // Handle navigation
   const goNext = () => {
     if (canGoNext) {
       // Move by a full "page" of movies instead of just one
-      const nextIndex = Math.min(currentIndex + slidesToShow, movies.length - slidesToShow);
+      const nextIndex = Math.min(
+        currentIndex + slidesToShow,
+        movies.length - slidesToShow,
+      );
+
       setCurrentIndex(nextIndex);
     }
   };
-  
+
   const goPrevious = () => {
     if (canGoPrevious) {
       // Move by a full "page" of movies instead of just one
       const prevIndex = Math.max(currentIndex - slidesToShow, 0);
+
       setCurrentIndex(prevIndex);
     }
   };
@@ -111,72 +121,77 @@ const EnhancedMovieCarousel: React.FC<EnhancedMovieCarouselProps> = ({
           <h2 className="text-xl font-bold">{title}</h2>
           {subtitle && <p className="text-default-500 text-sm">{subtitle}</p>}
         </div>
-        
+
         {/* Navigation controls - always visible */}
         <div className="flex gap-2">
           <Button
             isIconOnly
+            className="rounded-full"
+            isDisabled={!canGoPrevious}
+            size="sm"
             variant="flat"
             onPress={goPrevious}
-            isDisabled={!canGoPrevious}
-            className="rounded-full"
-            size="sm"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          
+
           <Button
             isIconOnly
+            className="rounded-full"
+            isDisabled={!canGoNext}
+            size="sm"
             variant="flat"
             onPress={goNext}
-            isDisabled={!canGoNext}
-            className="rounded-full"
-            size="sm"
           >
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
       </div>
-      
+
       {/* Carousel - using CSS grid for consistent sizing */}
       <div ref={carouselRef} className="relative overflow-hidden">
-                  <div 
+        <div
           className={`grid grid-cols-${slidesToShow} gap-4`}
-          style={{ 
-            display: 'grid',
+          style={{
+            display: "grid",
             gridTemplateColumns: `repeat(${slidesToShow}, minmax(0, 1fr))`,
-            gap: '1rem'
+            gap: "1rem",
           }}
         >
           {visibleMovies.map((movie) => (
             <div key={movie.id} className="aspect-[2/3]">
-              <FixedMovieDiscoveryCard 
+              <FixedMovieDiscoveryCard
                 movie={movie}
                 reason={reason ? reason(movie) : null}
               />
             </div>
           ))}
-          
+
           {/* Fill empty slots with placeholder elements to maintain grid */}
-          {visibleMovies.length < slidesToShow && 
-            Array(slidesToShow - visibleMovies.length).fill(0).map((_, index) => (
-              <div key={`placeholder-${index}`} className="w-full"></div>
-            ))
-          }
+          {visibleMovies.length < slidesToShow &&
+            Array(slidesToShow - visibleMovies.length)
+              .fill(0)
+              .map((_, index) => (
+                <div key={`placeholder-${index}`} className="w-full" />
+              ))}
         </div>
-        
+
         {/* Progress indicator */}
         {movies.length > slidesToShow && (
           <div className="flex justify-center mt-4 gap-1">
-            {Array(Math.ceil(movies.length / slidesToShow)).fill(0).map((_, index) => {
-              const isActive = Math.floor(currentIndex / slidesToShow) === index;
-              return (
-                <div 
-                  key={index}
-                  className={`h-1 rounded-full transition-all ${isActive ? 'w-8 bg-primary' : 'w-4 bg-default-200'}`}
-                ></div>
-              );
-            })}
+            {Array(Math.ceil(movies.length / slidesToShow))
+              .fill(0)
+              .map((_, index) => {
+                const isActive =
+                  Math.floor(currentIndex / slidesToShow) === index;
+
+                return (
+                  <div
+                    key={index}
+                    className={`h-1 rounded-full transition-all ${isActive ? "w-8 bg-primary" : "w-4 bg-default-200"}`}
+                  />
+                );
+              })}
           </div>
         )}
       </div>

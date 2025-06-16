@@ -1,14 +1,13 @@
-'use client'
-import React from 'react';
-import { Image, Card, CardBody, Button, Link } from "@heroui/react";
-import { Calendar, Film, Users, ArrowRight, Heart, Award } from "lucide-react";
-import ComingSoonPage from '@/components/ui/ComingSoonPage';
+"use client";
+import React from "react";
+
+import ComingSoonPage from "@/components/ui/ComingSoonPage";
 
 export default function AboutPage() {
   return (
     <div>
-      <ComingSoonPage></ComingSoonPage>
-      </div>
+      <ComingSoonPage />
+    </div>
     // <div className="container mx-auto px-4 py-12">
     //   {/* Hero Section */}
     //   <div className="flex flex-col md:flex-row items-center gap-8 mb-20">
@@ -187,19 +186,19 @@ export default function AboutPage() {
     //         <p className="font-semibold text-center">Best Community<br/>Tradition</p>
     //         <p className="text-sm text-default-500 text-center">Local Culture<br/>Magazine 2022</p>
     //       </div>
-          
+
     //       <div className="flex flex-col items-center">
     //         <Heart className="w-12 h-12 text-danger mb-2" />
     //         <p className="font-semibold text-center">Most Consistent<br/>Friend Group</p>
     //         <p className="text-sm text-default-500 text-center">Friendship<br/>Awards 2023</p>
     //       </div>
-          
+
     //       <div className="flex flex-col items-center">
     //         <Film className="w-12 h-12 text-primary mb-2" />
     //         <p className="font-semibold text-center">100th Movie<br/>Milestone</p>
     //         <p className="text-sm text-default-500 text-center">Celebrated<br/>August 2021</p>
     //       </div>
-          
+
     //       <div className="flex flex-col items-center">
     //         <Calendar className="w-12 h-12 text-success mb-2" />
     //         <p className="font-semibold text-center">5 Year<br/>Anniversary</p>

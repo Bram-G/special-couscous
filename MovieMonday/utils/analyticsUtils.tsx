@@ -201,7 +201,7 @@ export function getDirectorAnalytics(movieMondayData: MovieMonday[]) {
       if (movie.crew && Array.isArray(movie.crew)) {
         // Filter for directors
         const directors = movie.crew.filter(
-          (person) => person.job === "Director"
+          (person) => person.job === "Director",
         );
 
         directors.forEach((director) => {
@@ -342,6 +342,7 @@ export function getTimeBasedAnalytics(movieMondayData: MovieMonday[]) {
 
     // Count winners in this month
     const winners = mm.movieSelections.filter((m) => m.isWinner);
+
     monthlyData[monthKey].winners += winners.length;
 
     // Count events
@@ -369,7 +370,7 @@ export function getTimeBasedAnalytics(movieMondayData: MovieMonday[]) {
     monthlyMovies,
     totalMoviesWatched: Object.values(monthlyData).reduce(
       (sum, data) => sum + data.count,
-      0
+      0,
     ),
     totalMovieMondayCount: movieMondayData.length,
   };
@@ -404,7 +405,7 @@ export function getPickerAnalytics(movieMondayData: MovieMonday[]) {
 
     // Count decided selections for this picker
     const decidedSelections = mm.movieSelections.filter(
-      (m) => m.isWinner !== null
+      (m) => m.isWinner !== null,
     );
 
     if (decidedSelections.length > 0) {
@@ -412,6 +413,7 @@ export function getPickerAnalytics(movieMondayData: MovieMonday[]) {
 
       // Count wins for this picker
       const wins = decidedSelections.filter((m) => m.isWinner);
+
       pickerStats[pickerName].wins += wins.length;
     }
   });
@@ -423,7 +425,7 @@ export function getPickerAnalytics(movieMondayData: MovieMonday[]) {
       id: data.id,
       selections: data.selections,
       wins: data.wins,
-    })
+    }),
   );
 
   // Find most successful picker
@@ -433,6 +435,7 @@ export function getPickerAnalytics(movieMondayData: MovieMonday[]) {
   for (const [name, data] of Object.entries(pickerStats)) {
     if (data.selections > 0) {
       const winRate = data.wins / data.selections;
+
       if (winRate > highestWinRate) {
         highestWinRate = winRate;
         mostSuccessful = {
@@ -458,7 +461,7 @@ export function getPickerAnalytics(movieMondayData: MovieMonday[]) {
 export function getMoviesByDirector(
   data: MovieMonday[],
   directorName: string,
-  winStatus?: boolean
+  winStatus?: boolean,
 ) {
   const movies: any[] = [];
 
@@ -470,7 +473,8 @@ export function getMoviesByDirector(
       }
 
       const directorFound = movie.directors?.some(
-        (director) => director.name.toLowerCase() === directorName.toLowerCase()
+        (director) =>
+          director.name.toLowerCase() === directorName.toLowerCase(),
       );
 
       if (
@@ -497,7 +501,7 @@ export function getMoviesByDirector(
 export function getMoviesByGenre(
   data: MovieMonday[],
   genreName: string,
-  winStatus?: boolean
+  winStatus?: boolean,
 ) {
   const movies: any[] = [];
 
@@ -510,7 +514,7 @@ export function getMoviesByGenre(
 
       if (movie.genres && Array.isArray(movie.genres)) {
         const genreFound = movie.genres.some(
-          (genre) => genre.toLowerCase() === genreName.toLowerCase()
+          (genre) => genre.toLowerCase() === genreName.toLowerCase(),
         );
 
         if (
@@ -538,7 +542,7 @@ export function getMoviesByGenre(
 export function getMoviesByActor(
   data: MovieMonday[],
   actorName: string,
-  winStatus?: boolean
+  winStatus?: boolean,
 ) {
   const movies: any[] = [];
 
@@ -550,7 +554,7 @@ export function getMoviesByActor(
       }
 
       const actorFound = movie.actors?.some(
-        (actor) => actor.name.toLowerCase() === actorName.toLowerCase()
+        (actor) => actor.name.toLowerCase() === actorName.toLowerCase(),
       );
 
       if (
@@ -584,6 +588,7 @@ export function getMoviesByCocktail(data: MovieMonday[], cocktailName: string) {
       } else if (typeof mm.eventDetails.cocktails === "string") {
         try {
           const parsed = JSON.parse(mm.eventDetails.cocktails);
+
           eventCocktails = Array.isArray(parsed)
             ? parsed
             : [mm.eventDetails.cocktails];
@@ -598,7 +603,7 @@ export function getMoviesByCocktail(data: MovieMonday[], cocktailName: string) {
     const cocktailFound = eventCocktails.some(
       (c) =>
         typeof c === "string" &&
-        c.toLowerCase().trim() === normalizedCocktailName
+        c.toLowerCase().trim() === normalizedCocktailName,
     );
 
     if (cocktailFound) {
@@ -681,6 +686,7 @@ export function getMoviesByMeal(data: MovieMonday[], mealName: string) {
       } else if (typeof mm.eventDetails.meals === "string") {
         try {
           const parsed = JSON.parse(mm.eventDetails.meals);
+
           eventMeals = Array.isArray(parsed) ? parsed : [mm.eventDetails.meals];
         } catch (e) {
           eventMeals = [mm.eventDetails.meals];
@@ -692,7 +698,7 @@ export function getMoviesByMeal(data: MovieMonday[], mealName: string) {
     const normalizedMealName = mealName.toLowerCase().trim();
     const mealFound = eventMeals.some(
       (m) =>
-        typeof m === "string" && m.toLowerCase().trim() === normalizedMealName
+        typeof m === "string" && m.toLowerCase().trim() === normalizedMealName,
     );
 
     if (mealFound) {
@@ -739,6 +745,7 @@ export function getFoodDrinkAnalytics(movieMondayData: MovieMonday[]) {
         if (!cocktail || typeof cocktail !== "string") return;
 
         const trimmed = cocktail.trim();
+
         if (!trimmed) return;
 
         cocktailCounts[trimmed] = (cocktailCounts[trimmed] || 0) + 1;
@@ -756,6 +763,7 @@ export function getFoodDrinkAnalytics(movieMondayData: MovieMonday[]) {
         if (!meal || typeof meal !== "string") return;
 
         const trimmed = meal.trim();
+
         if (!trimmed) return;
 
         mealCounts[trimmed] = (mealCounts[trimmed] || 0) + 1;
@@ -773,6 +781,7 @@ export function getFoodDrinkAnalytics(movieMondayData: MovieMonday[]) {
         if (!dessert || typeof dessert !== "string") return;
 
         const trimmed = dessert.trim();
+
         if (!trimmed) return;
 
         dessertCounts[trimmed] = (dessertCounts[trimmed] || 0) + 1;
@@ -815,13 +824,15 @@ export function getFoodDrinkAnalytics(movieMondayData: MovieMonday[]) {
 export async function getSimilarMovies(tmdbId: number) {
   try {
     const response = await fetch(
-      `https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${process.env.NEXT_PUBLIC_API_Key}`
+      `https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${process.env.NEXT_PUBLIC_API_Key}`,
     );
-    
+
     const data = await response.json();
+
     return data.results || [];
   } catch (error) {
     console.error(`Error fetching similar movies for ${tmdbId}:`, error);
+
     return [];
   }
 }
@@ -834,13 +845,15 @@ export async function getSimilarMovies(tmdbId: number) {
 export async function getRecommendedMovies(tmdbId: number) {
   try {
     const response = await fetch(
-      `https://api.themoviedb.org/3/movie/${tmdbId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`
+      `https://api.themoviedb.org/3/movie/${tmdbId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`,
     );
-    
+
     const data = await response.json();
+
     return data.results || [];
   } catch (error) {
     console.error(`Error fetching recommendations for ${tmdbId}:`, error);
+
     return [];
   }
 }
@@ -853,28 +866,28 @@ export async function getRecommendedMovies(tmdbId: number) {
 export function extractWatchlistGenres(watchlist: any[]) {
   // This would require having genre_ids in your watchlist items,
   // which you might need to add by enriching your watchlist data
-  
+
   const genreCounts = {};
-  
-  watchlist.forEach(movie => {
+
+  watchlist.forEach((movie) => {
     if (movie.genres && Array.isArray(movie.genres)) {
-      movie.genres.forEach(genre => {
+      movie.genres.forEach((genre) => {
         genreCounts[genre] = (genreCounts[genre] || 0) + 1;
       });
     }
   });
-  
+
   // Sort genres by frequency
   const sortedGenres = Object.entries(genreCounts)
-    .map(([genreId, count]) => ({ 
-      id: parseInt(genreId), 
-      count 
+    .map(([genreId, count]) => ({
+      id: parseInt(genreId),
+      count,
     }))
     .sort((a, b) => b.count - a.count);
-  
+
   return {
     topGenres: sortedGenres,
-    allGenres: Object.keys(genreCounts).map(id => parseInt(id))
+    allGenres: Object.keys(genreCounts).map((id) => parseInt(id)),
   };
 }
 
@@ -888,17 +901,18 @@ export function extractWatchlistGenres(watchlist: any[]) {
 export async function getMoviesByGenreTMDB(genreId: number, page = 1) {
   try {
     const response = await fetch(
-      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&with_genres=${genreId}&sort_by=popularity.desc&page=${page}`
+      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&with_genres=${genreId}&sort_by=popularity.desc&page=${page}`,
     );
-    
+
     const data = await response.json();
+
     return data.results || [];
   } catch (error) {
     console.error(`Error fetching movies for genre ${genreId}:`, error);
+
     return [];
   }
 }
-
 
 /**
  * Gets a curated list of movies by decade
@@ -909,7 +923,7 @@ export async function getMoviesByGenreTMDB(genreId: number, page = 1) {
 export async function getMoviesByDecade(decade: string, page = 1) {
   try {
     let fromYear, toYear;
-    
+
     if (decade === "pre-1970") {
       fromYear = "1900";
       toYear = "1969";
@@ -920,15 +934,17 @@ export async function getMoviesByDecade(decade: string, page = 1) {
       fromYear = decade;
       toYear = (parseInt(decade) + 9).toString();
     }
-    
+
     const response = await fetch(
-      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&primary_release_date.gte=${fromYear}-01-01&primary_release_date.lte=${toYear}-12-31&sort_by=vote_average.desc&vote_count.gte=100&page=${page}`
+      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&primary_release_date.gte=${fromYear}-01-01&primary_release_date.lte=${toYear}-12-31&sort_by=vote_average.desc&vote_count.gte=100&page=${page}`,
     );
-    
+
     const data = await response.json();
+
     return data.results || [];
   } catch (error) {
     console.error(`Error fetching movies for decade ${decade}:`, error);
+
     return [];
   }
 }

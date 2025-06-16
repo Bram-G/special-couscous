@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Spinner } from "@heroui/react";
-import { useAuth } from '../contexts/AuthContext';
+
+import { useAuth } from "../contexts/AuthContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -19,8 +20,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     if (!isLoading) {
       if (!isAuthenticated) {
         // Store the current URL for redirection after login
-        localStorage.setItem('redirectAfterLogin', window.location.pathname);
-        router.push('/login');
+        localStorage.setItem("redirectAfterLogin", window.location.pathname);
+        router.push("/login");
       } else {
         // If authenticated, show the content
         setShowContent(true);

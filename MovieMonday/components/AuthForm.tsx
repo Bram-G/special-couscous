@@ -1,4 +1,3 @@
-
 import React, { useState, FormEvent, ChangeEvent } from "react";
 import {
   Input,
@@ -19,8 +18,9 @@ import {
   LockClosedIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
-import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 interface FormData {
   username: string;
@@ -45,7 +45,7 @@ const AuthForm: React.FC = () => {
     e.preventDefault();
     setError("");
     setLoading(true);
-  
+
     try {
       const endpoint = isLogin ? "/auth/login" : "/auth/register";
       const response = await fetch(`http://localhost:8000${endpoint}`, {
@@ -57,19 +57,19 @@ const AuthForm: React.FC = () => {
         body: JSON.stringify(
           isLogin
             ? { username: formData.username, password: formData.password }
-            : formData
+            : formData,
         ),
       });
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
         // Handle need for verification
         if (response.status === 403 && data.needsVerification) {
           setVerificationModalOpen(true);
           throw new Error(data.message);
         }
-        
+
         // Handle other errors
         switch (response.status) {
           case 401:
@@ -84,28 +84,30 @@ const AuthForm: React.FC = () => {
             throw new Error(data.message || "Authentication failed");
         }
       }
-      
+
       // For registration, show success message
       if (!isLogin) {
         // Show verification required modal
         setVerificationModalOpen(true);
+
         return;
       }
-  
+
       if (data.token) {
         // Set the token in localStorage first
-        localStorage.setItem('token', data.token);
-        
+        localStorage.setItem("token", data.token);
+
         // Then update the auth context
         await login(data.token);
-        
+
         // Wait a brief moment to ensure context is updated
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         // Check for redirect after login
-        const redirectPath = localStorage.getItem('redirectAfterLogin');
+        const redirectPath = localStorage.getItem("redirectAfterLogin");
+
         if (redirectPath) {
-          localStorage.removeItem('redirectAfterLogin'); // Clean up
+          localStorage.removeItem("redirectAfterLogin"); // Clean up
           router.push(redirectPath);
         } else {
           router.push("/dashboard"); // Default redirect
@@ -116,7 +118,7 @@ const AuthForm: React.FC = () => {
     } catch (err) {
       console.error("Authentication error:", err);
       setError(
-        err instanceof Error ? err.message : "An unknown error occurred"
+        err instanceof Error ? err.message : "An unknown error occurred",
       );
     } finally {
       setLoading(false);
@@ -125,6 +127,7 @@ const AuthForm: React.FC = () => {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
     setFormData((prev) => ({
       ...prev,
       [name]: value.trim(),
@@ -134,6 +137,7 @@ const AuthForm: React.FC = () => {
   const isFormValid = () => {
     if (!formData.username || !formData.password) return false;
     if (!isLogin && !formData.email) return false;
+
     return true;
   };
 
@@ -163,63 +167,63 @@ const AuthForm: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <Input
               key="username"
-              type="text"
+              required
+              isInvalid={!!(error && !formData.username)}
               label="Username"
               name="username"
+              startContent={<UserIcon className="h-5 w-5 text-default-400" />}
+              type="text"
               value={formData.username}
               onChange={handleChange}
-              required
-              startContent={<UserIcon className="h-5 w-5 text-default-400" />}
-              isInvalid={!!(error && !formData.username)}
             />
 
             {!isLogin && (
               <Input
                 key="email"
-                type="email"
+                required
+                isInvalid={!!(!isLogin && error && !formData.email)}
                 label="Email"
                 name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
                 startContent={
                   <EnvelopeIcon className="h-5 w-5 text-default-400" />
                 }
-                isInvalid={!!(!isLogin && error && !formData.email)}
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
               />
             )}
 
             <Input
               key="password"
-              type="password"
+              required
+              isInvalid={!!(error && !formData.password)}
               label="Password"
               name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
               startContent={
                 <LockClosedIcon className="h-5 w-5 text-default-400" />
               }
-              isInvalid={!!(error && !formData.password)}
+              type="password"
+              value={formData.password}
+              onChange={handleChange}
             />
 
             {isLogin && (
               <div className="flex justify-end">
-                <Link href="/forgot-password" color="primary" size="sm">
+                <Link color="primary" href="/forgot-password" size="sm">
                   Forgot password?
                 </Link>
               </div>
             )}
 
-            <Button 
-              type="submit" 
-              color="primary" 
-              fullWidth 
-              isLoading={loading}
+            <Button
+              fullWidth
+              color="primary"
               isDisabled={!isFormValid()}
+              isLoading={loading}
+              type="submit"
             >
               {isLogin ? "Sign In" : "Sign Up"}
             </Button>
@@ -227,8 +231,8 @@ const AuthForm: React.FC = () => {
 
           <div className="text-center mt-4">
             <Button
-              variant="light"
               color="primary"
+              variant="light"
               onPress={() => {
                 setIsLogin(!isLogin);
                 setError(""); // Clear any errors when switching modes
@@ -242,15 +246,18 @@ const AuthForm: React.FC = () => {
           </div>
         </CardBody>
       </Card>
-      
+
       {/* Email Verification Modal */}
-      <Modal isOpen={verificationModalOpen} onClose={() => setVerificationModalOpen(false)}>
+      <Modal
+        isOpen={verificationModalOpen}
+        onClose={() => setVerificationModalOpen(false)}
+      >
         <ModalContent>
           <ModalHeader>Email Verification Required</ModalHeader>
           <ModalBody>
             <p>
-              {isLogin 
-                ? "Your email address has not been verified yet. Please check your inbox for the verification email." 
+              {isLogin
+                ? "Your email address has not been verified yet. Please check your inbox for the verification email."
                 : "Thank you for registering! We've sent a verification email to your email address. Please check your inbox and click the verification link to activate your account."}
             </p>
             <p className="mt-2">
@@ -258,14 +265,14 @@ const AuthForm: React.FC = () => {
             </p>
           </ModalBody>
           <ModalFooter>
-            <Button 
-              color="primary" 
+            <Button
+              color="primary"
               variant="light"
               onPress={() => router.push("/resend-verification")}
             >
               Resend Verification Email
             </Button>
-            <Button 
+            <Button
               color="primary"
               onPress={() => setVerificationModalOpen(false)}
             >

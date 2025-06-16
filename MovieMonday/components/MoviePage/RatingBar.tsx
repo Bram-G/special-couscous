@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 interface RatingBarProps {
   rating: number;
@@ -18,7 +18,7 @@ const RatingBar: React.FC<RatingBarProps> = ({ rating, count = 0 }) => {
             <div
               className="h-full bg-primary rounded-full"
               style={{ width: `${percentage}%` }}
-            ></div>
+            />
           </div>
           <div className="text-xs text-default-500 mt-1">{count} ratings</div>
         </div>

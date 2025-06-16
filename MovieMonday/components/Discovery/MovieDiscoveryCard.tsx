@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Card, Image, Button, useDisclosure, Tooltip } from "@heroui/react";
 import { Heart, Eye, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
+
 import { useAuth } from "@/contexts/AuthContext";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
@@ -22,56 +23,60 @@ interface MovieCardProps {
   } | null;
 }
 
-const MovieDiscoveryCard: React.FC<MovieCardProps> = ({
-  movie,
-  reason
-}) => {
+const MovieDiscoveryCard: React.FC<MovieCardProps> = ({ movie, reason }) => {
   const router = useRouter();
   const { isAuthenticated, token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showSuccessTooltip, setShowSuccessTooltip] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
-  
+
   // Use our custom hook to check watchlist status
-  const { inWatchlist, inDefaultWatchlist, refresh } = useWatchlistStatus(movie.id);
-  
+  const { inWatchlist, inDefaultWatchlist, refresh } = useWatchlistStatus(
+    movie.id,
+  );
+
   const handleMovieClick = () => {
     router.push(`/movie/${movie.id}`);
   };
-  
+
   const getReleaseYear = () => {
     if (!movie.release_date) return "Unknown";
+
     return new Date(movie.release_date).getFullYear();
   };
-  
+
   const handleQuickAdd = async () => {
     if (!isAuthenticated || !token) {
       // Redirect to login
-      localStorage.setItem('redirectAfterLogin', '/dashboard');
-      router.push('/login');
+      localStorage.setItem("redirectAfterLogin", "/dashboard");
+      router.push("/login");
+
       return;
     }
-    
+
     try {
       setLoading(true);
-      
-      const response = await fetch('http://localhost:8000/api/watchlists/quick-add', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+
+      const response = await fetch(
+        "http://localhost:8000/api/watchlists/quick-add",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            tmdbMovieId: movie.id,
+            title: movie.title,
+            posterPath: movie.poster_path,
+          }),
         },
-        body: JSON.stringify({
-          tmdbMovieId: movie.id,
-          title: movie.title,
-          posterPath: movie.poster_path
-        })
-      });
-      
+      );
+
       if (response.ok) {
         // Refresh the watchlist status
         refresh();
-        
+
         // Show success tooltip
         setShowSuccessTooltip(true);
         setTimeout(() => {
@@ -79,34 +84,37 @@ const MovieDiscoveryCard: React.FC<MovieCardProps> = ({
         }, 2000);
       }
     } catch (error) {
-      console.error('Error adding to watchlist:', error);
+      console.error("Error adding to watchlist:", error);
     } finally {
       setLoading(false);
     }
   };
-  
+
   return (
     <>
       <Card className="overflow-hidden">
         <div className="relative group">
           {/* Movie poster */}
-          <div className="aspect-[2/3] overflow-hidden cursor-pointer" onClick={handleMovieClick}>
+          <div
+            className="aspect-[2/3] overflow-hidden cursor-pointer"
+            onClick={handleMovieClick}
+          >
             <Image
+              removeWrapper
+              alt={movie.title}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               src={
                 movie.poster_path
                   ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                  : '/placeholder-poster.jpg'
+                  : "/placeholder-poster.jpg"
               }
-              alt={movie.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              removeWrapper
             />
-            
+
             {/* Info overlay on hover */}
             <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
               <h3 className="text-white font-medium">{movie.title}</h3>
               <p className="text-white/70 text-sm">{getReleaseYear()}</p>
-              
+
               {movie.vote_average && (
                 <div className="flex items-center mt-1">
                   <div className="bg-primary rounded-full px-2 py-0.5 text-xs font-medium">
@@ -114,7 +122,7 @@ const MovieDiscoveryCard: React.FC<MovieCardProps> = ({
                   </div>
                 </div>
               )}
-              
+
               {reason && (
                 <div className="mt-2">
                   <p className="text-white/80 text-xs">{reason.text}</p>
@@ -125,37 +133,46 @@ const MovieDiscoveryCard: React.FC<MovieCardProps> = ({
               )}
             </div>
           </div>
-          
+
           {/* Action buttons overlaid at the bottom */}
           <div className="absolute bottom-0 left-0 right-0 p-2 flex gap-1">
             <Button
-              size="sm"
-              color="primary"
-              variant="flat"
               className="flex-1 bg-background/80 backdrop-blur-sm"
-              onPress={handleMovieClick}
+              color="primary"
+              size="sm"
               startContent={<Eye className="h-4 w-4" />}
+              variant="flat"
+              onPress={handleMovieClick}
             >
               View
             </Button>
-            
+
             {isAuthenticated && (
-              <Tooltip 
-                content={showSuccessTooltip ? "Added to My Watchlist" : (inWatchlist ? "In your watchlist" : "Add to watchlist")}
-                placement="top"
+              <Tooltip
+                content={
+                  showSuccessTooltip
+                    ? "Added to My Watchlist"
+                    : inWatchlist
+                      ? "In your watchlist"
+                      : "Add to watchlist"
+                }
                 isOpen={showSuccessTooltip}
+                placement="top"
               >
                 <Button
-                  size="sm"
-                  color={inWatchlist ? "success" : "default"}
-                  variant="flat"
                   className="flex-1 bg-background/80 backdrop-blur-sm"
-                  onPress={handleQuickAdd}
+                  color={inWatchlist ? "success" : "default"}
                   isLoading={loading}
-                  startContent={inWatchlist ? 
-                    <Check className="h-4 w-4" /> : 
-                    <Heart className="h-4 w-4" />
+                  size="sm"
+                  startContent={
+                    inWatchlist ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Heart className="h-4 w-4" />
+                    )
                   }
+                  variant="flat"
+                  onPress={handleQuickAdd}
                 >
                   {inWatchlist ? "Saved" : "Save"}
                 </Button>
@@ -164,16 +181,16 @@ const MovieDiscoveryCard: React.FC<MovieCardProps> = ({
           </div>
         </div>
       </Card>
-      
+
       {/* Advanced watchlist modal for full movie page (not shown on cards) */}
-      <AddToWatchlistModal 
+      <AddToWatchlistModal
         isOpen={isOpen}
-        onClose={onClose}
         movieDetails={{
           id: movie.id,
           title: movie.title,
-          posterPath: movie.poster_path
+          posterPath: movie.poster_path,
         }}
+        onClose={onClose}
         onSuccess={() => refresh()}
       />
     </>

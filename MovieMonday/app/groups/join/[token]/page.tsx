@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardBody, Button } from "@heroui/react";
-import { useAuth } from '@/contexts/AuthContext';
+
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PageProps {
   params: {
@@ -28,28 +29,35 @@ export default function JoinGroupPage({ params }: PageProps) {
       try {
         if (!isAuthenticated || !token) {
           const currentPath = `/groups/join/${params.token}`;
-          localStorage.setItem('redirectAfterLogin', currentPath);
-          router.push('/login');
+
+          localStorage.setItem("redirectAfterLogin", currentPath);
+          router.push("/login");
+
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/groups/join/${params.token}`, {
-          method: "GET",
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/groups/join/${params.token}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
           },
-          credentials: 'include'
-        });
+        );
 
         if (!mounted) return;
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to verify invite');
+
+          throw new Error(errorData.error || "Failed to verify invite");
         }
 
         const data = await response.json();
+
         setGroupName(data.name);
         setLoading(false);
       } catch (error: any) {
@@ -70,22 +78,26 @@ export default function JoinGroupPage({ params }: PageProps) {
   const handleJoinGroup = async () => {
     try {
       setLoading(true);
-      
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/groups/join/${params.token}`, {
-        method: "POST",
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/groups/join/${params.token}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
         },
-        credentials: 'include'
-      });
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to join group');
+
+        throw new Error(errorData.error || "Failed to join group");
       }
 
-      router.push('/dashboard');
+      router.push("/dashboard");
     } catch (error: any) {
       setError(error.message);
       setLoading(false);
@@ -110,7 +122,7 @@ export default function JoinGroupPage({ params }: PageProps) {
         <CardBody className="space-y-4">
           <h1 className="text-xl font-bold text-center text-red-600">Error</h1>
           <p className="text-center">{error}</p>
-          <Button color="primary" onPress={() => router.push('/groups')}>
+          <Button color="primary" onPress={() => router.push("/groups")}>
             Go to Groups
           </Button>
         </CardBody>

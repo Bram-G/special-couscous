@@ -10,8 +10,9 @@ import {
   Link,
 } from "@heroui/react";
 import { Plus, Film, ArrowRight } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 interface WatchlistItem {
   id: number;
@@ -51,7 +52,7 @@ const DashboardWatchlistSection: React.FC = () => {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -119,11 +120,11 @@ const DashboardWatchlistSection: React.FC = () => {
         <h3 className="text-xl font-bold">My Watchlists</h3>
         <Button
           as={Link}
-          href="/watchlist"
-          variant="light"
           color="primary"
           endContent={<ArrowRight className="h-4 w-4" />}
+          href="/watchlist"
           size="sm"
+          variant="light"
         >
           View All
         </Button>
@@ -137,8 +138,8 @@ const DashboardWatchlistSection: React.FC = () => {
             </p>
             <Button
               color="primary"
-              onPress={handleCreateWatchlist}
               startContent={<Plus className="h-4 w-4" />}
+              onPress={handleCreateWatchlist}
             >
               Create Watchlist
             </Button>
@@ -149,8 +150,8 @@ const DashboardWatchlistSection: React.FC = () => {
               <Button
                 key={watchlist.id}
                 as={Link}
-                href={`/watchlist/${watchlist.slug}`}
                 className="p-0 h-auto min-h-64 bg-transparent"
+                href={`/watchlist/${watchlist.slug}`}
                 onPress={() => handleViewWatchlist(watchlist.slug)}
               >
                 <Card
@@ -168,10 +169,10 @@ const DashboardWatchlistSection: React.FC = () => {
                           >
                             {item.posterPath ? (
                               <Image
-                                src={`https://image.tmdb.org/t/p/w200${item.posterPath}`}
+                                removeWrapper
                                 alt="Movie poster"
                                 className="w-full h-full object-cover"
-                                removeWrapper
+                                src={`https://image.tmdb.org/t/p/w200${item.posterPath}`}
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-default-200">
@@ -208,8 +209,8 @@ const DashboardWatchlistSection: React.FC = () => {
             {/* Add Watchlist button */}
             {watchlists.length < 4 && (
               <Button
-                onPress={handleCreateWatchlist}
                 className="p-0 h-auto min-h-64 bg-transparent"
+                onPress={handleCreateWatchlist}
               >
                 <Card className="w-full h-full border-2 border-dashed border-default-200 hover:border-primary transition-colors">
                   <CardBody className="flex flex-col items-center justify-center py-8">

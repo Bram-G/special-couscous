@@ -1,14 +1,21 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Card, Spinner, Button, Link, useDisclosure, Input } from "@heroui/react";
+import {
+  Card,
+  Spinner,
+  Button,
+  Link,
+  useDisclosure,
+  Input,
+} from "@heroui/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { Search, Film, X, Flame, Star, Clock, TrendingUp, Info } from "lucide-react";
+import { Search, Film, X, Flame, Star } from "lucide-react";
 import debounce from "lodash/debounce";
+
+import { useAuth } from "@/contexts/AuthContext";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import useWatchlistStatus from "@/hooks/useWatchlistStatus";
-import ClientOnly from "@/components/ui/client-only";
 import EnhancedMovieCarousel from "@/components/Discovery/EnhancedMovieCarousel";
 import EnhancedWatchlistSection from "@/components/Discovery/EnhancedWatchlistSection";
 import FixedMovieDiscoveryCard from "@/components/Discovery/FixedMovieDiscoveryCard";
@@ -54,7 +61,9 @@ export default function DiscoveryPage() {
   const [trending, setTrending] = useState<Movie[]>([]);
   const [recommended, setRecommended] = useState<Movie[]>([]);
   const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
-  const [publicWatchlists, setPublicWatchlists] = useState<PublicWatchlist[]>([]);
+  const [publicWatchlists, setPublicWatchlists] = useState<PublicWatchlist[]>(
+    [],
+  );
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,6 +84,7 @@ export default function DiscoveryPage() {
   // Check for search query in URL
   useEffect(() => {
     const query = searchParams.get("search");
+
     if (query) {
       setSearchQuery(query);
       performSearch(query);
@@ -91,11 +101,17 @@ export default function DiscoveryPage() {
     };
 
     // Add event listener
-    window.addEventListener("navbarSearch", handleNavbarSearch as EventListener);
+    window.addEventListener(
+      "navbarSearch",
+      handleNavbarSearch as EventListener,
+    );
 
     // Clean up
     return () => {
-      window.removeEventListener("navbarSearch", handleNavbarSearch as EventListener);
+      window.removeEventListener(
+        "navbarSearch",
+        handleNavbarSearch as EventListener,
+      );
     };
   }, []);
 
@@ -116,7 +132,7 @@ export default function DiscoveryPage() {
     try {
       setLoadingTrending(true);
       const response = await fetch(
-        `https://api.themoviedb.org/3/trending/movie/week?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`
+        `https://api.themoviedb.org/3/trending/movie/week?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`,
       );
 
       if (!response.ok) {
@@ -124,6 +140,7 @@ export default function DiscoveryPage() {
       }
 
       const data = await response.json();
+
       setTrending(data.results || []);
     } catch (error) {
       console.error("Error fetching trending movies:", error);
@@ -138,7 +155,7 @@ export default function DiscoveryPage() {
     try {
       setLoadingTopRated(true);
       const response = await fetch(
-        `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`
+        `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`,
       );
 
       if (!response.ok) {
@@ -146,6 +163,7 @@ export default function DiscoveryPage() {
       }
 
       const data = await response.json();
+
       setTopRatedMovies(data.results || []);
     } catch (error) {
       console.error("Error fetching top rated movies:", error);
@@ -171,7 +189,7 @@ export default function DiscoveryPage() {
             "Content-Type": "application/json",
           },
           credentials: "include",
-        }
+        },
       );
 
       if (!watchlistResponse.ok) {
@@ -183,6 +201,7 @@ export default function DiscoveryPage() {
       if (!watchlistItems || watchlistItems.length === 0) {
         setRecommended([]);
         setLoadingRecommended(false);
+
         return;
       }
 
@@ -195,49 +214,58 @@ export default function DiscoveryPage() {
       if (sampleMovies.length === 0 || !sampleMovies[0].tmdbMovieId) {
         setRecommended([]);
         setLoadingRecommended(false);
+
         return;
       }
 
       // Fetch recommendations for each sample movie
       const recommendationPromises = sampleMovies.map((movie) =>
         fetch(
-          `https://api.themoviedb.org/3/movie/${movie.tmdbMovieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`
+          `https://api.themoviedb.org/3/movie/${movie.tmdbMovieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`,
         )
           .then((res) => {
             if (!res.ok) return { results: [] };
+
             return res.json();
           })
-          .catch(() => ({ results: [] }))
+          .catch(() => ({ results: [] })),
       );
 
       const results = await Promise.all(recommendationPromises);
-      const allRecommendations = results.flatMap((result) => result.results || []);
+      const allRecommendations = results.flatMap(
+        (result) => result.results || [],
+      );
 
       if (allRecommendations.length === 0) {
         setRecommended([]);
         setLoadingRecommended(false);
+
         return;
       }
 
       // Use a Map for efficient deduplication by movie ID
       const uniqueRecommendationsMap = new Map();
+
       allRecommendations.forEach((movie) => {
         if (movie && movie.id) {
           uniqueRecommendationsMap.set(movie.id, movie);
         }
       });
 
-      const uniqueRecommendations = Array.from(uniqueRecommendationsMap.values());
+      const uniqueRecommendations = Array.from(
+        uniqueRecommendationsMap.values(),
+      );
 
       // Remove movies that are already in watchlist
       const watchlistIds = new Set(watchlistItems.map((m) => m.tmdbMovieId));
       const filteredRecommendations = uniqueRecommendations.filter(
-        (movie) => !watchlistIds.has(movie.id)
+        (movie) => !watchlistIds.has(movie.id),
       );
 
       if (filteredRecommendations.length === 0) {
         setRecommended([]);
         setLoadingRecommended(false);
+
         return;
       }
 
@@ -279,21 +307,24 @@ export default function DiscoveryPage() {
 
       // Fetch the watchlists with explicit request for items
       const response = await fetch(
-        "http://localhost:8000/api/watchlists/public?sort=popular&limit=5&include_items=true"
+        "http://localhost:8000/api/watchlists/public?sort=popular&limit=5&include_items=true",
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch public watchlists: ${response.status}`);
+        throw new Error(
+          `Failed to fetch public watchlists: ${response.status}`,
+        );
       }
 
       const data = await response.json();
-      
+
       // Extract watchlists from the response format
       const watchlists = data.categories || [];
 
       if (watchlists.length === 0) {
         setPublicWatchlists([]);
         setLoadingPublicWatchlists(false);
+
         return;
       }
 
@@ -306,7 +337,8 @@ export default function DiscoveryPage() {
         slug: watchlist.slug || String(watchlist.id),
         moviesCount: watchlist.moviesCount || 0,
         owner: {
-          username: watchlist.User?.username || watchlist.owner?.username || "User",
+          username:
+            watchlist.User?.username || watchlist.owner?.username || "User",
           id: watchlist.User?.id || watchlist.owner?.id || 0,
         },
         items: Array.isArray(watchlist.items)
@@ -334,12 +366,13 @@ export default function DiscoveryPage() {
       if (query) performSearch(query);
       else setSearchResults([]);
     }, 500),
-    []
+    [],
   );
 
   // Handle search input changes
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const query = event.target.value;
+
     setSearchQuery(query);
     debouncedSearch(query);
   };
@@ -349,6 +382,7 @@ export default function DiscoveryPage() {
     if (!query.trim()) {
       setSearchResults([]);
       setIsSearching(false);
+
       return;
     }
 
@@ -356,7 +390,7 @@ export default function DiscoveryPage() {
       setIsSearching(true);
 
       const response = await fetch(
-        `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(query)}&include_adult=false&page=1`
+        `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(query)}&include_adult=false&page=1`,
       );
 
       if (!response.ok) {
@@ -364,6 +398,7 @@ export default function DiscoveryPage() {
       }
 
       const data = await response.json();
+
       setSearchResults(data.results || []);
     } catch (error) {
       console.error("Error searching movies:", error);
@@ -400,18 +435,18 @@ export default function DiscoveryPage() {
         <div className="relative">
           <Input
             isClearable
+            className="w-full"
             placeholder="Search movies..."
+            radius="lg"
+            size="lg"
+            startContent={<Search className="text-default-400" />}
             value={searchQuery}
+            onChange={handleSearchChange}
             onClear={() => {
               setSearchQuery("");
               setSearchResults([]);
               router.push("/discover");
             }}
-            onChange={handleSearchChange}
-            startContent={<Search className="text-default-400" />}
-            size="lg"
-            radius="lg"
-            className="w-full"
           />
         </div>
       </div>
@@ -426,13 +461,13 @@ export default function DiscoveryPage() {
                 Search Results for "{searchQuery}"
               </h2>
               <Button
+                startContent={<X className="h-4 w-4" />}
                 variant="light"
                 onPress={() => {
                   setSearchQuery("");
                   setSearchResults([]);
                   router.push("/discover");
                 }}
-                startContent={<X className="h-4 w-4" />}
               >
                 Clear Search
               </Button>
@@ -470,10 +505,15 @@ export default function DiscoveryPage() {
           <>
             {/* Featured collections with icons */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
-              <Card 
+              <Card
                 isPressable
-                onPress={() => window.scrollTo({ top: document.getElementById('trending')?.offsetTop - 100, behavior: 'smooth' })}
                 className="p-6"
+                onPress={() =>
+                  window.scrollTo({
+                    top: document.getElementById("trending")?.offsetTop - 100,
+                    behavior: "smooth",
+                  })
+                }
               >
                 <div className="flex flex-col items-center text-center gap-3">
                   <div className="w-16 h-16 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center">
@@ -485,11 +525,16 @@ export default function DiscoveryPage() {
                   </p>
                 </div>
               </Card>
-              
-              <Card 
+
+              <Card
                 isPressable
-                onPress={() => window.scrollTo({ top: document.getElementById('top-rated')?.offsetTop - 100, behavior: 'smooth' })}
                 className="p-6"
+                onPress={() =>
+                  window.scrollTo({
+                    top: document.getElementById("top-rated")?.offsetTop - 100,
+                    behavior: "smooth",
+                  })
+                }
               >
                 <div className="flex flex-col items-center text-center gap-3">
                   <div className="w-16 h-16 rounded-full bg-warning-100 dark:bg-warning-900/30 flex items-center justify-center">
@@ -501,11 +546,16 @@ export default function DiscoveryPage() {
                   </p>
                 </div>
               </Card>
-              
-              <Card 
+
+              <Card
                 isPressable
-                onPress={() => window.scrollTo({ top: document.getElementById('watchlists')?.offsetTop - 100, behavior: 'smooth' })}
                 className="p-6"
+                onPress={() =>
+                  window.scrollTo({
+                    top: document.getElementById("watchlists")?.offsetTop - 100,
+                    behavior: "smooth",
+                  })
+                }
               >
                 <div className="flex flex-col items-center text-center gap-3">
                   <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
@@ -520,12 +570,12 @@ export default function DiscoveryPage() {
             </div>
 
             {/* Trending Now Section */}
-            <section id="trending" className="mb-6">
+            <section className="mb-6" id="trending">
               <EnhancedMovieCarousel
-                title="Trending This Week"
-                subtitle="The hottest films everyone is watching right now"
-                movies={trending}
                 loading={loadingTrending}
+                movies={trending}
+                subtitle="The hottest films everyone is watching right now"
+                title="Trending This Week"
               />
             </section>
 
@@ -533,12 +583,12 @@ export default function DiscoveryPage() {
             {isAuthenticated ? (
               <section className="mb-6">
                 <EnhancedMovieCarousel
-                  title="Recommended For You"
-                  subtitle="Customized suggestions based on your watchlist"
-                  movies={recommended}
-                  loading={loadingRecommended}
-                  reason={getRecommendationReason}
                   emptyMessage="Add movies to your watchlist to get personalized recommendations"
+                  loading={loadingRecommended}
+                  movies={recommended}
+                  reason={getRecommendationReason}
+                  subtitle="Customized suggestions based on your watchlist"
+                  title="Recommended For You"
                 />
               </section>
             ) : (
@@ -549,52 +599,55 @@ export default function DiscoveryPage() {
                       Get Personalized Recommendations
                     </h3>
                     <p className="text-default-600 mb-4">
-                      Sign in to see movie recommendations based on your watchlist and viewing history.
-                      Create custom watchlists and track what you want to watch next.
+                      Sign in to see movie recommendations based on your
+                      watchlist and viewing history. Create custom watchlists
+                      and track what you want to watch next.
                     </p>
-                    <Button
-                      as={Link}
-                      href="/login"
-                      color="primary"
-                      size="lg"
-                    >
+                    <Button as={Link} color="primary" href="/login" size="lg">
                       Sign In
                     </Button>
                   </div>
-                  
+
                   <div className="md:w-1/2 relative h-48 overflow-hidden rounded-lg">
                     <div className="absolute inset-0 flex gap-1">
                       {topRatedMovies.slice(0, 5).map((movie) => (
-                        <div key={movie.id} className="h-full w-1/5 overflow-hidden">
+                        <div
+                          key={movie.id}
+                          className="h-full w-1/5 overflow-hidden"
+                        >
                           <img
-                            src={movie.poster_path ? `https://image.tmdb.org/t/p/w200${movie.poster_path}` : '/placeholder-poster.jpg'}
                             alt=""
                             className="h-full w-full object-cover opacity-60"
+                            src={
+                              movie.poster_path
+                                ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
+                                : "/placeholder-poster.jpg"
+                            }
                           />
                         </div>
                       ))}
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent" />
                   </div>
                 </div>
               </Card>
             )}
 
             {/* Top Rated Movies Section */}
-            <section id="top-rated" className="mb-6">
+            <section className="mb-6" id="top-rated">
               <EnhancedMovieCarousel
-                title="Top Rated Movies"
-                subtitle="The best films of all time according to users"
-                movies={topRatedMovies}
                 loading={loadingTopRated}
+                movies={topRatedMovies}
+                subtitle="The best films of all time according to users"
+                title="Top Rated Movies"
               />
             </section>
 
             {/* Popular Public Watchlists Section */}
-            <section id="watchlists" className="mb-6">
+            <section className="mb-6" id="watchlists">
               <EnhancedWatchlistSection
-                watchlists={publicWatchlists}
                 loading={loadingPublicWatchlists}
+                watchlists={publicWatchlists}
               />
             </section>
           </>
@@ -605,12 +658,12 @@ export default function DiscoveryPage() {
       {selectedMovie && (
         <AddToWatchlistModal
           isOpen={isOpen}
-          onClose={onClose}
           movieDetails={{
             id: selectedMovie.id,
             title: selectedMovie.title,
             posterPath: selectedMovie.poster_path,
           }}
+          onClose={onClose}
         />
       )}
     </div>

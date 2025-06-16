@@ -41,30 +41,36 @@ export const ThemeSwitch: FC<ThemeSwitchProps> = ({
   } = useSwitch({
     // Only use the theme for selection logic after mounting to prevent hydration mismatch
     isSelected: mounted ? theme === "light" : false,
-    "aria-label": mounted ? `Switch to ${theme === "light" ? "dark" : "light"} mode` : "Switch theme",
+    "aria-label": mounted
+      ? `Switch to ${theme === "light" ? "dark" : "light"} mode`
+      : "Switch theme",
     onChange,
   });
 
   // Use a placeholder or simplified component during SSR and initial render
   if (isSSR || !mounted) {
     return (
-      <div className={clsx(
-        "px-px transition-opacity hover:opacity-80 cursor-pointer",
-        className,
-        classNames?.base,
-      )}>
-        <div className={clsx(
-          [
-            "w-auto h-auto",
-            "bg-transparent",
-            "rounded-lg",
-            "flex items-center justify-center",
-            "pt-px",
-            "px-0",
-            "mx-0",
-          ],
-          classNames?.wrapper,
-        )}>
+      <div
+        className={clsx(
+          "px-px transition-opacity hover:opacity-80 cursor-pointer",
+          className,
+          classNames?.base,
+        )}
+      >
+        <div
+          className={clsx(
+            [
+              "w-auto h-auto",
+              "bg-transparent",
+              "rounded-lg",
+              "flex items-center justify-center",
+              "pt-px",
+              "px-0",
+              "mx-0",
+            ],
+            classNames?.wrapper,
+          )}
+        >
           {/* Default icon that will be replaced after hydration */}
           <SunFilledIcon size={22} />
         </div>

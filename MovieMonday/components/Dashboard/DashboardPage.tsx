@@ -1,12 +1,15 @@
-'use client'
-import React, { useEffect, useState } from 'react';
-import { Card, Spinner } from '@heroui/react';
-import DashboardCalendar from './DashboardCalendar';
-import GroupManagement from '../GroupManagement'; 
-import DashboardWatchlistSection from './DashboardWatchlistSection';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import DashboardAnalyticsWidget from './DashboardAnalyticsWidget';
+"use client";
+import React, { useEffect, useState } from "react";
+import { Card, Spinner } from "@heroui/react";
+import { useRouter } from "next/navigation";
+
+import GroupManagement from "../GroupManagement";
+
+import DashboardCalendar from "./DashboardCalendar";
+import DashboardWatchlistSection from "./DashboardWatchlistSection";
+import DashboardAnalyticsWidget from "./DashboardAnalyticsWidget";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 interface GroupMember {
   id: string;
@@ -31,20 +34,21 @@ const DashboardPage = () => {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:8000/api/users/group', {
+      const response = await fetch("http://localhost:8000/api/users/group", {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        credentials: 'include'
+        credentials: "include",
       });
 
       if (response.ok) {
         const data = await response.json();
+
         setGroupData(data);
       }
     } catch (error) {
-      console.error('Error fetching group data:', error);
+      console.error("Error fetching group data:", error);
     } finally {
       setFetchingGroup(false);
     }
@@ -54,8 +58,8 @@ const DashboardPage = () => {
     if (!isLoading) {
       if (!isAuthenticated) {
         // Store the current URL before redirecting
-        localStorage.setItem('redirectAfterLogin', window.location.pathname);
-        router.push('/login');
+        localStorage.setItem("redirectAfterLogin", window.location.pathname);
+        router.push("/login");
       } else {
         fetchGroupData();
       }
@@ -84,10 +88,10 @@ const DashboardPage = () => {
       <div className="w-full flex flex-col gap-6">
         {/* Calendar Section */}
         <Card className="w-full">
-          <DashboardCalendar 
-            groupMembers={groupData?.members || []}
-            groupId={groupData?.id}
+          <DashboardCalendar
             key={groupData?.id} // Add key to force re-render when group changes
+            groupId={groupData?.id}
+            groupMembers={groupData?.members || []}
           />
         </Card>
 
@@ -97,7 +101,7 @@ const DashboardPage = () => {
           <div className="lg:col-span-4">
             <GroupManagement onGroupUpdate={handleGroupUpdate} />
           </div>
-          
+
           {/* Analytics takes 2/3 width (8 of 12 columns) */}
           <div className="lg:col-span-8">
             <DashboardAnalyticsWidget />
@@ -108,6 +112,6 @@ const DashboardPage = () => {
       </div>
     </div>
   );
-}
+};
 
 export default DashboardPage;

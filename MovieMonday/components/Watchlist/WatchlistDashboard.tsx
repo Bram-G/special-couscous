@@ -1,44 +1,27 @@
 // MovieMonday/components/Watchlist/WatchlistDashboard.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Button, 
-  Card, 
-  CardBody, 
-  CardFooter, 
-  CardHeader, 
-  Input, 
-  Modal, 
-  ModalBody, 
-  ModalContent, 
-  ModalFooter, 
-  ModalHeader, 
-  Spinner, 
-  Switch, 
+import React, { useState, useEffect } from "react";
+import {
+  Button,
+  Card,
+  CardBody,
+  Input,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  Spinner,
+  Switch,
   useDisclosure,
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem
 } from "@heroui/react";
-import { 
-  Plus, 
-  List, 
-  Eye, 
-  EyeOff, 
-  MoreHorizontal, 
-  Trash2, 
-  Edit, 
-  Film, 
-  Heart,
-  Share2,
-  Globe,
-  Lock
-} from "lucide-react";
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import WatchlistCard from './WatchlistCard';
+import { Plus, List } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+import WatchlistCard from "./WatchlistCard";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 interface WatchlistCategory {
   id: number;
@@ -57,17 +40,17 @@ const WatchlistDashboard: React.FC = () => {
   const { token } = useAuth();
   const router = useRouter();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  
+
   const [watchlists, setWatchlists] = useState<WatchlistCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    isPublic: false
+    name: "",
+    description: "",
+    isPublic: false,
   });
   const [editMode, setEditMode] = useState(false);
   const [currentEditId, setCurrentEditId] = useState<number | null>(null);
-  const [formError, setFormError] = useState('');
+  const [formError, setFormError] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -79,24 +62,28 @@ const WatchlistDashboard: React.FC = () => {
 
   const fetchWatchlists = async () => {
     if (!token) return;
-    
+
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/api/watchlists/categories', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
+      const response = await fetch(
+        "http://localhost:8000/api/watchlists/categories",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
       if (response.ok) {
         const data = await response.json();
+
         setWatchlists(data);
       } else {
-        console.error('Failed to fetch watchlists');
+        console.error("Failed to fetch watchlists");
       }
     } catch (error) {
-      console.error('Error fetching watchlists:', error);
+      console.error("Error fetching watchlists:", error);
     } finally {
       setLoading(false);
     }
@@ -104,39 +91,42 @@ const WatchlistDashboard: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
   const handleCreateWatchlist = async () => {
     if (!token) return;
-    
+
     if (!formData.name.trim()) {
-      setFormError('Watchlist name is required');
+      setFormError("Watchlist name is required");
+
       return;
     }
-    
+
     setSubmitLoading(true);
-    setFormError('');
-    
+    setFormError("");
+
     try {
-      const endpoint = editMode && currentEditId 
-        ? `http://localhost:8000/api/watchlists/categories/${currentEditId}` 
-        : 'http://localhost:8000/api/watchlists/categories';
-      
-      const method = editMode ? 'PUT' : 'POST';
-      
+      const endpoint =
+        editMode && currentEditId
+          ? `http://localhost:8000/api/watchlists/categories/${currentEditId}`
+          : "http://localhost:8000/api/watchlists/categories";
+
+      const method = editMode ? "PUT" : "POST";
+
       const response = await fetch(endpoint, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
-      
+
       if (response.ok) {
         // Success - close modal and refresh
         onClose();
@@ -144,11 +134,12 @@ const WatchlistDashboard: React.FC = () => {
         resetForm();
       } else {
         const errorData = await response.json();
-        setFormError(errorData.message || 'Failed to create watchlist');
+
+        setFormError(errorData.message || "Failed to create watchlist");
       }
     } catch (error) {
-      console.error('Error creating/updating watchlist:', error);
-      setFormError('An unexpected error occurred');
+      console.error("Error creating/updating watchlist:", error);
+      setFormError("An unexpected error occurred");
     } finally {
       setSubmitLoading(false);
     }
@@ -157,8 +148,8 @@ const WatchlistDashboard: React.FC = () => {
   const handleEditWatchlist = (watchlist: WatchlistCategory) => {
     setFormData({
       name: watchlist.name,
-      description: watchlist.description || '',
-      isPublic: watchlist.isPublic
+      description: watchlist.description || "",
+      isPublic: watchlist.isPublic,
     });
     setCurrentEditId(watchlist.id);
     setEditMode(true);
@@ -167,16 +158,19 @@ const WatchlistDashboard: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (!token || confirmDeleteId === null) return;
-    
+
     try {
-      const response = await fetch(`http://localhost:8000/api/watchlists/categories/${confirmDeleteId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
+      const response = await fetch(
+        `http://localhost:8000/api/watchlists/categories/${confirmDeleteId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
       if (response.ok) {
         // Success - refresh list
         fetchWatchlists();
@@ -184,22 +178,23 @@ const WatchlistDashboard: React.FC = () => {
         setConfirmDeleteId(null);
       } else {
         const errorData = await response.json();
-        console.error('Failed to delete watchlist:', errorData.message);
+
+        console.error("Failed to delete watchlist:", errorData.message);
       }
     } catch (error) {
-      console.error('Error deleting watchlist:', error);
+      console.error("Error deleting watchlist:", error);
     }
   };
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      description: '',
-      isPublic: false
+      name: "",
+      description: "",
+      isPublic: false,
     });
     setEditMode(false);
     setCurrentEditId(null);
-    setFormError('');
+    setFormError("");
   };
 
   const handleOpenCreateModal = () => {
@@ -213,24 +208,29 @@ const WatchlistDashboard: React.FC = () => {
 
   const handleShareWatchlist = (watchlist: WatchlistCategory) => {
     if (!watchlist.isPublic) {
-      alert('Make this watchlist public first to share it.');
+      alert("Make this watchlist public first to share it.");
+
       return;
     }
-    
+
     // Create a shareable URL
     const shareUrl = `${window.location.origin}/watchlist/${watchlist.slug}`;
-    
+
     // Use the Web Share API if available
     if (navigator.share) {
-      navigator.share({
-        title: watchlist.name,
-        text: watchlist.description || `Check out this watchlist: ${watchlist.name}`,
-        url: shareUrl
-      }).catch(error => {
-        console.log('Error sharing:', error);
-        // Fallback to copying to clipboard
-        copyToClipboard(shareUrl);
-      });
+      navigator
+        .share({
+          title: watchlist.name,
+          text:
+            watchlist.description ||
+            `Check out this watchlist: ${watchlist.name}`,
+          url: shareUrl,
+        })
+        .catch((error) => {
+          console.log("Error sharing:", error);
+          // Fallback to copying to clipboard
+          copyToClipboard(shareUrl);
+        });
     } else {
       // Fallback for browsers that don't support the Web Share API
       copyToClipboard(shareUrl);
@@ -238,12 +238,13 @@ const WatchlistDashboard: React.FC = () => {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
+    navigator.clipboard
+      .writeText(text)
       .then(() => {
-        alert('Link copied to clipboard!');
+        alert("Link copied to clipboard!");
       })
-      .catch(err => {
-        console.error('Failed to copy: ', err);
+      .catch((err) => {
+        console.error("Failed to copy: ", err);
       });
   };
 
@@ -261,8 +262,8 @@ const WatchlistDashboard: React.FC = () => {
         <h2 className="text-2xl font-bold">My Watchlists</h2>
         <Button
           color="primary"
-          onPress={handleOpenCreateModal}
           startContent={<Plus size={20} />}
+          onPress={handleOpenCreateModal}
         >
           Create Watchlist
         </Button>
@@ -272,13 +273,15 @@ const WatchlistDashboard: React.FC = () => {
         <Card>
           <CardBody className="py-8 text-center">
             <div className="flex flex-col items-center gap-4">
-              <List size={48} className="text-default-300" />
+              <List className="text-default-300" size={48} />
               <h3 className="text-xl font-medium">No watchlists yet</h3>
-              <p className="text-default-500">Create your first watchlist to start organizing your movies</p>
+              <p className="text-default-500">
+                Create your first watchlist to start organizing your movies
+              </p>
               <Button
                 color="primary"
-                onPress={handleOpenCreateModal}
                 startContent={<Plus size={16} />}
+                onPress={handleOpenCreateModal}
               >
                 Create Watchlist
               </Button>
@@ -287,15 +290,15 @@ const WatchlistDashboard: React.FC = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {watchlists.map(watchlist => (
+          {watchlists.map((watchlist) => (
             <WatchlistCard
               key={watchlist.id}
               watchlist={watchlist}
-              onEdit={() => handleEditWatchlist(watchlist)}
               onDelete={() => {
                 setConfirmDeleteId(watchlist.id);
                 setShowDeleteModal(true);
               }}
+              onEdit={() => handleEditWatchlist(watchlist)}
               onShare={() => handleShareWatchlist(watchlist)}
               onView={() => handleViewWatchlist(watchlist.id, watchlist.slug)}
             />
@@ -307,7 +310,7 @@ const WatchlistDashboard: React.FC = () => {
       <Modal isOpen={isOpen} onClose={onClose}>
         <ModalContent>
           <ModalHeader>
-            {editMode ? 'Edit Watchlist' : 'Create Watchlist'}
+            {editMode ? "Edit Watchlist" : "Create Watchlist"}
           </ModalHeader>
           <ModalBody>
             {formError && (
@@ -317,25 +320,27 @@ const WatchlistDashboard: React.FC = () => {
             )}
             <div className="space-y-4">
               <Input
+                isRequired
                 label="Watchlist Name"
-                placeholder="My Favorite Movies"
                 name="name"
+                placeholder="My Favorite Movies"
                 value={formData.name}
                 onChange={handleInputChange}
-                isRequired
               />
               <Input
                 label="Description (optional)"
-                placeholder="A collection of movies I love"
                 name="description"
+                placeholder="A collection of movies I love"
                 value={formData.description}
                 onChange={handleInputChange}
               />
               <div className="flex items-center gap-2">
                 <Switch
-                  name="isPublic"
                   isSelected={formData.isPublic}
-                  onValueChange={(checked) => setFormData(prev => ({ ...prev, isPublic: checked }))}
+                  name="isPublic"
+                  onValueChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, isPublic: checked }))
+                  }
                 />
                 <div>
                   <span className="text-sm">Make this watchlist public</span>
@@ -358,10 +363,10 @@ const WatchlistDashboard: React.FC = () => {
             </Button>
             <Button
               color="primary"
-              onPress={handleCreateWatchlist}
               isLoading={submitLoading}
+              onPress={handleCreateWatchlist}
             >
-              {editMode ? 'Save Changes' : 'Create Watchlist'}
+              {editMode ? "Save Changes" : "Create Watchlist"}
             </Button>
           </ModalFooter>
         </ModalContent>
@@ -372,19 +377,16 @@ const WatchlistDashboard: React.FC = () => {
         <ModalContent>
           <ModalHeader>Delete Watchlist</ModalHeader>
           <ModalBody>
-            <p>Are you sure you want to delete this watchlist? This action cannot be undone.</p>
+            <p>
+              Are you sure you want to delete this watchlist? This action cannot
+              be undone.
+            </p>
           </ModalBody>
           <ModalFooter>
-            <Button
-              variant="flat"
-              onPress={() => setShowDeleteModal(false)}
-            >
+            <Button variant="flat" onPress={() => setShowDeleteModal(false)}>
               Cancel
             </Button>
-            <Button
-              color="danger"
-              onPress={handleDeleteConfirm}
-            >
+            <Button color="danger" onPress={handleDeleteConfirm}>
               Delete
             </Button>
           </ModalFooter>

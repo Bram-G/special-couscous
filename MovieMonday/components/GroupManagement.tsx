@@ -13,14 +13,7 @@ import {
   Divider,
   Avatar,
 } from "@heroui/react";
-import {
-  Users,
-  UserPlus,
-  Link as LinkIcon,
-  LogOut,
-  UserMinus,
-  Calendar,
-} from "lucide-react";
+import { Users, UserPlus, LogOut, UserMinus, Calendar } from "lucide-react";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -74,11 +67,12 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
             "Content-Type": "application/json",
           },
           credentials: "include",
-        }
+        },
       );
       const data = await response.json();
       // Construct the full URL on the frontend
       const baseUrl = window.location.origin;
+
       setInviteLink(`${baseUrl}/groups/join/${data.inviteToken}`);
       setShowInviteLinkModal(true);
     } catch (error) {
@@ -115,10 +109,12 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
         },
       });
       const data: Group = await response.json();
+
       setGroup(data);
 
       if (token) {
         const decodedToken = JSON.parse(atob(token.split(".")[1]));
+
         setCurrentUserId(decodedToken.id);
       }
 
@@ -142,6 +138,7 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
         body: JSON.stringify({ name: groupName }),
       });
       const data: Group = await response.json();
+
       setShowCreateModal(false);
       setGroupName("");
       setGroup(data);
@@ -159,6 +156,7 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
 
     try {
       const token = localStorage.getItem("token");
+
       await fetch(`${API_BASE_URL}/api/groups/${group.id}/leave`, {
         method: "POST",
         headers: {
@@ -184,6 +182,7 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
 
     try {
       const token = localStorage.getItem("token");
+
       await fetch(`${API_BASE_URL}/api/groups/${group.id}/members/${userId}`, {
         method: "DELETE",
         headers: {
@@ -219,6 +218,7 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
 
     try {
       const token = localStorage.getItem("token");
+
       await fetch(`${API_BASE_URL}/api/groups/${group.id}/invites`, {
         method: "POST",
         headers: {
@@ -246,6 +246,7 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
     try {
       // Handle PostgreSQL timestamp format
       const date = new Date(dateString);
+
       if (isNaN(date.getTime())) return "Unknown";
 
       return date.toLocaleDateString("en-US", {
@@ -255,6 +256,7 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
       });
     } catch (error) {
       console.error("Error parsing date:", error);
+
       return "Unknown";
     }
   };
@@ -362,10 +364,10 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
                   className="flex items-center gap-3 p-3 rounded-lg bg-default-100"
                 >
                   <Avatar
-                    name={member.username.charAt(0).toUpperCase()}
-                    className="h-10 w-10"
                     isBordered
+                    className="h-10 w-10"
                     color="primary"
+                    name={member.username.charAt(0).toUpperCase()}
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{member.username}</p>
@@ -376,7 +378,7 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
 
             {/* Members Label */}
             {group.members?.some(
-              (member) => member.id !== group.createdById
+              (member) => member.id !== group.createdById,
             ) && (
               <p className="text-xs font-medium text-default-500 uppercase tracking-wider mt-4">
                 Members
@@ -392,8 +394,8 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
                   className="flex items-center gap-3 p-3 rounded-lg bg-default-100"
                 >
                   <Avatar
-                    name={member.username.charAt(0).toUpperCase()}
                     className="h-10 w-10"
+                    name={member.username.charAt(0).toUpperCase()}
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{member.username}</p>
@@ -402,9 +404,9 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
                   <div className="flex gap-2">
                     {group.createdById === currentUserId && (
                       <Button
+                        isIconOnly
                         color="danger"
                         variant="light"
-                        isIconOnly
                         onPress={() => {
                           setConfirmAction("remove");
                           setSelectedUserId(member.id);
@@ -417,9 +419,9 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
                     {member.id === currentUserId && (
                       <Button
                         color="danger"
-                        variant="light"
-                        size="sm"
                         endContent={<LogOut className="h-4 w-4" />}
+                        size="sm"
+                        variant="light"
                         onPress={() => {
                           setConfirmAction("leave");
                           setShowConfirmModal(true);
@@ -529,7 +531,7 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
                 link will expire in 7 days.
               </p>
               <div className="flex items-center gap-2">
-                <Input value={inviteLink} readOnly className="flex-1" />
+                <Input readOnly className="flex-1" value={inviteLink} />
                 <Button
                   color={copySuccess ? "success" : "primary"}
                   onPress={copyToClipboard}

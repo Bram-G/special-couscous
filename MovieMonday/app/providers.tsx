@@ -6,7 +6,13 @@ import { ThemeProviderProps } from "next-themes/dist/types";
 import { ToastProvider } from "@heroui/toast";
 import { useEffect, useState } from "react";
 
-export function Providers({ children, themeProps }: { children: React.ReactNode; themeProps?: ThemeProviderProps }) {
+export function Providers({
+  children,
+  themeProps,
+}: {
+  children: React.ReactNode;
+  themeProps?: ThemeProviderProps;
+}) {
   // Only show children once mounted to help prevent hydration errors
   const [mounted, setMounted] = useState(false);
 

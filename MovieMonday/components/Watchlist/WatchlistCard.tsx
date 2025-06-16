@@ -1,7 +1,28 @@
 // MovieMonday/components/Watchlist/WatchlistCard.tsx
-import React from 'react';
-import { Card, CardBody, CardFooter, Button, Image, Chip, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/react";
-import { MoreHorizontal, Eye, Edit, Trash2, Globe, Lock, Share2, Film, Heart } from "lucide-react";
+import React from "react";
+import {
+  Card,
+  CardBody,
+  CardFooter,
+  Button,
+  Image,
+  Chip,
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+} from "@heroui/react";
+import {
+  MoreHorizontal,
+  Eye,
+  Edit,
+  Trash2,
+  Globe,
+  Lock,
+  Share2,
+  Film,
+  Heart,
+} from "lucide-react";
 
 interface WatchlistCategory {
   id: number;
@@ -30,24 +51,29 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
   onEdit,
   onDelete,
   onShare,
-  onView
+  onView,
 }) => {
   // Create a grid of poster images or placeholders
   const renderPosterGrid = () => {
     const maxPosters = 4;
     const posters = watchlist.items || [];
-    const placeholders = Array(Math.max(0, maxPosters - posters.length)).fill(null);
-    
+    const placeholders = Array(Math.max(0, maxPosters - posters.length)).fill(
+      null,
+    );
+
     return (
       <div className="grid grid-cols-2 gap-1 h-48">
         {posters.slice(0, maxPosters).map((item, index) => (
-          <div key={index} className="aspect-[2/3] bg-default-100 overflow-hidden rounded">
+          <div
+            key={index}
+            className="aspect-[2/3] bg-default-100 overflow-hidden rounded"
+          >
             {item?.posterPath ? (
               <Image
-                src={`https://image.tmdb.org/t/p/w200${item.posterPath}`}
+                removeWrapper
                 alt="Movie poster"
                 className="w-full h-full object-cover"
-                removeWrapper
+                src={`https://image.tmdb.org/t/p/w200${item.posterPath}`}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-default-200">
@@ -57,7 +83,10 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
           </div>
         ))}
         {placeholders.map((_, index) => (
-          <div key={`placeholder-${index}`} className="aspect-[2/3] bg-default-100 rounded flex items-center justify-center">
+          <div
+            key={`placeholder-${index}`}
+            className="aspect-[2/3] bg-default-100 rounded flex items-center justify-center"
+          >
             <Film className="w-8 h-8 text-default-300" />
           </div>
         ))}
@@ -72,21 +101,23 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
         {watchlist.coverImagePath ? (
           <div className="h-48 overflow-hidden">
             <Image
-              src={watchlist.coverImagePath}
+              removeWrapper
               alt={watchlist.name}
               className="w-full h-full object-cover"
-              removeWrapper
+              src={watchlist.coverImagePath}
             />
           </div>
         ) : (
           renderPosterGrid()
         )}
-        
+
         {/* Overlay gradient for better text readability */}
         <div className="px-4 pt-3 pb-2 relative">
           <div className="flex justify-between items-start mb-1">
             <div>
-              <h3 className="font-bold text-lg line-clamp-1">{watchlist.name}</h3>
+              <h3 className="font-bold text-lg line-clamp-1">
+                {watchlist.name}
+              </h3>
               {watchlist.description && (
                 <p className="text-default-500 text-sm line-clamp-2 mt-1">
                   {watchlist.description}
@@ -95,35 +126,35 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
             </div>
             <Dropdown>
               <DropdownTrigger>
-                <Button isIconOnly variant="light" className="rounded-full">
+                <Button isIconOnly className="rounded-full" variant="light">
                   <MoreHorizontal size={18} />
                 </Button>
               </DropdownTrigger>
               <DropdownMenu aria-label="Watchlist actions">
-                <DropdownItem 
-                  key="view" 
+                <DropdownItem
+                  key="view"
                   startContent={<Eye size={16} />}
                   onPress={onView}
                 >
                   View Watchlist
                 </DropdownItem>
-                <DropdownItem 
-                  key="edit" 
+                <DropdownItem
+                  key="edit"
                   startContent={<Edit size={16} />}
                   onPress={onEdit}
                 >
                   Edit
                 </DropdownItem>
-                <DropdownItem 
-                  key="share" 
+                <DropdownItem
+                  key="share"
                   startContent={<Share2 size={16} />}
                   onPress={onShare}
                 >
                   Share Watchlist
                 </DropdownItem>
-                <DropdownItem 
-                  key="delete" 
-                  className="text-danger" 
+                <DropdownItem
+                  key="delete"
+                  className="text-danger"
                   color="danger"
                   startContent={<Trash2 size={16} />}
                   onPress={onDelete}
@@ -133,23 +164,25 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
               </DropdownMenu>
             </Dropdown>
           </div>
-          
+
           <div className="flex items-center justify-between mt-3">
             <Chip
-              variant="flat"
               color={watchlist.isPublic ? "success" : "default"}
               size="sm"
-              startContent={watchlist.isPublic ? <Globe size={14} /> : <Lock size={14} />}
+              startContent={
+                watchlist.isPublic ? <Globe size={14} /> : <Lock size={14} />
+              }
+              variant="flat"
             >
-              {watchlist.isPublic ? 'Public' : 'Private'}
+              {watchlist.isPublic ? "Public" : "Private"}
             </Chip>
-            
+
             <div className="flex gap-3">
               <div className="flex items-center text-sm">
                 <Film className="h-4 w-4 mr-1 text-default-500" />
                 <span>{watchlist.moviesCount}</span>
               </div>
-              
+
               {watchlist.isPublic && (
                 <div className="flex items-center text-sm">
                   <Heart className="h-4 w-4 mr-1 text-danger" />
@@ -161,12 +194,12 @@ const WatchlistCard: React.FC<WatchlistCardProps> = ({
         </div>
       </CardBody>
       <CardFooter className="pt-0">
-        <Button 
-          fullWidth 
-          color="primary" 
+        <Button
+          fullWidth
+          color="primary"
+          startContent={<Eye size={16} />}
           variant="flat"
           onPress={onView}
-          startContent={<Eye size={16} />}
         >
           View Watchlist
         </Button>

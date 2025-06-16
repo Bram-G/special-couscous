@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   TooltipProps,
 } from "recharts";
+
 import { EmptyState } from "./EmptyState";
 
 interface BarChartData {
@@ -81,14 +82,14 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
   const truncateName = (name: string) => {
     // Calculate max characters based on available space
     const baseMaxLength = scrollable ? 15 : 12;
-    
+
     // For very long names, be more aggressive with truncation
     if (name.length > baseMaxLength) {
       // Try to find a good break point (space, dash, etc.)
       const truncated = name.substring(0, baseMaxLength);
-      const lastSpace = truncated.lastIndexOf(' ');
-      const lastDash = truncated.lastIndexOf('-');
-      
+      const lastSpace = truncated.lastIndexOf(" ");
+      const lastDash = truncated.lastIndexOf("-");
+
       // If we can break at a natural point within reasonable distance
       if (lastSpace > baseMaxLength - 4) {
         return name.substring(0, lastSpace) + "...";
@@ -98,7 +99,7 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
         return truncated + "...";
       }
     }
-    
+
     return name;
   };
 
@@ -111,17 +112,17 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
   // Custom tick formatter for X-axis to handle rotated text
   const CustomXAxisTick = (props: any) => {
     const { x, y, payload } = props;
-    
+
     return (
       <g transform={`translate(${x},${y})`}>
         <text
-          x={0}
-          y={0}
           dy={16}
-          textAnchor="end"
           fill="#666"
           fontSize="11"
+          textAnchor="end"
           transform="rotate(-45)"
+          x={0}
+          y={0}
         >
           {payload.value}
         </text>
@@ -139,7 +140,7 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
   return (
     <div className={scrollable ? "overflow-x-auto" : ""}>
       <div style={{ width: scrollable ? chartWidth : "100%", height }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer height="100%" width="100%">
           <BarChart
             data={processedData}
             margin={{
@@ -151,34 +152,34 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
             onClick={onBarClick ? handleClick : undefined}
           >
             <CartesianGrid
+              opacity={0.3}
               strokeDasharray="3 3"
               vertical={false}
-              opacity={0.3}
             />
             <XAxis
               dataKey="displayName"
-              tick={<CustomXAxisTick />}
-              interval={0} // Show all labels
               height={70} // Increased height for rotated labels
+              interval={0} // Show all labels
               label={
                 xAxisLabel
-                  ? { 
-                      value: xAxisLabel, 
-                      position: "insideBottom", 
+                  ? {
+                      value: xAxisLabel,
+                      position: "insideBottom",
                       offset: -10, // Moved further down to avoid overlap
-                      style: { textAnchor: 'middle' }
+                      style: { textAnchor: "middle" },
                     }
                   : undefined
               }
+              tick={<CustomXAxisTick />}
             />
             <YAxis
               label={
                 yAxisLabel
-                  ? { 
-                      value: yAxisLabel, 
-                      angle: -90, 
+                  ? {
+                      value: yAxisLabel,
+                      angle: -90,
                       position: "insideLeft",
-                      style: { textAnchor: 'middle' }
+                      style: { textAnchor: "middle" },
                     }
                   : undefined
               }
@@ -191,11 +192,11 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
               wrapperStyle={{ zIndex: 100 }}
             />
             <Bar
+              className={onBarClick ? "cursor-pointer" : ""}
               dataKey={dataKey}
               fill={barColor}
-              radius={[4, 4, 0, 0]}
               maxBarSize={50}
-              className={onBarClick ? "cursor-pointer" : ""}
+              radius={[4, 4, 0, 0]}
               onClick={handleClick}
             />
           </BarChart>

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { title } from "@/components/primitives";
+import React from "react";
+
 import ProtectedRoute from "@/components/protectedRoute";
 import WatchlistDashboard from "@/components/Watchlist/WatchlistDashboard";
 
@@ -14,7 +14,3 @@ export default function WatchlistsPage() {
     </ProtectedRoute>
   );
 }
-
-
-
-

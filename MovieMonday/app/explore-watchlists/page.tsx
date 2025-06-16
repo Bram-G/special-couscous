@@ -1,8 +1,9 @@
 // MovieMonday/app/explore-watchlists/page.tsx
-'use client';
+"use client";
 
-import React from 'react';
-import ExploreWatchlists from '@/components/Watchlist/ExploreWatchlists';
+import React from "react";
+
+import ExploreWatchlists from "@/components/Watchlist/ExploreWatchlists";
 
 export default function ExploreWatchlistsPage() {
   return (

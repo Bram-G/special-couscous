@@ -1,5 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Spinner } from "@heroui/react";
+import React, { useState, useEffect } from "react";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Spinner,
+} from "@heroui/react";
 import { Calendar } from "lucide-react";
 
 interface MovieMondayData {
@@ -24,7 +32,12 @@ interface MovieMondaySelectorProps {
   token: string | null;
 }
 
-const MovieMondaySelector = ({ isOpen, onOpenChange, onSelect, token }: MovieMondaySelectorProps) => {
+const MovieMondaySelector = ({
+  isOpen,
+  onOpenChange,
+  onSelect,
+  token,
+}: MovieMondaySelectorProps) => {
   const [movieMondays, setMovieMondays] = useState<MovieMondayData[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -39,23 +52,27 @@ const MovieMondaySelector = ({ isOpen, onOpenChange, onSelect, token }: MovieMon
   const fetchMovieMondays = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/movie-monday/available', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await fetch(
+        "http://localhost:8000/api/movie-monday/available",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
 
       if (response.ok) {
         const data = await response.json();
         // Filter movie mondays with less than 3 movies
         const availableMondays = data.filter(
-          (mm: MovieMondayData) => mm.movieSelections.length < 3
+          (mm: MovieMondayData) => mm.movieSelections.length < 3,
         );
+
         setMovieMondays(availableMondays);
       }
     } catch (error) {
-      console.error('Error fetching movie mondays:', error);
+      console.error("Error fetching movie mondays:", error);
     } finally {
       setLoading(false);
     }
@@ -63,7 +80,7 @@ const MovieMondaySelector = ({ isOpen, onOpenChange, onSelect, token }: MovieMon
 
   const handleSelect = async () => {
     if (!selectedId) return;
-    
+
     setAddingMovie(true);
     try {
       await onSelect(selectedId);
@@ -71,7 +88,7 @@ const MovieMondaySelector = ({ isOpen, onOpenChange, onSelect, token }: MovieMon
       onOpenChange();
     } catch (error) {
       // Show error message
-      console.error('Failed to add movie:', error);
+      console.error("Failed to add movie:", error);
       // You might want to add error notification here
     } finally {
       setAddingMovie(false);
@@ -79,11 +96,11 @@ const MovieMondaySelector = ({ isOpen, onOpenChange, onSelect, token }: MovieMon
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -102,7 +119,8 @@ const MovieMondaySelector = ({ isOpen, onOpenChange, onSelect, token }: MovieMon
                 </div>
               ) : movieMondays.length === 0 ? (
                 <p className="text-center text-default-500">
-                  No available Movie Mondays found. Create a new Movie Monday first!
+                  No available Movie Mondays found. Create a new Movie Monday
+                  first!
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -110,9 +128,9 @@ const MovieMondaySelector = ({ isOpen, onOpenChange, onSelect, token }: MovieMon
                     <Button
                       key={mm.id}
                       className="w-full justify-start"
+                      startContent={<Calendar className="h-4 w-4" />}
                       variant={selectedId === mm.id ? "solid" : "light"}
                       onPress={() => setSelectedId(mm.id)}
-                      startContent={<Calendar className="h-4 w-4" />}
                     >
                       <div className="flex flex-col items-start">
                         <span>{formatDate(mm.date)}</span>
@@ -126,18 +144,14 @@ const MovieMondaySelector = ({ isOpen, onOpenChange, onSelect, token }: MovieMon
               )}
             </ModalBody>
             <ModalFooter>
-              <Button
-                color="danger"
-                variant="light"
-                onPress={onClose}
-              >
+              <Button color="danger" variant="light" onPress={onClose}>
                 Cancel
               </Button>
               <Button
                 color="primary"
-                onPress={handleSelect}
                 isDisabled={!selectedId}
                 isLoading={addingMovie}
+                onPress={handleSelect}
               >
                 Add Movie
               </Button>

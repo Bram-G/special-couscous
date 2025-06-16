@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import { Image, Tooltip } from "@heroui/react";
 
 interface Provider {
@@ -26,10 +26,10 @@ const StreamingServices: React.FC<StreamingServicesProps> = ({ providers }) => {
         <Tooltip key={provider.provider_id} content={provider.provider_name}>
           <div className="w-10 h-10 rounded-md overflow-hidden">
             <Image
-              src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
+              removeWrapper
               alt={provider.provider_name}
               className="w-full h-full object-cover"
-              removeWrapper
+              src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
             />
           </div>
         </Tooltip>

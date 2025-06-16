@@ -11,6 +11,8 @@ import {
   Tv2,
   Utensils,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+
 import { title } from "@/components/primitives";
 import { useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/protectedRoute";
@@ -18,9 +20,7 @@ import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { BarChartComponent } from "@/components/analytics/BarChartComponent";
 import { PieChartComponent } from "@/components/analytics/PieChartComponent";
 import { LineChartComponent } from "@/components/analytics/LineChartComponent";
-import { useSearchParams } from "next/navigation";
 import MovieDetailsModal from "@/components/analytics/MovieDetailsModal";
-import { useRouter } from "next/navigation";
 import {
   MovieMonday,
   getActorAnalytics,
@@ -35,7 +35,6 @@ import {
   getMoviesByGenre,
   getMoviesByCocktail,
   getMoviesByMeal,
-  getWinningMovies,
 } from "@/utils/analyticsUtils";
 
 function normalizeItemName(item) {
@@ -46,15 +45,18 @@ function normalizeItemName(item) {
     try {
       // Try to parse as JSON array
       const parsed = JSON.parse(item);
+
       if (Array.isArray(parsed) && parsed.length > 0) {
         // Return the first non-empty element if it's an array
         const validItems = parsed.filter(
-          (p) => typeof p === "string" && p.trim()
+          (p) => typeof p === "string" && p.trim(),
         );
+
         if (validItems.length > 0) {
           return validItems[0];
         }
       }
+
       // If it's somehow an empty array or invalid, return "None"
       return "None";
     } catch (e) {
@@ -172,7 +174,7 @@ export default function AnalyticsPage() {
   const handleChartItemClick = (
     name: string,
     type: "actor" | "director" | "genre" | "cocktail" | "meal",
-    chartContext?: "winning" | "losing" | "all"
+    chartContext?: "winning" | "losing" | "all",
   ) => {
     if (!name || !movieData.length) return;
 
@@ -272,11 +274,12 @@ export default function AnalyticsPage() {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
-          }
+          },
         );
 
         if (response.ok) {
           const data = await response.json();
+
           setMovieData(data);
         }
       } catch (error) {
@@ -341,24 +344,24 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <AnalyticsCard
-              title="Movies Watched Over Time"
+              className="cursor-pointer"
               linkTo="#"
               subtitle="Monthly movie count"
-              className="cursor-pointer"
+              title="Movies Watched Over Time"
               onClick={() => setSelectedKey("trends")}
             >
               <LineChartComponent
                 data={timeData}
-                lines={[{ dataKey: "value", color: "#8884d8", name: "Movies" }]}
                 height={350}
+                lines={[{ dataKey: "value", color: "#8884d8", name: "Movies" }]}
               />
             </AnalyticsCard>
 
             <AnalyticsCard
-              title="Genre Breakdown"
+              className="cursor-pointer"
               linkTo="#"
               subtitle="Most watched genres"
-              className="cursor-pointer"
+              title="Genre Breakdown"
               onClick={() => setSelectedKey("genres")}
             >
               <PieChartComponent data={genreData} height={350} />
@@ -367,133 +370,136 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <AnalyticsCard
-              title="Most Frequent Actors"
+              className="cursor-pointer"
               linkTo="#"
               subtitle="Actors that appear most often"
-              className="cursor-pointer"
+              title="Most Frequent Actors"
               onClick={() => setSelectedKey("actors")}
             >
               <BarChartComponent
-                data={actorData}
                 barColor="#4f46e5"
+                data={actorData}
                 height={350}
               />
             </AnalyticsCard>
 
             <AnalyticsCard
-              title="Most Rejected Movies"
+              className="cursor-pointer"
               linkTo="#"
               subtitle="Movies with highest rejection counts"
-              className="cursor-pointer"
+              title="Most Rejected Movies"
               onClick={() => setSelectedKey("movies")}
             >
               <BarChartComponent
-                data={winRateData}
                 barColor="#f97316"
-                height={350}
+                data={winRateData}
                 dataKey="value" // Explicitly set the dataKey
+                height={350}
               />
             </AnalyticsCard>
           </div>
         </>
       );
     };
-   const renderActorsTab = () => {
-  const actorData = hasData
-    ? getActorAnalytics(movieData)
-    : {
-        topActors: PLACEHOLDER_DATA.actors,
-        topWinningActors: PLACEHOLDER_DATA.winningActors,
-        topLosingActors: PLACEHOLDER_DATA.actors.map((item, i) => ({
-          name: `${item.name} ${i % 2 === 0 ? "👎" : ""}`,
-          value: Math.floor(item.value * 0.7),
-        })),
-        mostSeenActor: PLACEHOLDER_DATA.actors[0] || { name: "N/A", value: 0 },
-        totalUniqueActors: 15,
-        totalActors: 25,
-      };
+    const renderActorsTab = () => {
+      const actorData = hasData
+        ? getActorAnalytics(movieData)
+        : {
+            topActors: PLACEHOLDER_DATA.actors,
+            topWinningActors: PLACEHOLDER_DATA.winningActors,
+            topLosingActors: PLACEHOLDER_DATA.actors.map((item, i) => ({
+              name: `${item.name} ${i % 2 === 0 ? "👎" : ""}`,
+              value: Math.floor(item.value * 0.7),
+            })),
+            mostSeenActor: PLACEHOLDER_DATA.actors[0] || {
+              name: "N/A",
+              value: 0,
+            },
+            totalUniqueActors: 15,
+            totalActors: 25,
+          };
 
-  return (
-    <>
-      {placeholderNote}
+      return (
+        <>
+          {placeholderNote}
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="p-6 text-center">
-          <h3 className="text-2xl font-bold text-primary">
-            {actorData.totalUniqueActors}
-          </h3>
-          <p className="text-default-600">Unique Actors</p>
-        </Card>
+          {/* Stats cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card className="p-6 text-center">
+              <h3 className="text-2xl font-bold text-primary">
+                {actorData.totalUniqueActors}
+              </h3>
+              <p className="text-default-600">Unique Actors</p>
+            </Card>
 
-        <Card className="p-6 text-center">
-          <h3 className="text-2xl font-bold text-primary">
-            {actorData.mostSeenActor?.name || "N/A"}
-          </h3>
-          <p className="text-default-600">Most Seen Actor</p>
-          {actorData.mostSeenActor?.value && (
-            <p className="text-sm text-default-500 mt-1">
-              {actorData.mostSeenActor.value} appearances
-            </p>
-          )}
-        </Card>
+            <Card className="p-6 text-center">
+              <h3 className="text-2xl font-bold text-primary">
+                {actorData.mostSeenActor?.name || "N/A"}
+              </h3>
+              <p className="text-default-600">Most Seen Actor</p>
+              {actorData.mostSeenActor?.value && (
+                <p className="text-sm text-default-500 mt-1">
+                  {actorData.mostSeenActor.value} appearances
+                </p>
+              )}
+            </Card>
 
-        <Card className="p-6 text-center">
-          <h3 className="text-2xl font-bold text-primary">
-            {actorData.topLosingActors.length > 0
-              ? actorData.topLosingActors[0].name
-              : "N/A"}
-          </h3>
-          <p className="text-default-600">Most Frequently Rejected Actor</p>
-          {actorData.topLosingActors.length > 0 && (
-            <p className="text-sm text-default-500 mt-1">
-              {actorData.topLosingActors[0].value} rejections
-            </p>
-          )}
-        </Card>
-      </div>
+            <Card className="p-6 text-center">
+              <h3 className="text-2xl font-bold text-primary">
+                {actorData.topLosingActors.length > 0
+                  ? actorData.topLosingActors[0].name
+                  : "N/A"}
+              </h3>
+              <p className="text-default-600">Most Frequently Rejected Actor</p>
+              {actorData.topLosingActors.length > 0 && (
+                <p className="text-sm text-default-500 mt-1">
+                  {actorData.topLosingActors[0].value} rejections
+                </p>
+              )}
+            </Card>
+          </div>
 
-      {/* Charts with improved height and configuration */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <AnalyticsCard
-          title="Actors in Winning Movies"
-          subtitle="Actors that appear most often in movies that won voting (Top 100)"
-        >
-          <BarChartComponent
-            data={actorData.topWinningActors}
-            barColor="#10b981" // Green for winning
-            height={400} // Slightly increased height for better balance
-            xAxisLabel="Actors"
-            yAxisLabel="Winning Movies"
-            onBarClick={(name) =>
-              handleChartItemClick(name, "actor", "winning")
-            }
-            maxBars={15}
-            scrollable={true}
-          />
-        </AnalyticsCard>
+          {/* Charts with improved height and configuration */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <AnalyticsCard
+              subtitle="Actors that appear most often in movies that won voting (Top 100)"
+              title="Actors in Winning Movies"
+            >
+              <BarChartComponent
+                barColor="#10b981" // Green for winning
+                data={actorData.topWinningActors}
+                height={400} // Slightly increased height for better balance
+                maxBars={15}
+                scrollable={true}
+                xAxisLabel="Actors"
+                yAxisLabel="Winning Movies"
+                onBarClick={(name) =>
+                  handleChartItemClick(name, "actor", "winning")
+                }
+              />
+            </AnalyticsCard>
 
-        <AnalyticsCard
-          title="Actors in Rejected Movies"
-          subtitle="Actors that appear most often in movies that lost voting (Top 100)"
-        >
-          <BarChartComponent
-            data={actorData.topLosingActors}
-            barColor="#f97316" // Orange for losing
-            height={400} // Slightly increased height for better balance
-            xAxisLabel="Actors"
-            yAxisLabel="Rejections"
-            onBarClick={(name) =>
-              handleChartItemClick(name, "actor", "losing")
-            }
-            maxBars={15}
-            scrollable={true}
-          />
-        </AnalyticsCard>
-      </div>
-    </>
-  );
-};
+            <AnalyticsCard
+              subtitle="Actors that appear most often in movies that lost voting (Top 100)"
+              title="Actors in Rejected Movies"
+            >
+              <BarChartComponent
+                barColor="#f97316" // Orange for losing
+                data={actorData.topLosingActors}
+                height={400} // Slightly increased height for better balance
+                maxBars={15}
+                scrollable={true}
+                xAxisLabel="Actors"
+                yAxisLabel="Rejections"
+                onBarClick={(name) =>
+                  handleChartItemClick(name, "actor", "losing")
+                }
+              />
+            </AnalyticsCard>
+          </div>
+        </>
+      );
+    };
 
     const renderDirectorsTab = () => {
       // Updated to show directors and winning directors
@@ -537,36 +543,36 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <AnalyticsCard
-              title="Most Frequent Directors"
               subtitle="Directors whose films have not been picked"
+              title="Most Frequent Directors"
             >
               <BarChartComponent
-                data={directorData.topDirectors}
                 barColor="#0ea5e9"
+                data={directorData.topDirectors}
                 height={350}
+                maxBars={15} // Show top 15 directors
                 xAxisLabel="Directors"
                 yAxisLabel="Number of Movies"
                 onBarClick={(name) =>
                   handleChartItemClick(name, "director", "winning")
                 }
-                maxBars={15} // Show top 15 directors
               />
             </AnalyticsCard>
 
             <AnalyticsCard
-              title="Directors of Winning Movies"
               subtitle="Directors with the most winning films"
+              title="Directors of Winning Movies"
             >
               <BarChartComponent
-                data={directorData.topWinningDirectors}
                 barColor="#06b6d4"
+                data={directorData.topWinningDirectors}
                 height={350}
+                maxBars={15} // Show top 15 winning directors
                 xAxisLabel="Directors"
                 yAxisLabel="Number of Winning Movies"
                 onBarClick={(name) =>
                   handleChartItemClick(name, "director", "winning")
                 }
-                maxBars={15} // Show top 15 winning directors
               />
             </AnalyticsCard>
           </div>
@@ -612,8 +618,8 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <AnalyticsCard
-              title="Genre Distribution"
               subtitle="Breakdown of genres watched"
+              title="Genre Distribution"
             >
               <PieChartComponent
                 data={genreData.genreDistribution}
@@ -626,19 +632,19 @@ export default function AnalyticsPage() {
             </AnalyticsCard>
 
             <AnalyticsCard
-              title="Winning Movie Genres"
               subtitle="Genres that win voting most often"
+              title="Winning Movie Genres"
             >
               <BarChartComponent
-                data={genreData.genreWins}
                 barColor="#10b981"
+                data={genreData.genreWins}
                 height={350}
+                maxBars={10} // Show top 10 winning genres
                 xAxisLabel="Genres"
                 yAxisLabel="Number of Winning Movies"
                 onBarClick={(name) =>
                   handleChartItemClick(name, "genre", "winning")
                 }
-                maxBars={10} // Show top 10 winning genres
               />
             </AnalyticsCard>
           </div>
@@ -670,7 +676,7 @@ export default function AnalyticsPage() {
               <h3 className="text-2xl font-bold text-primary">
                 {winLossData.mostLosses.reduce(
                   (sum, item) => sum + item.value,
-                  0
+                  0,
                 )}
               </h3>
               <p className="text-default-600">Total Movies</p>
@@ -680,7 +686,7 @@ export default function AnalyticsPage() {
               <h3 className="text-2xl font-bold text-primary">
                 {winLossData.mostWins.reduce(
                   (sum, item) => sum + item.value,
-                  0
+                  0,
                 )}
               </h3>
               <p className="text-default-600">Total Winning Movies</p>
@@ -698,30 +704,30 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <AnalyticsCard
-              title="Most Rejected Movies"
               subtitle="Movies that have lost voting the most times"
+              title="Most Rejected Movies"
             >
               <BarChartComponent
-                data={winLossData.mostLosses}
                 barColor="#f97316"
+                data={winLossData.mostLosses}
                 height={350}
+                maxBars={10} // Show top 10 most rejected
                 xAxisLabel="Movies"
                 yAxisLabel="Number of Rejections"
-                maxBars={10} // Show top 10 most rejected
               />
             </AnalyticsCard>
 
             <AnalyticsCard
-              title="Most Winning Movies"
               subtitle="Movies that have won voting the most times"
+              title="Most Winning Movies"
             >
               <BarChartComponent
-                data={winLossData.mostWins}
                 barColor="#22c55e"
+                data={winLossData.mostWins}
                 height={350}
+                maxBars={10} // Show top 10 winners
                 xAxisLabel="Movies"
                 yAxisLabel="Number of Wins"
-                maxBars={10} // Show top 10 winners
               />
             </AnalyticsCard>
           </div>
@@ -781,18 +787,18 @@ export default function AnalyticsPage() {
           </div>
 
           <AnalyticsCard
-            title="Picker Performance"
             subtitle="Number of wins for each picker's movie selections"
+            title="Picker Performance"
           >
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h4 className="text-lg font-medium">Wins by Picker</h4>
                 <BarChartComponent
+                  barColor="#8b5cf6"
                   data={pickerData.pickerStats.map((item) => ({
                     name: item.name,
                     value: item.wins,
                   }))}
-                  barColor="#8b5cf6"
                   height={300}
                   xAxisLabel="Pickers"
                   yAxisLabel="Number of Wins"
@@ -803,11 +809,11 @@ export default function AnalyticsPage() {
               <div className="space-y-4">
                 <h4 className="text-lg font-medium">Total Selections</h4>
                 <BarChartComponent
+                  barColor="#6366f1"
                   data={pickerData.pickerStats.map((item) => ({
                     name: item.name,
                     value: item.selections,
                   }))}
-                  barColor="#6366f1"
                   height={300}
                   xAxisLabel="Pickers"
                   yAxisLabel="Number of Selections"
@@ -851,26 +857,26 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <AnalyticsCard
-              title="Movie Monday Events Over Time"
               subtitle="Monthly events frequency"
+              title="Movie Monday Events Over Time"
             >
               <LineChartComponent
                 data={timeData.movieMondaysByMonth}
-                lines={[{ dataKey: "value", color: "#8884d8", name: "Events" }]}
                 height={350}
+                lines={[{ dataKey: "value", color: "#8884d8", name: "Events" }]}
                 xAxisLabel="Month"
                 yAxisLabel="Number of Events"
               />
             </AnalyticsCard>
 
             <AnalyticsCard
-              title="Movies Watched Over Time"
               subtitle="Monthly movie viewing counts"
+              title="Movies Watched Over Time"
             >
               <LineChartComponent
                 data={timeData.monthlyMovies}
-                lines={[{ dataKey: "value", color: "#0ea5e9", name: "Movies" }]}
                 height={350}
+                lines={[{ dataKey: "value", color: "#0ea5e9", name: "Movies" }]}
                 xAxisLabel="Month"
                 yAxisLabel="Movies Watched"
               />
@@ -950,12 +956,10 @@ export default function AnalyticsPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <AnalyticsCard
-                title="Top Cocktails"
                 subtitle="Most popular cocktails served"
+                title="Top Cocktails"
               >
                 <PieChartComponent
-                  data={placeholderData.topCocktails}
-                  height={350}
                   colors={[
                     "#7C3AED",
                     "#8B5CF6",
@@ -963,38 +967,40 @@ export default function AnalyticsPage() {
                     "#C4B5FD",
                     "#DDD6FE",
                   ]}
+                  data={placeholderData.topCocktails}
+                  height={350}
                   maxSlices={6}
                 />
               </AnalyticsCard>
 
               <AnalyticsCard
-                title="Popular Meals"
                 subtitle="Most frequent dinner choices"
+                title="Popular Meals"
               >
                 <BarChartComponent
-                  data={placeholderData.topMeals}
                   barColor="#0EA5E9"
+                  data={placeholderData.topMeals}
                   height={350}
+                  maxBars={8}
                   xAxisLabel="Meals"
                   yAxisLabel="Frequency"
-                  maxBars={8}
                 />
               </AnalyticsCard>
             </div>
 
             <AnalyticsCard
-              title="Dessert Favorites"
               subtitle="Most commonly served desserts"
+              title="Dessert Favorites"
             >
               <div className="h-80">
                 <BarChartComponent
-                  data={placeholderData.topDesserts}
+                  scrollable
                   barColor="#F43F5E"
+                  data={placeholderData.topDesserts}
                   height={350}
+                  maxBars={10}
                   xAxisLabel="Desserts"
                   yAxisLabel="Frequency"
-                  maxBars={10}
-                  scrollable
                 />
               </div>
             </AnalyticsCard>
@@ -1052,45 +1058,45 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <AnalyticsCard
-              title="Top Cocktails"
               subtitle="Most popular cocktails served"
+              title="Top Cocktails"
             >
               <PieChartComponent
+                colors={["#7C3AED", "#8B5CF6", "#A78BFA", "#C4B5FD", "#DDD6FE"]}
                 data={normalizedCocktails}
                 height={350}
-                colors={["#7C3AED", "#8B5CF6", "#A78BFA", "#C4B5FD", "#DDD6FE"]}
                 maxSlices={6}
               />
             </AnalyticsCard>
 
             <AnalyticsCard
-              title="Popular Meals"
               subtitle="Most frequent dinner choices"
+              title="Popular Meals"
             >
               <BarChartComponent
-                data={normalizedMeals}
                 barColor="#0EA5E9"
+                data={normalizedMeals}
                 height={350}
+                maxBars={8}
                 xAxisLabel="Meals"
                 yAxisLabel="Frequency"
-                maxBars={8}
               />
             </AnalyticsCard>
           </div>
 
           <AnalyticsCard
-            title="Dessert Favorites"
             subtitle="Most commonly served desserts"
+            title="Dessert Favorites"
           >
             <div className="h-80">
               <BarChartComponent
-                data={normalizedDesserts}
+                scrollable
                 barColor="#F43F5E"
+                data={normalizedDesserts}
                 height={350}
+                maxBars={10}
                 xAxisLabel="Desserts"
                 yAxisLabel="Frequency"
-                maxBars={10}
-                scrollable
               />
             </div>
           </AnalyticsCard>
@@ -1137,11 +1143,11 @@ export default function AnalyticsPage() {
 
         <Tabs
           aria-label="Analytics tabs"
-          selectedKey={selectedKey}
-          onSelectionChange={(key) => setSelectedKey(key as string)}
           classNames={{
             tabList: "gap-4",
           }}
+          selectedKey={selectedKey}
+          onSelectionChange={(key) => setSelectedKey(key as string)}
         >
           <Tab
             key="overview"
@@ -1239,12 +1245,12 @@ export default function AnalyticsPage() {
           </Tab>
         </Tabs>
         <MovieDetailsModal
-          isOpen={showMovieDetailsModal}
-          onClose={() => setShowMovieDetailsModal(false)}
-          title={modalTitle}
-          movies={selectedMovies}
           filterType={selectedFilterType}
           filterValue={selectedFilterValue}
+          isOpen={showMovieDetailsModal}
+          movies={selectedMovies}
+          title={modalTitle}
+          onClose={() => setShowMovieDetailsModal(false)}
         />
       </div>
     </ProtectedRoute>
