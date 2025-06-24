@@ -1,6 +1,8 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from "react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface User {
   id: string;
   username: string;
@@ -54,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         // Token exists, verify it with the backend
-        const response = await fetch("http://localhost:8000/auth/verify", {
+        const response = await fetch(`${API_BASE_URL}/auth/verify`, {
           headers: {
             Authorization: `Bearer ${storedToken}`,
           },
@@ -68,144 +70,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setIsAuthenticated(true);
 
           // Make sure we have user data with at least a username
-          if (userData && userData.user) {
-            setUser(userData.user);
-          } else {
-            // If verification endpoint doesn't return user data, fetch it separately
-            try {
-              const userResponse = await fetch(
-                "http://localhost:8000/auth/me",
-                {
-                  headers: {
-                    Authorization: `Bearer ${storedToken}`,
-                  },
-                },
-              );
-
-              if (userResponse.ok) {
-                const userInfo = await userResponse.json();
-
-                if (userInfo && userInfo.user) {
-                  setUser(userInfo.user);
-                }
-              }
-            } catch (error) {
-              console.error("Error fetching user data:", error);
-            }
+          if (userData.user) {
+            setUser({
+              id: userData.user.id,
+              username: userData.user.username,
+              email: userData.user.email,
+            });
           }
-
-          setVerificationAttempts(0);
-        } else if (response.status === 401) {
-          // Token is invalid or expired - clear it
+        } else {
+          // Token is invalid, remove it
           localStorage.removeItem("token");
           setIsAuthenticated(false);
           setToken(null);
           setUser(null);
-        } else {
-          // Handle network issues or server problems gracefully
-          console.warn("Token verification returned status:", response.status);
-          // Keep current token on network/server issues but increment attempts
-          if (verificationAttempts >= 2) {
-            localStorage.removeItem("token");
-            setIsAuthenticated(false);
-            setToken(null);
-            setUser(null);
-          } else {
-            // Temporarily assume token is valid until we can verify
-            setToken(storedToken);
-            setIsAuthenticated(true);
-            setVerificationAttempts((prev) => prev + 1);
-          }
         }
       } catch (error) {
-        console.error("Error during authentication initialization:", error);
-        // On connection error, keep user logged in if they had a token
-        const storedToken = localStorage.getItem("token");
-
-        if (storedToken) {
-          setToken(storedToken);
-          setIsAuthenticated(true);
-        }
-        setVerificationAttempts((prev) => prev + 1);
+        console.error("Auth initialization error:", error);
+        // On error, assume not authenticated and clean up
+        localStorage.removeItem("token");
+        setIsAuthenticated(false);
+        setToken(null);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
     };
 
     initializeAuth();
-  }, [verificationAttempts]);
+  }, []);
 
-  // Global fetch with auth handling
-  const authFetch = async (url: string, options: RequestInit = {}) => {
-    if (!token) {
-      throw new Error("No authentication token available");
-    }
-
-    // Add authorization header
-    const authOptions = {
-      ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${token}`,
-      },
-    };
-
-    try {
-      const response = await fetch(url, authOptions);
-
-      // Handle 401 Unauthorized errors
-      if (response.status === 401) {
-        // Token might be expired, logout
-        logout();
-        throw new Error("Authentication token expired");
-      }
-
-      return response;
-    } catch (error) {
-      console.error("Auth fetch error:", error);
-      throw error;
-    }
-  };
-
-  const login = async (newToken: string) => {
+  const login = (newToken: string) => {
     localStorage.setItem("token", newToken);
     setToken(newToken);
     setIsAuthenticated(true);
-    setVerificationAttempts(0);
-
-    // Fetch user data after login
-    try {
-      const response = await fetch("http://localhost:8000/auth/me", {
-        headers: {
-          Authorization: `Bearer ${newToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-
-        if (userData && userData.user) {
-          setUser(userData.user);
-          console.log("User data retrieved:", userData.user);
-        } else {
-          // Fallback: Create a minimal user object with a placeholder username
-          setUser({
-            id: "temp-id",
-            username: "User",
-            email: "user@example.com",
-          });
-          console.warn("No user data returned from /auth/me endpoint");
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching user data after login:", error);
-      // Fallback: Create a minimal user object with a placeholder username
-      setUser({
-        id: "temp-id",
-        username: "User",
-        email: "user@example.com",
-      });
-    }
+    // User data will be fetched on next page load
   };
 
   const logout = () => {
@@ -213,6 +111,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setToken(null);
     setIsAuthenticated(false);
     setUser(null);
+  };
+
+  const authFetch = async (url: string, options: RequestInit = {}) => {
+    const headers = {
+      ...options.headers,
+      Authorization: token ? `Bearer ${token}` : '',
+    };
+
+    return fetch(url, { ...options, headers });
   };
 
   return (
@@ -232,4 +139,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};

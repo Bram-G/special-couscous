@@ -1,43 +1,52 @@
+// In verify-email/[token]/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Card, CardBody, CardHeader, Button, Spinner } from "@heroui/react";
+import { CheckCircle, XCircle, RefreshCw, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Card, CardBody, Button } from "@heroui/react";
-import { CheckCircle, XCircle, Mail } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function VerifyEmailPage() {
   const params = useParams();
   const router = useRouter();
-  const token = params.token as string;
+  const token = params?.token as string;
 
   const [verificationStatus, setVerificationStatus] = useState<
-    "loading" | "success" | "error" | "already-verified"
+    "loading" | "success" | "already-verified" | "error" | "expired"
   >("loading");
-  const [message, setMessage] = useState("");
-  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("Verifying your email address...");
   const [isResending, setIsResending] = useState(false);
+  const [email, setEmail] = useState("");
+
+  // Use a ref to track if verification has already been attempted
+  const verificationAttempted = useRef(false);
 
   useEffect(() => {
-    if (!token) {
-      setVerificationStatus("error");
-      setMessage("Invalid verification link.");
+    // Only proceed if verification hasn't been attempted yet
+    if (verificationAttempted.current) {
+      console.log("Verification already attempted, skipping duplicate call");
       return;
     }
 
+    if (!token) {
+      setVerificationStatus("error");
+      setMessage("Verification token is missing.");
+      return;
+    }
+
+    // Verify the token
     const verifyEmail = async () => {
+      // Mark verification as attempted to prevent duplicate calls
+      verificationAttempted.current = true;
+
       try {
-        console.log("Verifying token:", token);
+        console.log("Sending verification request with token:", token);
 
         const response = await fetch(
-          `${API_BASE_URL}/auth/verify/${token}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          },
+          `${API_BASE_URL}/auth/verify-email/${token}`,
         );
 
         console.log("Verification response status:", response.status);
@@ -45,24 +54,23 @@ export default function VerifyEmailPage() {
         // Handle response
         try {
           const data = await response.json();
+
           console.log("Verification response data:", data);
 
-          if (response.ok && data.success) {
-            setVerificationStatus("success");
-            setMessage(
-              data.message || "Email verified successfully! You can now log in.",
-            );
-          } else {
-            setVerificationStatus("error");
-            setMessage(
-              data.message ||
-                "Verification failed. The link may have expired or be invalid.",
-            );
-
-            // Set email for resend functionality if provided
-            if (data.email) {
-              setEmail(data.email);
+          if (response.ok) {
+            if (data.alreadyVerified) {
+              setVerificationStatus("already-verified");
+            } else {
+              setVerificationStatus("success");
             }
+            setMessage(data.message);
+          } else {
+            if (data.expired) {
+              setVerificationStatus("expired");
+            } else {
+              setVerificationStatus("error");
+            }
+            setMessage(data.message || "Failed to verify email.");
           }
         } catch (parseError) {
           console.error("Error parsing response:", parseError);
@@ -177,23 +185,27 @@ export default function VerifyEmailPage() {
     switch (verificationStatus) {
       case "loading":
         return (
-          <div className="text-center space-y-4">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto"></div>
+          <div className="flex flex-col items-center space-y-4">
+            <Spinner size="lg" color="primary" />
             <h2 className="text-xl font-semibold">Verifying Your Email...</h2>
-            <p className="text-default-500">Please wait while we verify your email address.</p>
+            <p className="text-default-500 text-center">
+              Please wait while we verify your email address.
+            </p>
           </div>
         );
 
       case "success":
         return (
-          <div className="text-center space-y-4">
-            <CheckCircle className="w-16 h-16 text-success mx-auto" />
-            <h2 className="text-xl font-semibold text-success">Email Verified!</h2>
-            <p className="text-default-500">{message}</p>
+          <div className="flex flex-col items-center space-y-4">
+            <CheckCircle className="w-16 h-16 text-success" />
+            <h2 className="text-xl font-semibold text-success">
+              Email Verified Successfully!
+            </h2>
+            <p className="text-default-500 text-center">{message}</p>
             <Button
               color="primary"
+              endContent={<ArrowRight className="w-4 h-4" />}
               onClick={() => router.push("/auth")}
-              className="w-full"
             >
               Go to Login
             </Button>
@@ -202,55 +214,71 @@ export default function VerifyEmailPage() {
 
       case "already-verified":
         return (
-          <div className="text-center space-y-4">
-            <CheckCircle className="w-16 h-16 text-success mx-auto" />
-            <h2 className="text-xl font-semibold text-success">Already Verified!</h2>
-            <p className="text-default-500">{message}</p>
+          <div className="flex flex-col items-center space-y-4">
+            <CheckCircle className="w-16 h-16 text-success" />
+            <h2 className="text-xl font-semibold text-success">
+              Already Verified!
+            </h2>
+            <p className="text-default-500 text-center">{message}</p>
             <Button
               color="primary"
+              endContent={<ArrowRight className="w-4 h-4" />}
               onClick={() => router.push("/auth")}
-              className="w-full"
             >
               Go to Login
             </Button>
           </div>
         );
 
-      case "error":
+      case "expired":
         return (
-          <div className="text-center space-y-4">
-            <XCircle className="w-16 h-16 text-danger mx-auto" />
-            <h2 className="text-xl font-semibold text-danger">Verification Failed</h2>
-            <p className="text-default-500">{message}</p>
-            
-            <div className="space-y-2">
-              {email && (
-                <Button
-                  color="primary"
-                  variant="bordered"
-                  onClick={handleResendVerification}
-                  isLoading={isResending}
-                  isDisabled={isResending}
-                  startContent={<Mail className="w-4 h-4" />}
-                  className="w-full"
-                >
-                  {isResending ? "Sending..." : "Resend Verification Email"}
-                </Button>
-              )}
-              
-              <Button
-                color="secondary"
-                variant="bordered"
-                onClick={() => router.push("/resend-verification")}
-                className="w-full"
-              >
-                Resend to Different Email
-              </Button>
-              
+          <div className="flex flex-col items-center space-y-4">
+            <XCircle className="w-16 h-16 text-warning" />
+            <h2 className="text-xl font-semibold text-warning">
+              Verification Link Expired
+            </h2>
+            <p className="text-default-500 text-center">{message}</p>
+            <div className="flex flex-col space-y-2 w-full">
               <Button
                 color="primary"
+                variant="bordered"
+                endContent={<RefreshCw className="w-4 h-4" />}
+                onClick={() => router.push("/resend-verification")}
+              >
+                Request New Verification Link
+              </Button>
+              <Button
+                color="secondary"
+                variant="light"
                 onClick={() => router.push("/auth")}
-                className="w-full"
+              >
+                Back to Login
+              </Button>
+            </div>
+          </div>
+        );
+
+      case "error":
+        return (
+          <div className="flex flex-col items-center space-y-4">
+            <XCircle className="w-16 h-16 text-danger" />
+            <h2 className="text-xl font-semibold text-danger">
+              Verification Failed
+            </h2>
+            <p className="text-default-500 text-center">{message}</p>
+            <div className="flex flex-col space-y-2 w-full">
+              <Button
+                color="primary"
+                variant="bordered"
+                endContent={<RefreshCw className="w-4 h-4" />}
+                onClick={() => router.push("/resend-verification")}
+              >
+                Request New Verification Link
+              </Button>
+              <Button
+                color="secondary"
+                variant="light"
+                onClick={() => router.push("/auth")}
               >
                 Back to Login
               </Button>
@@ -264,12 +292,14 @@ export default function VerifyEmailPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-primary-50 to-background">
       <Card className="w-full max-w-md">
-        <CardBody className="flex flex-col gap-6 p-8">
-          <h1 className="text-2xl font-bold text-center">Email Verification</h1>
-          {renderContent()}
-        </CardBody>
+        <CardHeader className="pb-2">
+          <h1 className="text-2xl font-bold text-center w-full">
+            Email Verification
+          </h1>
+        </CardHeader>
+        <CardBody className="pt-2">{renderContent()}</CardBody>
       </Card>
     </div>
   );
