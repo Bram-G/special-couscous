@@ -5,6 +5,8 @@ import { Card, CardBody, Button, Input, Link } from "@heroui/react";
 import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { CheckCircle } from "lucide-react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default function ResendVerificationPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,7 +18,6 @@ export default function ResendVerificationPage() {
 
     if (!email) {
       setError("Email is required");
-
       return;
     }
 
@@ -25,7 +26,7 @@ export default function ResendVerificationPage() {
 
     try {
       const response = await fetch(
-        "http://localhost:8000/auth/resend-verification",
+        `${API_BASE_URL}/auth/resend-verification`,
         {
           method: "POST",
           headers: {
@@ -75,42 +76,57 @@ export default function ResendVerificationPage() {
                 <Input
                   errorMessage={error}
                   isInvalid={!!error}
-                  label="Email"
-                  placeholder="Enter your email"
-                  startContent={
-                    <EnvelopeIcon className="h-5 w-5 text-default-400" />
-                  }
                   type="email"
+                  label="Email"
+                  placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  startContent={<EnvelopeIcon className="w-4 h-4" />}
                 />
 
                 <Button
-                  className="w-full"
                   color="primary"
-                  isLoading={loading}
                   type="submit"
+                  fullWidth
+                  isLoading={loading}
+                  isDisabled={loading}
                 >
-                  Resend Verification
+                  {loading ? "Sending..." : "Resend Verification Email"}
                 </Button>
               </form>
 
               <div className="text-center">
-                <Link color="primary" href="/login">
+                <Link href="/auth" color="primary">
                   Back to Login
                 </Link>
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center gap-4">
-              <CheckCircle className="w-16 h-16 text-success" />
-              <p className="text-center">
-                If your email address exists in our database, you will receive a
-                verification link at your email address.
+            <div className="text-center space-y-4">
+              <CheckCircle className="w-16 h-16 text-success mx-auto" />
+              <h2 className="text-xl font-semibold text-success">
+                Verification Email Sent!
+              </h2>
+              <p className="text-default-500">
+                We've sent a new verification link to your email address. Please
+                check your inbox and click the link to verify your account.
               </p>
-              <Link color="primary" href="/login">
-                Back to Login
-              </Link>
+              <div className="space-y-2">
+                <Button
+                  color="primary"
+                  variant="bordered"
+                  fullWidth
+                  onClick={() => {
+                    setSubmitted(false);
+                    setEmail("");
+                  }}
+                >
+                  Send to Different Email
+                </Button>
+                <Link href="/auth" color="primary" className="block">
+                  Back to Login
+                </Link>
+              </div>
             </div>
           )}
         </CardBody>
