@@ -7,7 +7,7 @@ import { CheckCircle, XCircle, RefreshCw, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8000';
 
 export default function VerifyEmailPage() {
   const params = useParams();
