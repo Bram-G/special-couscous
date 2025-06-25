@@ -7,7 +7,29 @@ import { CheckCircle, XCircle, RefreshCw, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8000';
+const API_BASE_URL = (() => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  console.log('🔍 Environment URL check:', {
+    'process.env.NEXT_PUBLIC_API_URL': envUrl,
+    'typeof': typeof envUrl,
+    'length': envUrl?.length,
+    'first10chars': envUrl?.substring(0, 10)
+  });
+  
+  const finalUrl = envUrl ? envUrl.replace(/\/$/, '') : 'http://localhost:8000';
+  console.log('🎯 Final API_BASE_URL:', finalUrl);
+  
+  return finalUrl;
+})();
+
+// Also add this useEffect for runtime debugging:
+useEffect(() => {
+  console.log('=== RUNTIME DEBUG ===');
+  console.log('Window location:', window.location.href);
+  console.log('API_BASE_URL being used for fetch:', API_BASE_URL);
+  console.log('About to fetch:', `${API_BASE_URL}/auth/verify-email/${token}`);
+  console.log('====================');
+}, [token]);
 
 export default function VerifyEmailPage() {
   const params = useParams();
