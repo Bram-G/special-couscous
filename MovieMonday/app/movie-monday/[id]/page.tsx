@@ -4,13 +4,14 @@ import React from "react";
 
 import ProtectedRoute from "@/components/protectedRoute";
 import ComingSoonPage from "@/components/ui/ComingSoonPage";
+import MovieMondayDetail from "@/components/MovieMonday/MovieMondayDetail"
 
 export default function MovieMondayPage() {
   return (
     <ProtectedRoute>
       {/* FOR DEPLOYMENT */}
-      <ComingSoonPage />
-      {/* <MovieMondayDetail /> */}
+      {/* <ComingSoonPage /> */}
+      <MovieMondayDetail />
     </ProtectedRoute>
   );
 }

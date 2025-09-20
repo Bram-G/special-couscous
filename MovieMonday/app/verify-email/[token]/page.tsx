@@ -22,14 +22,8 @@ const API_BASE_URL = (() => {
   return finalUrl;
 })();
 
-// Also add this useEffect for runtime debugging:
-useEffect(() => {
-  console.log('=== RUNTIME DEBUG ===');
-  console.log('Window location:', window.location.href);
-  console.log('API_BASE_URL being used for fetch:', API_BASE_URL);
-  console.log('About to fetch:', `${API_BASE_URL}/auth/verify-email/${token}`);
-  console.log('====================');
-}, [token]);
+
+
 
 export default function VerifyEmailPage() {
   const params = useParams();
@@ -45,6 +39,14 @@ export default function VerifyEmailPage() {
 
   // Use a ref to track if verification has already been attempted
   const verificationAttempted = useRef(false);
+
+  useEffect(() => {
+  console.log('=== RUNTIME DEBUG ===');
+  console.log('Window location:', window.location.href);
+  console.log('API_BASE_URL being used for fetch:', API_BASE_URL);
+  console.log('About to fetch:', `${API_BASE_URL}/auth/verify-email/${token}`);
+  console.log('====================');
+}, [token]);
 
   useEffect(() => {
     // Only proceed if verification hasn't been attempted yet

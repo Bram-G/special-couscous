@@ -37,6 +37,8 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Award,
+  Clock,
 } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
 
@@ -116,6 +118,106 @@ interface HistoricalStats {
   };
 }
 
+// Enhanced interface for the new historical comparison data
+interface EnhancedHistoricalData {
+  currentMenuComparison: {
+    meals: Array<{
+      name: string;
+      historicalCount: number;
+      popularityPercentage: number;
+      isNew: boolean;
+      lastSeen: string | null;
+    }>;
+    cocktails: Array<{
+      name: string;
+      historicalCount: number;
+      popularityPercentage: number;
+      isNew: boolean;
+      lastSeen: string | null;
+    }>;
+    desserts: Array<{
+      name: string;
+      historicalCount: number;
+      popularityPercentage: number;
+      isNew: boolean;
+      lastSeen: string | null;
+    }>;
+  };
+  currentMovieComparison: {
+    actors: Array<{
+      name: string;
+      id: number;
+      movieTitle: string;
+      isWinner: boolean;
+      historicalAppearances: number;
+      historicalWins: number;
+      historicalWinRate: number;
+      isNew?: boolean;
+    }>;
+    directors: Array<{
+      name: string;
+      id: number;
+      movieTitle: string;
+      isWinner: boolean;
+      historicalAppearances: number;
+      historicalWins: number;
+      historicalWinRate: number;
+      isNew?: boolean;
+    }>;
+    genres: Array<{
+      name: string;
+      movieTitle: string;
+      isWinner: boolean;
+      historicalAppearances: number;
+      historicalWins: number;
+      historicalWinRate: number;
+      isNew?: boolean;
+    }>;
+    decades: Array<{
+      decade: number;
+      movieTitle: string;
+      isWinner: boolean;
+      historicalAppearances: number;
+      historicalWins: number;
+      historicalWinRate: number;
+      isNew?: boolean;
+    }>;
+  };
+  overallStats: {
+    totalMovieMondays: number;
+    mostPopularMeals: Array<{
+      name: string;
+      count: number;
+      popularityPercentage: number;
+    }>;
+    mostPopularCocktails: Array<{
+      name: string;
+      count: number;
+      popularityPercentage: number;
+    }>;
+    mostPopularDesserts: Array<{
+      name: string;
+      count: number;
+      popularityPercentage: number;
+    }>;
+    topActors: Array<{
+      name: string;
+      totalAppearances: number;
+      winRate: number;
+    }>;
+    topDirectors: Array<{
+      name: string;
+      totalAppearances: number;
+      winRate: number;
+    }>;
+    topGenres: Array<{
+      name: string;
+      totalAppearances: number;
+      winRate: number;
+    }>;
+  };
+}
+
 interface MovieMondayDetailData {
   movieMonday: {
     id: number;
@@ -182,6 +284,8 @@ interface MovieMondayDetailData {
   };
   // Add historical stats
   history: HistoricalStats;
+  // Add enhanced historical data
+  enhancedHistory?: EnhancedHistoricalData;
 }
 
 const MovieMondayDetail: React.FC = () => {
@@ -221,19 +325,19 @@ const MovieMondayDetail: React.FC = () => {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             "Content-Type": "application/json",
           },
-        },
+        }
       );
 
       if (!response.ok) {
         if (response.status === 403) {
           setUnauthorized(true);
           throw new Error(
-            "You don't have permission to view this Movie Monday",
+            "You don't have permission to view this Movie Monday"
           );
         }
         if (response.status === 404) {
           throw new Error(
-            "Movie Monday not found or you do not have access to it",
+            "Movie Monday not found or you do not have access to it"
           );
         }
         throw new Error("Failed to fetch Movie Monday details");
@@ -245,7 +349,7 @@ const MovieMondayDetail: React.FC = () => {
     } catch (err) {
       console.error("Error fetching Movie Monday details:", err);
       setError(
-        err.message || "An error occurred while loading Movie Monday details",
+        err.message || "An error occurred while loading Movie Monday details"
       );
     } finally {
       setLoading(false);
@@ -272,7 +376,7 @@ const MovieMondayDetail: React.FC = () => {
     const date = new Date(dateString);
     const now = new Date();
     const diffDays = Math.round(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
     );
 
     if (diffDays === 0) return "today";
@@ -282,6 +386,18 @@ const MovieMondayDetail: React.FC = () => {
     if (diffDays < 365) return `${Math.round(diffDays / 30)} months ago`;
 
     return `${Math.round(diffDays / 365)} years ago`;
+  };
+
+  const getPopularityColor = (percentage: number) => {
+    if (percentage >= 40) return "success";
+    if (percentage >= 20) return "warning";
+    return "danger";
+  };
+
+  const getWinRateColor = (winRate: number) => {
+    if (winRate >= 60) return "success";
+    if (winRate >= 40) return "warning";
+    return "danger";
   };
 
   // Find common elements between movies
@@ -419,7 +535,7 @@ const MovieMondayDetail: React.FC = () => {
       // Actor connections
       if (connections.actors.length > 0) {
         const topActor = connections.actors.sort(
-          (a, b) => b.movies.length - a.movies.length,
+          (a, b) => b.movies.length - a.movies.length
         )[0];
 
         if (topActor.movies.length === movieMonday.movieSelections.length) {
@@ -451,7 +567,7 @@ const MovieMondayDetail: React.FC = () => {
       // Director connections
       if (connections.directors.length > 0) {
         const topDirector = connections.directors.sort(
-          (a, b) => b.movies.length - a.movies.length,
+          (a, b) => b.movies.length - a.movies.length
         )[0];
 
         if (topDirector.movies.length > 1) {
@@ -472,7 +588,7 @@ const MovieMondayDetail: React.FC = () => {
       // Genre theme
       if (connections.genres.length > 0) {
         const topGenre = connections.genres.sort(
-          (a, b) => b.movies.length - a.movies.length,
+          (a, b) => b.movies.length - a.movies.length
         )[0];
 
         if (topGenre.movies.length === movieMonday.movieSelections.length) {
@@ -499,291 +615,101 @@ const MovieMondayDetail: React.FC = () => {
           });
         }
       }
-
-      // Decade theme
-      if (connections.years.length > 0) {
-        const topDecade = connections.years.sort(
-          (a, b) => b.movies.length - a.movies.length,
-        )[0];
-
-        if (topDecade.movies.length === movieMonday.movieSelections.length) {
-          facts.push({
-            text: (
-              <>
-                All movies this week are from the{" "}
-                <strong>{topDecade.decade}</strong>!
-              </>
-            ),
-            icon: <Calendar className="h-5 w-5 text-danger" />,
-            priority: 9,
-          });
-        } else if (topDecade.movies.length >= 2) {
-          facts.push({
-            text: (
-              <>
-                <strong>{topDecade.movies.length}</strong> movies this week are
-                from the <strong>{topDecade.decade}</strong>
-              </>
-            ),
-            icon: <Calendar className="h-5 w-5 text-danger" />,
-            priority: 6,
-          });
-        }
-      }
     }
 
-    // Facts about winning movies
-    const winningMovie = movieMonday.movieSelections.find((m) => m.isWinner);
+    // Enhanced facts using historical data
+    if (data.enhancedHistory) {
+      const { enhancedHistory } = data;
 
-    if (winningMovie) {
-      // Check if this movie has been in previous selections
-      const previousAppearances = winningMovie.previousAppearances || 0;
+      // Menu item insights
+      const newMenuItems = [
+        ...enhancedHistory.currentMenuComparison.meals.filter((m) => m.isNew),
+        ...enhancedHistory.currentMenuComparison.cocktails.filter(
+          (c) => c.isNew
+        ),
+        ...enhancedHistory.currentMenuComparison.desserts.filter(
+          (d) => d.isNew
+        ),
+      ];
 
-      if (previousAppearances > 0) {
+      if (newMenuItems.length > 0) {
         facts.push({
           text: (
             <>
-              The movie <strong>{winningMovie.title}</strong> has appeared in{" "}
-              <strong>{previousAppearances + 1}</strong> Movie Mondays and
-              finally won!
+              This week features <strong>{newMenuItems.length}</strong> brand
+              new menu item{newMenuItems.length > 1 ? "s" : ""}!
+            </>
+          ),
+          icon: <Sparkles className="h-5 w-5 text-primary" />,
+          priority: 8,
+        });
+      }
+
+      // Popular menu items
+      const popularItems = [
+        ...enhancedHistory.currentMenuComparison.meals.filter(
+          (m) => m.popularityPercentage >= 40
+        ),
+        ...enhancedHistory.currentMenuComparison.cocktails.filter(
+          (c) => c.popularityPercentage >= 40
+        ),
+        ...enhancedHistory.currentMenuComparison.desserts.filter(
+          (d) => d.popularityPercentage >= 40
+        ),
+      ];
+
+      if (popularItems.length > 0) {
+        const topItem = popularItems.sort(
+          (a, b) => b.popularityPercentage - a.popularityPercentage
+        )[0];
+        facts.push({
+          text: (
+            <>
+              <strong>{topItem.name}</strong> is a group favorite, appearing in{" "}
+              <strong>{topItem.popularityPercentage}%</strong> of Movie Mondays!
+            </>
+          ),
+          icon: <Award className="h-5 w-5 text-warning" />,
+          priority: 7,
+        });
+      }
+
+      // Actor performance insights
+      const veteranActors =
+        enhancedHistory.currentMovieComparison.actors.filter(
+          (a) => !a.isNew && a.historicalAppearances > 3
+        );
+      if (veteranActors.length > 0) {
+        const topVeteran = veteranActors.sort(
+          (a, b) => b.historicalWinRate - a.historicalWinRate
+        )[0];
+        facts.push({
+          text: (
+            <>
+              <strong>{topVeteran.name}</strong> brings winning experience with
+              a <strong>{topVeteran.historicalWinRate}%</strong> win rate!
             </>
           ),
           icon: <Trophy className="h-5 w-5 text-warning" />,
-          priority: 10,
+          priority: 9,
         });
       }
 
-      // If we have history data, check for additional insights
-      if (history && history.repeatedMovies) {
-        const movieHistory = history.repeatedMovies.find(
-          (m) => m.tmdbMovieId === winningMovie.tmdbMovieId,
-        );
-
-        if (movieHistory && movieHistory.appearances > 1) {
-          facts.push({
-            text: (
-              <>
-                <strong>{winningMovie.title}</strong> has won{" "}
-                {movieHistory.wins} out of {movieHistory.appearances} times it
-                has been selected!
-              </>
-            ),
-            icon: <TrendingUp className="h-5 w-5 text-primary" />,
-            priority: 9,
-          });
-        }
-      }
-    }
-
-    // Food/drink facts with history
-    if (history && movieMonday.eventDetails) {
-      // Meal history facts
-      movieMonday.eventDetails.meals?.forEach((meal) => {
-        const mealHistory = history.mealFrequencies?.find(
-          (m) => m.name === meal,
-        );
-
-        if (mealHistory && mealHistory.count > 1) {
-          facts.push({
-            text: (
-              <>
-                <strong>{meal}</strong> has been served{" "}
-                <strong>{mealHistory.count}</strong> times for Movie Monday!
-              </>
-            ),
-            icon: <Utensils className="h-5 w-5 text-primary" />,
-            priority: 8,
-          });
-        }
-      });
-
-      // Cocktail history facts
-      movieMonday.eventDetails.cocktails?.forEach((cocktail) => {
-        const cocktailHistory = history.cocktailFrequencies?.find(
-          (c) => c.name === cocktail,
-        );
-
-        if (cocktailHistory && cocktailHistory.count > 1) {
-          facts.push({
-            text: (
-              <>
-                <strong>{cocktail}</strong> has been mixed{" "}
-                <strong>{cocktailHistory.count}</strong> times for Movie Monday
-                gatherings!
-              </>
-            ),
-            icon: <Wine className="h-5 w-5 text-danger" />,
-            priority: 7,
-          });
-        }
-      });
-
-      // Dessert history facts
-      movieMonday.eventDetails.desserts?.forEach((dessert) => {
-        const dessertHistory = history.dessertFrequencies?.find(
-          (d) => d.name === dessert,
-        );
-
-        if (dessertHistory && dessertHistory.count > 1) {
-          facts.push({
-            text: (
-              <>
-                <strong>{dessert}</strong> has been enjoyed{" "}
-                <strong>{dessertHistory.count}</strong> times as a Movie Monday
-                dessert!
-              </>
-            ),
-            icon: <Cake className="h-5 w-5 text-warning" />,
-            priority: 6,
-          });
-        }
-      });
-    }
-
-    // Actor history facts
-    if (history && history.actorAppearances) {
-      // Find actors in current selections that have interesting histories
-      movieMonday.movieSelections.forEach((movie) => {
-        movie.cast.forEach((actor) => {
-          const actorHistory = history.actorAppearances.find(
-            (a) => a.id === actor.actorId,
-          );
-
-          if (actorHistory) {
-            // Actor with many appearances but few/no wins
-            if (actorHistory.totalAppearances > 3 && actorHistory.wins === 0) {
-              facts.push({
-                text: (
-                  <>
-                    <strong>{actor.name}</strong> has appeared in{" "}
-                    <strong>{actorHistory.totalAppearances}</strong> Movie
-                    Monday selections but never won!
-                  </>
-                ),
-                icon: <AlertCircle className="h-5 w-5 text-danger" />,
-                priority: 9,
-              });
-            }
-            // Actor with good win rate
-            else if (
-              actorHistory.wins > 0 &&
-              actorHistory.wins / actorHistory.totalAppearances > 0.5
-            ) {
-              facts.push({
-                text: (
-                  <>
-                    <strong>{actor.name}</strong> has a winning record with{" "}
-                    <strong>{actorHistory.wins}</strong> wins out of{" "}
-                    {actorHistory.totalAppearances} appearances!
-                  </>
-                ),
-                icon: <Star className="h-5 w-5 text-warning" />,
-                priority: 8,
-              });
-            }
-            // Actor who keeps appearing
-            else if (actorHistory.totalAppearances > 5) {
-              facts.push({
-                text: (
-                  <>
-                    <strong>{actor.name}</strong> is a Movie Monday regular with{" "}
-                    <strong>{actorHistory.totalAppearances}</strong>{" "}
-                    appearances!
-                  </>
-                ),
-                icon: <Users className="h-5 w-5 text-primary" />,
-                priority: 7,
-              });
-            }
-          }
-        });
-      });
-    }
-
-    // Director history facts
-    if (history && history.directorAppearances) {
-      // Find directors in current selections with interesting histories
-      movieMonday.movieSelections.forEach((movie) => {
-        const directors = movie.crew.filter((c) => c.job === "Director");
-
-        directors.forEach((director) => {
-          const directorHistory = history.directorAppearances.find(
-            (d) => d.id === director.personId,
-          );
-
-          if (directorHistory && directorHistory.totalAppearances > 1) {
-            if (directorHistory.wins > 0) {
-              facts.push({
-                text: (
-                  <>
-                    Director <strong>{director.name}</strong> has a{" "}
-                    {Math.round(
-                      (directorHistory.wins /
-                        directorHistory.totalAppearances) *
-                        100,
-                    )}
-                    % win rate across {directorHistory.totalAppearances} Movie
-                    Mondays!
-                  </>
-                ),
-                icon: <Film className="h-5 w-5 text-success" />,
-                priority: 8,
-              });
-            } else {
-              facts.push({
-                text: (
-                  <>
-                    Director <strong>{director.name}</strong> has been featured{" "}
-                    <strong>{directorHistory.totalAppearances}</strong> times
-                    but hasn't won yet!
-                  </>
-                ),
-                icon: <Film className="h-5 w-5 text-success" />,
-                priority: 7,
-              });
-            }
-          }
-        });
-      });
-    }
-
-    // Picker stats
-    if (history && history.pickerStats) {
-      const { pickerStats } = history;
-
-      // If the picker has made selections before
-      if (pickerStats.totalPicks > 1) {
+      // New talent
+      const newActors = enhancedHistory.currentMovieComparison.actors.filter(
+        (a) => a.isNew
+      );
+      if (newActors.length > 0) {
         facts.push({
           text: (
             <>
-              <strong>{movieMonday.picker.username}</strong> has selected movies
-              for <strong>{pickerStats.totalPicks}</strong> Movie Mondays with a{" "}
-              {Math.round(pickerStats.winRate * 100)}% success rate!
+              This week features <strong>{newActors.length}</strong> actor
+              {newActors.length > 1 ? "s" : ""} making their Movie Monday debut!
             </>
           ),
-          icon: <UserCircle className="h-5 w-5 text-primary" />,
-          priority: 8,
+          icon: <Star className="h-5 w-5 text-primary" />,
+          priority: 6,
         });
-
-        // If the picker has genre preferences
-        if (
-          pickerStats.mostSelectedGenres &&
-          pickerStats.mostSelectedGenres.length > 0
-        ) {
-          const favoriteGenre = pickerStats.mostSelectedGenres[0];
-
-          facts.push({
-            text: (
-              <>
-                <strong>{movieMonday.picker.username}</strong> favors{" "}
-                <strong>{favoriteGenre.name}</strong> films, selecting them{" "}
-                {favoriteGenre.count} times!
-              </>
-            ),
-            icon: <Film className="h-5 w-5 text-primary" />,
-            priority: 7,
-          });
-        }
       }
     }
 
@@ -791,7 +717,439 @@ const MovieMondayDetail: React.FC = () => {
     return facts.sort((a, b) => b.priority - a.priority).slice(0, 4);
   };
 
-  // Render the historical comparison section
+  // Render the enhanced menu statistics
+  const renderEnhancedMenuStats = () => {
+    if (!data?.enhancedHistory) return null;
+
+    const { enhancedHistory } = data;
+
+    return (
+      <Card>
+        <CardHeader className="flex gap-2">
+          <Box className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-bold">Menu Popularity Analysis</h3>
+        </CardHeader>
+        <CardBody>
+          <div className="space-y-6">
+            {/* Meals */}
+            {enhancedHistory.currentMenuComparison.meals.length > 0 && (
+              <div>
+                <h4 className="font-medium text-default-700 mb-3 flex items-center">
+                  <Utensils className="h-4 w-4 mr-2" />
+                  Today's Meals vs History
+                </h4>
+                <div className="space-y-3">
+                  {(enhancedHistory?.currentMenuComparison?.meals || []).map(
+                    (meal, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{meal.name}</span>
+                            {meal.isNew && (
+                              <Badge color="primary" size="sm">
+                                New!
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-sm font-medium">
+                            {meal.popularityPercentage}% popularity
+                          </span>
+                        </div>
+                        <Progress
+                          className="h-2"
+                          color={getPopularityColor(meal.popularityPercentage)}
+                          size="sm"
+                          value={meal.popularityPercentage}
+                        />
+                        {!meal.isNew && (
+                          <div className="text-xs text-default-500">
+                            Served {meal.historicalCount} times • Last seen{" "}
+                            {formatRelativeDate(meal.lastSeen!)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Cocktails */}
+            {enhancedHistory.currentMenuComparison.cocktails.length > 0 && (
+              <div>
+                <h4 className="font-medium text-default-700 mb-3 flex items-center">
+                  <Wine className="h-4 w-4 mr-2" />
+                  Today's Cocktails vs History
+                </h4>
+                <div className="space-y-3">
+                  {(enhancedHistory?.currentMenuComparison?.cocktails || []).map(
+                    (cocktail, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{cocktail.name}</span>
+                            {cocktail.isNew && (
+                              <Badge color="primary" size="sm">
+                                New!
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-sm font-medium">
+                            {cocktail.popularityPercentage}% popularity
+                          </span>
+                        </div>
+                        <Progress
+                          className="h-2"
+                          color={getPopularityColor(
+                            cocktail.popularityPercentage
+                          )}
+                          size="sm"
+                          value={cocktail.popularityPercentage}
+                        />
+                        {!cocktail.isNew && (
+                          <div className="text-xs text-default-500">
+                            Served {cocktail.historicalCount} times • Last seen{" "}
+                            {formatRelativeDate(cocktail.lastSeen!)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Desserts */}
+            {enhancedHistory.currentMenuComparison.desserts.length > 0 && (
+              <div>
+                <h4 className="font-medium text-default-700 mb-3 flex items-center">
+                  <Cake className="h-4 w-4 mr-2" />
+                  Today's Desserts vs History
+                </h4>
+                <div className="space-y-3">
+                  {(enhancedHistory?.currentMenuComparison?.desserts || []).map(
+                    (dessert, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{dessert.name}</span>
+                            {dessert.isNew && (
+                              <Badge color="primary" size="sm">
+                                New!
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-sm font-medium">
+                            {dessert.popularityPercentage}% popularity
+                          </span>
+                        </div>
+                        <Progress
+                          className="h-2"
+                          color={getPopularityColor(
+                            dessert.popularityPercentage
+                          )}
+                          size="sm"
+                          value={dessert.popularityPercentage}
+                        />
+                        {!dessert.isNew && (
+                          <div className="text-xs text-default-500">
+                            Served {dessert.historicalCount} times • Last seen{" "}
+                            {formatRelativeDate(dessert.lastSeen!)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardBody>
+      </Card>
+    );
+  };
+
+  // Render enhanced movie analytics
+  const renderEnhancedMovieAnalytics = () => {
+    if (!data?.enhancedHistory) return null;
+
+    const { enhancedHistory } = data;
+
+    return (
+      <div className="space-y-6">
+        {/* Actor Performance */}
+        <Card>
+          <CardHeader className="flex gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-bold">Actor Performance Analysis</h3>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-4">
+              {(enhancedHistory?.currentMovieComparison?.actors || []).map(
+                (actor, index) => (
+                  <div
+                    key={`${actor.id}-${index}`}
+                    className="p-3 bg-default-50 rounded-lg"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="font-medium">{actor.name}</span>
+                        <div className="text-sm text-default-600">
+                          in {actor.movieTitle}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {actor.isWinner && (
+                          <Badge color="success" className="mb-1">
+                            Winner
+                          </Badge>
+                        )}
+                        {actor.isNew && (
+                          <Badge color="primary" className="mb-1">
+                            New Actor
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {!actor.isNew && actor.historicalAppearances > 0 && (
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <div className="text-default-600">
+                            Previous Appearances
+                          </div>
+                          <div className="font-medium">
+                            {actor.historicalAppearances}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-default-600">
+                            Historical Wins
+                          </div>
+                          <div className="font-medium">
+                            {actor.historicalWins}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-default-600">Win Rate</div>
+                          <div
+                            className={`font-medium ${
+                              getWinRateColor(actor.historicalWinRate) ===
+                              "success"
+                                ? "text-success"
+                                : getWinRateColor(actor.historicalWinRate) ===
+                                    "warning"
+                                  ? "text-warning"
+                                  : "text-danger"
+                            }`}
+                          >
+                            {actor.historicalWinRate}%
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Director Performance */}
+        <Card>
+          <CardHeader className="flex gap-2">
+            <Film className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-bold">Director Performance Analysis</h3>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-4">
+              {(enhancedHistory?.currentMovieComparison?.directors || []).map(
+                (director, index) => (
+                  <div
+                    key={`${director.id}-${index}`}
+                    className="p-3 bg-default-50 rounded-lg"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="font-medium">{director.name}</span>
+                        <div className="text-sm text-default-600">
+                          directed {director.movieTitle}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {director.isWinner && (
+                          <Badge color="success" className="mb-1">
+                            Winner
+                          </Badge>
+                        )}
+                        {director.isNew && (
+                          <Badge color="primary" className="mb-1">
+                            New Director
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {!director.isNew && director.historicalAppearances > 0 && (
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <div className="text-default-600">Previous Films</div>
+                          <div className="font-medium">
+                            {director.historicalAppearances}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-default-600">
+                            Historical Wins
+                          </div>
+                          <div className="font-medium">
+                            {director.historicalWins}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-default-600">Win Rate</div>
+                          <div
+                            className={`font-medium ${
+                              getWinRateColor(director.historicalWinRate) ===
+                              "success"
+                                ? "text-success"
+                                : getWinRateColor(
+                                      director.historicalWinRate
+                                    ) === "warning"
+                                  ? "text-warning"
+                                  : "text-danger"
+                            }`}
+                          >
+                            {director.historicalWinRate}%
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Genre & Decade Analysis */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="flex gap-2">
+              <BarChart4 className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-bold">Genre Performance</h3>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-3">
+                {(enhancedHistory?.currentMovieComparison?.genres || []).map(
+                  (genre, index) => (
+                    <div
+                      key={`${genre.name}-${index}`}
+                      className="p-3 bg-default-50 rounded-lg"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium">{genre.name}</span>
+                        {genre.isNew && (
+                          <Badge color="primary" size="sm">
+                            New
+                          </Badge>
+                        )}
+                      </div>
+
+                      {!genre.isNew && (
+                        <div className="text-sm">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-default-600">
+                              Historical Win Rate
+                            </span>
+                            <span
+                              className={`font-medium ${
+                                getWinRateColor(genre.historicalWinRate) ===
+                                "success"
+                                  ? "text-success"
+                                  : getWinRateColor(genre.historicalWinRate) ===
+                                      "warning"
+                                    ? "text-warning"
+                                    : "text-danger"
+                              }`}
+                            >
+                              {genre.historicalWinRate}%
+                            </span>
+                          </div>
+                          <div className="text-xs text-default-500">
+                            {genre.historicalWins} wins in{" "}
+                            {genre.historicalAppearances} appearances
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-bold">Decade Performance</h3>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-3">
+                {(enhancedHistory?.currentMovieComparison?.decades || []).map(
+                  (decade, index) => (
+                    <div
+                      key={`${decade.decade}-${index}`}
+                      className="p-3 bg-default-50 rounded-lg"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium">{decade.decade}s</span>
+                        {decade.isNew && (
+                          <Badge color="primary" size="sm">
+                            New Decade
+                          </Badge>
+                        )}
+                      </div>
+
+                      {!decade.isNew && (
+                        <div className="text-sm">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-default-600">
+                              Historical Win Rate
+                            </span>
+                            <span
+                              className={`font-medium ${
+                                getWinRateColor(decade.historicalWinRate) ===
+                                "success"
+                                  ? "text-success"
+                                  : getWinRateColor(
+                                        decade.historicalWinRate
+                                      ) === "warning"
+                                    ? "text-warning"
+                                    : "text-danger"
+                              }`}
+                            >
+                              {decade.historicalWinRate}%
+                            </span>
+                          </div>
+                          <div className="text-xs text-default-500">
+                            {decade.historicalWins} wins in{" "}
+                            {decade.historicalAppearances} appearances
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  // Render the historical comparison section (existing)
   const renderHistoricalSection = () => {
     if (!data || !data.history) return null;
 
@@ -812,7 +1170,7 @@ const MovieMondayDetail: React.FC = () => {
                   Repeat Movie Appearances
                 </h4>
                 <div className="space-y-3">
-                  {history.repeatedMovies.slice(0, 3).map((movie) => (
+                  {(history?.repeatedMovies || []).slice(0, 3).map((movie) => (
                     <div
                       key={movie.tmdbMovieId}
                       className="p-3 bg-default-50 rounded-lg"
@@ -853,12 +1211,12 @@ const MovieMondayDetail: React.FC = () => {
                     Actor Success Rates
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {history.actorAppearances
+                    {(history?.actorAppearances || [])
                       .filter((actor) => actor.totalAppearances > 1)
                       .sort(
                         (a, b) =>
                           b.wins / b.totalAppearances -
-                          a.wins / a.totalAppearances,
+                          a.wins / a.totalAppearances
                       )
                       .slice(0, 4)
                       .map((actor) => (
@@ -903,7 +1261,7 @@ const MovieMondayDetail: React.FC = () => {
                       Top Meals
                     </h4>
                     <div className="space-y-2">
-                      {history.mealFrequencies
+                      {(history?.mealFrequencies || [])
                         .slice(0, 3)
                         .map((meal, index) => (
                           <Tooltip
@@ -933,7 +1291,7 @@ const MovieMondayDetail: React.FC = () => {
                       Top Cocktails
                     </h4>
                     <div className="space-y-2">
-                      {history.cocktailFrequencies
+                      {(history?.cocktailFrequencies || [])
                         .slice(0, 3)
                         .map((cocktail, index) => (
                           <Tooltip
@@ -963,7 +1321,7 @@ const MovieMondayDetail: React.FC = () => {
                       Top Desserts
                     </h4>
                     <div className="space-y-2">
-                      {history.dessertFrequencies
+                      {(history?.dessertFrequencies || [])
                         .slice(0, 3)
                         .map((dessert, index) => (
                           <Tooltip
@@ -994,11 +1352,11 @@ const MovieMondayDetail: React.FC = () => {
                     Director Stats
                   </h4>
                   <div className="space-y-3">
-                    {history.directorAppearances
-                      .filter((director) => director.totalAppearances > 1)
-                      .sort((a, b) => b.totalAppearances - a.totalAppearances)
-                      .slice(0, 3)
-                      .map((director) => (
+                    {(history?.directorAppearances || [])
+  .filter((director) => director.totalAppearances > 1)
+  .sort((a, b) => b.totalAppearances - a.totalAppearances)
+  .slice(0, 3)
+  .map((director) => (
                         <div
                           key={director.id}
                           className="p-3 bg-default-50 rounded-lg"
@@ -1012,7 +1370,7 @@ const MovieMondayDetail: React.FC = () => {
                               {director.wins} wins (
                               {Math.round(
                                 (director.wins / director.totalAppearances) *
-                                  100,
+                                  100
                               )}
                               % success)
                             </span>
@@ -1074,6 +1432,81 @@ const MovieMondayDetail: React.FC = () => {
                 </div>
               </div>
             )}
+          </div>
+        </CardBody>
+      </Card>
+    );
+  };
+
+  // Render enhanced historical context
+  const renderEnhancedHistoricalContext = () => {
+    if (!data?.enhancedHistory) return null;
+
+    const { enhancedHistory } = data;
+
+    return (
+      <Card>
+        <CardHeader className="flex gap-2">
+          <History className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-bold">Historical Context</h3>
+        </CardHeader>
+        <CardBody className="space-y-4">
+          <div className="p-3 bg-primary-50 rounded-lg">
+            <div className="text-sm text-primary-700 font-medium mb-1">
+              Total Movie Mondays
+            </div>
+            <div className="text-2xl font-bold text-primary">
+              {enhancedHistory.overallStats.totalMovieMondays}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-medium text-default-700 mb-2">
+              All-Time Favorites
+            </h4>
+            <div className="space-y-2 text-sm">
+              <div>
+                <span className="font-medium">Most Popular Meal:</span>{" "}
+                {enhancedHistory.overallStats.mostPopularMeals[0]?.name ||
+                  "N/A"}
+                {enhancedHistory.overallStats.mostPopularMeals[0] && (
+                  <span className="text-default-500 ml-1">
+                    (
+                    {
+                      enhancedHistory.overallStats.mostPopularMeals[0]
+                        .popularityPercentage
+                    }
+                    %)
+                  </span>
+                )}
+              </div>
+              <div>
+                <span className="font-medium">Most Popular Cocktail:</span>{" "}
+                {enhancedHistory.overallStats.mostPopularCocktails[0]?.name ||
+                  "N/A"}
+                {enhancedHistory.overallStats.mostPopularCocktails[0] && (
+                  <span className="text-default-500 ml-1">
+                    (
+                    {
+                      enhancedHistory.overallStats.mostPopularCocktails[0]
+                        .popularityPercentage
+                    }
+                    %)
+                  </span>
+                )}
+              </div>
+              <div>
+                <span className="font-medium">Top Actor:</span>{" "}
+                {enhancedHistory.overallStats.topActors[0]?.name || "N/A"}
+                {enhancedHistory.overallStats.topActors[0] && (
+                  <span className="text-default-500 ml-1">
+                    (
+                    {enhancedHistory.overallStats.topActors[0].totalAppearances}{" "}
+                    appearances)
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </CardBody>
       </Card>
@@ -1144,7 +1577,7 @@ const MovieMondayDetail: React.FC = () => {
 
   // Find the winning movie if there is one
   const winningMovie = movieMonday.movieSelections.find(
-    (movie) => movie.isWinner,
+    (movie) => movie.isWinner
   );
 
   return (
@@ -1256,159 +1689,6 @@ const MovieMondayDetail: React.FC = () => {
                                           m.isWinner ? "text-warning" : ""
                                         }
                                       >
-                                        {m.title} {m.isWinner && "(Winner)"}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              }
-                            >
-                              <div className="inline-flex items-center bg-background py-1 pl-2 pr-3 rounded-full border border-default-200 cursor-help">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="w-6 h-6 rounded-full bg-default-200 flex items-center justify-center">
-                                    <Users size={14} />
-                                  </div>
-                                  <span className="font-medium">
-                                    {actor.name}
-                                  </span>
-                                  <Badge
-                                    color="primary"
-                                    content={actor.movies.length}
-                                    placement="top-right"
-                                    size="sm"
-                                  >
-                                    <div className="w-2 h-5" />
-                                  </Badge>
-                                </div>
-                              </div>
-                            </Tooltip>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Director Connections */}
-                    {connections.directors.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-default-700 mb-2">
-                          Common Directors
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {connections.directors.map((director) => (
-                            <Tooltip
-                              key={director.id}
-                              content={
-                                <div>
-                                  <p className="font-bold mb-1">Directed:</p>
-                                  <ul className="list-disc pl-4">
-                                    {director.movies.map((m) => (
-                                      <li
-                                        key={m.id}
-                                        className={
-                                          m.isWinner ? "text-warning" : ""
-                                        }
-                                      >
-                                        {m.title} {m.isWinner && "(Winner)"}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              }
-                            >
-                              <div className="inline-flex items-center bg-background py-1 pl-2 pr-3 rounded-full border border-default-200 cursor-help">
-                                <div className="flex items-center gap-1.5">
-                                  <div className="w-6 h-6 rounded-full bg-default-200 flex items-center justify-center">
-                                    <Film size={14} />
-                                  </div>
-                                  <span className="font-medium">
-                                    {director.name}
-                                  </span>
-                                  <Badge
-                                    color="success"
-                                    content={director.movies.length}
-                                    placement="top-right"
-                                    size="sm"
-                                  >
-                                    <div className="w-2 h-5" />
-                                  </Badge>
-                                </div>
-                              </div>
-                            </Tooltip>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Genre Connections */}
-                    {connections.genres.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-default-700 mb-2">
-                          Common Genres
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {connections.genres.map((genre, idx) => (
-                            <Tooltip
-                              key={idx}
-                              content={
-                                <div>
-                                  <p className="font-bold mb-1">
-                                    Movies in this genre:
-                                  </p>
-                                  <ul className="list-disc pl-4">
-                                    {genre.movies.map((m) => (
-                                      <li
-                                        key={m.id}
-                                        className={
-                                          m.isWinner ? "text-warning" : ""
-                                        }
-                                      >
-                                        {m.title} {m.isWinner && "(Winner)"}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              }
-                            >
-                              <Chip
-                                color={
-                                  genre.movies.length ===
-                                  movieMonday.movieSelections.length
-                                    ? "warning"
-                                    : "default"
-                                }
-                                variant="flat"
-                              >
-                                {genre.name} ({genre.movies.length})
-                              </Chip>
-                            </Tooltip>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Decade Connections */}
-                    {connections.years.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-default-700 mb-2">
-                          Common Decades
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {connections.years.map((decade, idx) => (
-                            <Tooltip
-                              key={idx}
-                              content={
-                                <div>
-                                  <p className="font-bold mb-1">
-                                    Movies from {decade.decade}:
-                                  </p>
-                                  <ul className="list-disc pl-4">
-                                    {decade.movies.map((m) => (
-                                      <li
-                                        key={m.id}
-                                        className={
-                                          m.isWinner ? "text-warning" : ""
-                                        }
-                                      >
                                         {m.title} ({m.year}){" "}
                                         {m.isWinner && "(Winner)"}
                                       </li>
@@ -1419,14 +1699,14 @@ const MovieMondayDetail: React.FC = () => {
                             >
                               <Chip
                                 color={
-                                  decade.movies.length ===
+                                  actor.movies.length ===
                                   movieMonday.movieSelections.length
                                     ? "danger"
                                     : "default"
                                 }
                                 variant="flat"
                               >
-                                {decade.decade} ({decade.movies.length})
+                                {actor.name} ({actor.movies.length})
                               </Chip>
                             </Tooltip>
                           ))}
@@ -1633,8 +1913,8 @@ const MovieMondayDetail: React.FC = () => {
                                 {connections.actors
                                   .filter((conn) =>
                                     conn.movies.some(
-                                      (m) => m.id === movie.tmdbMovieId,
-                                    ),
+                                      (m) => m.id === movie.tmdbMovieId
+                                    )
                                   )
                                   .map((conn) => (
                                     <Tooltip
@@ -1655,8 +1935,8 @@ const MovieMondayDetail: React.FC = () => {
                                 {connections.directors
                                   .filter((conn) =>
                                     conn.movies.some(
-                                      (m) => m.id === movie.tmdbMovieId,
-                                    ),
+                                      (m) => m.id === movie.tmdbMovieId
+                                    )
                                   )
                                   .map((conn) => (
                                     <Tooltip
@@ -1684,7 +1964,20 @@ const MovieMondayDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Analytics Visualizations */}
+          {/* Enhanced Movie Analytics - Show if enhanced data is available */}
+          {data.enhancedHistory && (
+            <>
+              <div className="mt-10">
+                <h2 className="text-xl font-bold mb-4 flex items-center">
+                  <BarChart4 className="w-5 h-5 mr-2 text-primary" />
+                  Enhanced Movie Analytics
+                </h2>
+                {renderEnhancedMovieAnalytics()}
+              </div>
+            </>
+          )}
+
+          {/* Original Analytics Visualizations */}
           <div className="mt-10">
             <h2 className="text-xl font-bold mb-4 flex items-center">
               <BarChart4 className="w-5 h-5 mr-2 text-primary" />
@@ -1699,7 +1992,7 @@ const MovieMondayDetail: React.FC = () => {
                 </CardHeader>
                 <CardBody>
                   <div className="space-y-3">
-                    {stats.actors.slice(0, 5).map((actor) => (
+                    {(stats.actors || []).slice(0, 5).map((actor) => (
                       <div key={actor.id}>
                         <div className="flex justify-between mb-1">
                           <div className="flex items-center">
@@ -1724,7 +2017,9 @@ const MovieMondayDetail: React.FC = () => {
                           size="sm"
                           value={
                             (actor.count /
-                              Math.max(...stats.actors.map((a) => a.count))) *
+                              Math.max(
+                                ...(stats.actors || []).map((a) => a.count)
+                              )) *
                             100
                           }
                         />
@@ -1740,9 +2035,9 @@ const MovieMondayDetail: React.FC = () => {
                   <h3 className="text-md font-bold">Top Directors</h3>
                 </CardHeader>
                 <CardBody>
-                  {stats.directors?.length > 0 ? (
+                  {(stats.directors || []).length > 0 ? (
                     <div className="space-y-3">
-                      {stats.directors.slice(0, 5).map((director) => (
+                      {(stats.directors || []).slice(0, 5).map((director) => (
                         <div key={director.id}>
                           <div className="flex justify-between mb-1">
                             <div className="flex items-center">
@@ -1770,7 +2065,7 @@ const MovieMondayDetail: React.FC = () => {
                             value={
                               (director.count /
                                 Math.max(
-                                  ...stats.directors.map((d) => d.count),
+                                  ...(stats.directors || []).map((d) => d.count)
                                 )) *
                               100
                             }
@@ -1793,7 +2088,7 @@ const MovieMondayDetail: React.FC = () => {
                 </CardHeader>
                 <CardBody>
                   <div className="space-y-3">
-                    {stats.genres.slice(0, 5).map((genre, index) => (
+                    {(stats.genres || []).slice(0, 5).map((genre, index) => (
                       <div key={index}>
                         <div className="flex justify-between mb-1">
                           <div className="flex items-center">
@@ -1824,7 +2119,9 @@ const MovieMondayDetail: React.FC = () => {
                           size="sm"
                           value={
                             (genre.count /
-                              Math.max(...stats.genres.map((g) => g.count))) *
+                              Math.max(
+                                ...(stats.genres || []).map((g) => g.count)
+                              )) *
                             100
                           }
                         />
@@ -1872,18 +2169,18 @@ const MovieMondayDetail: React.FC = () => {
                             ...data,
                           }))
                           .sort(
-                            (a, b) => parseInt(a.decade) - parseInt(b.decade),
+                            (a, b) => parseInt(a.decade) - parseInt(b.decade)
                           );
 
                         // Render decade bars
                         return (
                           <div className="space-y-3">
-                            {decadeArray.map((decade) => (
-                              <div key={decade.decade}>
+                            {decadeArray.map((decadeItem) => (
+                              <div key={decadeItem.decade}>
                                 <div className="flex justify-between mb-1">
                                   <div className="flex items-center">
                                     <span className="font-medium">
-                                      {decade.decade}
+                                      {decadeItem.decade}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-2">
@@ -1894,7 +2191,7 @@ const MovieMondayDetail: React.FC = () => {
                                             Movies from this decade:
                                           </p>
                                           <ul className="list-disc pl-4">
-                                            {decade.movies.map((m) => (
+                                            {decadeItem.movies.map((m) => (
                                               <li
                                                 key={m.tmdbMovieId}
                                                 className={
@@ -1912,10 +2209,10 @@ const MovieMondayDetail: React.FC = () => {
                                       }
                                     >
                                       <span className="text-sm cursor-help">
-                                        {decade.count} movies
+                                        {decadeItem.count} movies
                                       </span>
                                     </Tooltip>
-                                    {decade.winners > 0 && (
+                                    {decadeItem.winners > 0 && (
                                       <Trophy className="h-4 w-4 text-warning" />
                                     )}
                                   </div>
@@ -1925,9 +2222,9 @@ const MovieMondayDetail: React.FC = () => {
                                   color="danger"
                                   size="sm"
                                   value={
-                                    (decade.count /
+                                    (decadeItem.count /
                                       Math.max(
-                                        ...decadeArray.map((d) => d.count),
+                                        ...decadeArray.map((d) => d.count)
                                       )) *
                                     100
                                   }
@@ -2018,7 +2315,7 @@ const MovieMondayDetail: React.FC = () => {
                           >
                             {cocktail}
                           </div>
-                        ),
+                        )
                       )}
                     </div>
                   ) : (
@@ -2045,7 +2342,7 @@ const MovieMondayDetail: React.FC = () => {
                           >
                             {dessert}
                           </div>
-                        ),
+                        )
                       )}
                     </div>
                   ) : (
@@ -2081,102 +2378,111 @@ const MovieMondayDetail: React.FC = () => {
             </CardBody>
           </Card>
 
-          {/* Menu Stats Card */}
-          <Card>
-            <CardHeader className="flex gap-2">
-              <Box className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-bold">Menu Statistics</h3>
-            </CardHeader>
-            <CardBody>
-              <div className="space-y-6">
-                {/* Popular Meals */}
-                {stats.meals && stats.meals.length > 0 && (
-                  <div>
-                    <h4 className="font-medium text-default-700 mb-2 flex items-center">
-                      <Utensils className="h-4 w-4 mr-2" />
-                      Popular Meals
-                    </h4>
-                    <div className="space-y-3">
-                      {stats.meals.slice(0, 3).map((meal, index) => (
-                        <div key={index}>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-medium">{meal}</span>
-                            <span className="text-xs text-default-500">
-                              {Math.round(100 - index * 25)}% popularity
-                            </span>
+          {/* Enhanced Menu Stats - Show if enhanced data is available, otherwise show original */}
+          {data.enhancedHistory ? (
+            renderEnhancedMenuStats()
+          ) : (
+            <Card>
+              <CardHeader className="flex gap-2">
+                <Box className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-bold">Menu Statistics</h3>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-6">
+                  {/* Popular Meals */}
+                  {stats.meals && stats.meals.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-default-700 mb-2 flex items-center">
+                        <Utensils className="h-4 w-4 mr-2" />
+                        Popular Meals
+                      </h4>
+                      <div className="space-y-3">
+                        {stats.meals.slice(0, 3).map((meal, index) => (
+                          <div key={index}>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="font-medium">{meal}</span>
+                              <span className="text-xs text-default-500">
+                                {Math.round(100 - index * 25)}% popularity
+                              </span>
+                            </div>
+                            <Progress
+                              className="h-2"
+                              color="primary"
+                              size="sm"
+                              value={100 - index * 25}
+                            />
                           </div>
-                          <Progress
-                            className="h-2"
-                            color="primary"
-                            size="sm"
-                            value={100 - index * 25}
-                          />
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Popular Cocktails */}
-                {stats.cocktails && stats.cocktails.length > 0 && (
-                  <div>
-                    <h4 className="font-medium text-default-700 mb-2 flex items-center">
-                      <Wine className="h-4 w-4 mr-2" />
-                      Popular Cocktails
-                    </h4>
-                    <div className="space-y-3">
-                      {stats.cocktails.slice(0, 3).map((cocktail, index) => (
-                        <div key={index}>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-medium">{cocktail}</span>
-                            <span className="text-xs text-default-500">
-                              {Math.round(100 - index * 25)}% popularity
-                            </span>
+                  {/* Popular Cocktails */}
+                  {stats.cocktails && stats.cocktails.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-default-700 mb-2 flex items-center">
+                        <Wine className="h-4 w-4 mr-2" />
+                        Popular Cocktails
+                      </h4>
+                      <div className="space-y-3">
+                        {stats.cocktails.slice(0, 3).map((cocktail, index) => (
+                          <div key={index}>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="font-medium">{cocktail}</span>
+                              <span className="text-xs text-default-500">
+                                {Math.round(100 - index * 25)}% popularity
+                              </span>
+                            </div>
+                            <Progress
+                              className="h-2"
+                              color="danger"
+                              size="sm"
+                              value={100 - index * 25}
+                            />
                           </div>
-                          <Progress
-                            className="h-2"
-                            color="danger"
-                            size="sm"
-                            value={100 - index * 25}
-                          />
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Popular Desserts */}
-                {stats.desserts && stats.desserts.length > 0 && (
-                  <div>
-                    <h4 className="font-medium text-default-700 mb-2 flex items-center">
-                      <Cake className="h-4 w-4 mr-2" />
-                      Popular Desserts
-                    </h4>
-                    <div className="space-y-3">
-                      {stats.desserts.slice(0, 3).map((dessert, index) => (
-                        <div key={index}>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-medium">{dessert}</span>
-                            <span className="text-xs text-default-500">
-                              {Math.round(100 - index * 25)}% popularity
-                            </span>
+                  {/* Popular Desserts */}
+                  {stats.desserts && stats.desserts.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-default-700 mb-2 flex items-center">
+                        <Cake className="h-4 w-4 mr-2" />
+                        Popular Desserts
+                      </h4>
+                      <div className="space-y-3">
+                        {stats.desserts.slice(0, 3).map((dessert, index) => (
+                          <div key={index}>
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="font-medium">{dessert}</span>
+                              <span className="text-xs text-default-500">
+                                {Math.round(100 - index * 25)}% popularity
+                              </span>
+                            </div>
+                            <Progress
+                              className="h-2"
+                              color="warning"
+                              size="sm"
+                              value={100 - index * 25}
+                            />
                           </div>
-                          <Progress
-                            className="h-2"
-                            color="warning"
-                            size="sm"
-                            value={100 - index * 25}
-                          />
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </CardBody>
-          </Card>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+          )}
 
-          {/* Historical Insights Toggle */}
+          {/* Enhanced Historical Context - Show if enhanced data is available */}
+          {data.enhancedHistory && (
+            <div className="mt-6">{renderEnhancedHistoricalContext()}</div>
+          )}
+
+          {/* Historical Insights Toggle - Keep existing functionality */}
           {data.history && (
             <div className="flex items-center justify-between mt-8">
               <h2 className="text-xl font-bold flex items-center">
