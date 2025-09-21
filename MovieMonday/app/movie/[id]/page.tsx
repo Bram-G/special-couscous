@@ -29,7 +29,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useDisclosure } from "@heroui/react";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 import { useAuth } from "@/contexts/AuthContext";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import MovieMondaySelector from "@/components/MovieMondaySelector";
@@ -39,6 +39,7 @@ import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import StreamingServices from "@/components/MoviePage/StreamingServices";
 import ActorCard from "@/components/MoviePage/ActorCard";
 import AddToWatchlistButton from "@/components/Watchlist/AddToWatchlistButton";
+import { CommentSection } from "@/components/Comments";
 import "./moviePage.css";
 
 export default function MoviePage() {
@@ -93,7 +94,7 @@ export default function MoviePage() {
       try {
         setLoading(true);
         const response = await fetch(
-          `https://api.themoviedb.org/3/movie/${extractedId}?append_to_response=credits,videos,release_dates&api_key=${process.env.NEXT_PUBLIC_API_Key}`,
+          `https://api.themoviedb.org/3/movie/${extractedId}?append_to_response=credits,videos,release_dates&api_key=${process.env.NEXT_PUBLIC_API_Key}`
         );
 
         if (!response.ok) {
@@ -148,7 +149,7 @@ export default function MoviePage() {
             title: movieDetails.title,
             posterPath: movieDetails.poster_path,
           }),
-        },
+        }
       );
 
       const data = await response.json();
@@ -181,7 +182,7 @@ export default function MoviePage() {
               "Content-Type": "application/json",
             },
             credentials: "include",
-          },
+          }
         );
 
         if (!response.ok) {
@@ -205,7 +206,7 @@ export default function MoviePage() {
                 "Content-Type": "application/json",
               },
               credentials: "include",
-            },
+            }
           );
 
           if (!deleteResponse.ok) {
@@ -228,14 +229,14 @@ export default function MoviePage() {
               title: movieDetails?.title,
               posterPath: movieDetails?.poster_path,
             }),
-          },
+          }
         );
 
         if (!addResponse.ok) {
           const errorData = await addResponse.json();
 
           throw new Error(
-            `Failed to add movie to watchlist: ${errorData.message || "Unknown error"}`,
+            `Failed to add movie to watchlist: ${errorData.message || "Unknown error"}`
           );
         }
       }
@@ -256,7 +257,7 @@ export default function MoviePage() {
     try {
       setLoadingProviders(true);
       const response = await fetch(
-        `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=${process.env.NEXT_PUBLIC_API_Key}`,
+        `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=${process.env.NEXT_PUBLIC_API_Key}`
       );
       const data = await response.json();
 
@@ -268,7 +269,7 @@ export default function MoviePage() {
           : [];
 
       setWatchProviders(
-        usProviders.length > 0 ? usProviders : firstRegionProviders,
+        usProviders.length > 0 ? usProviders : firstRegionProviders
       );
     } catch (error) {
       console.error("Error fetching watch providers:", error);
@@ -285,15 +286,12 @@ export default function MoviePage() {
       setLoadingActorStats(true);
       const actorNames = castList.map((actor) => actor.name);
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/movie-monday/all`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+      const response = await fetch(`${API_BASE_URL}/api/movie-monday/all`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      );
+      });
 
       if (response.ok) {
         const movieData = await response.json();
@@ -308,7 +306,7 @@ export default function MoviePage() {
                 movie.cast &&
                 movie.cast.some(
                   (castMember) =>
-                    castMember.name.toLowerCase() === actorName.toLowerCase(),
+                    castMember.name.toLowerCase() === actorName.toLowerCase()
                 );
 
               if (actorInCast) {
@@ -392,7 +390,7 @@ export default function MoviePage() {
       (person) =>
         person.job === "Screenplay" ||
         person.job === "Writer" ||
-        person.job === "Story",
+        person.job === "Story"
     );
   };
 
@@ -403,7 +401,7 @@ export default function MoviePage() {
     }
 
     const trailers = movieDetails.videos.results.filter(
-      (video) => video.type === "Trailer" && video.site === "YouTube",
+      (video) => video.type === "Trailer" && video.site === "YouTube"
     );
 
     return trailers.length > 0 ? trailers[0] : null;
@@ -635,16 +633,14 @@ export default function MoviePage() {
                 <div className="p-4">
                   {activeTab === "cast" && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 px-2">
-                      {credits.cast
-                        ?.slice(0, 20)
-                        .map((person) => (
-                          <ActorCard
-                            key={person.id}
-                            actor={person}
-                            stats={actorStats[person.name] || null}
-                            onClick={handleActorClick}
-                          />
-                        ))}
+                      {credits.cast?.slice(0, 20).map((person) => (
+                        <ActorCard
+                          key={person.id}
+                          actor={person}
+                          stats={actorStats[person.name] || null}
+                          onClick={handleActorClick}
+                        />
+                      ))}
                     </div>
                   )}
 
@@ -781,7 +777,7 @@ export default function MoviePage() {
                                       {company.name}
                                     </p>
                                   </div>
-                                ),
+                                )
                               )}
                             </div>
                           </div>
@@ -860,6 +856,13 @@ export default function MoviePage() {
             {/* Recommendations */}
             <div className="mt-12">
               <EnhancedRecommendations movieId={movieId} />
+            </div>
+            {/* Comment Section */}
+            <div className="mt-12">
+              <CommentSection
+                movieId={movieDetails.id}
+                movieTitle={movieDetails.title}
+              />
             </div>
           </div>
 
