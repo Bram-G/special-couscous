@@ -224,7 +224,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       try {
         // Fetch cocktail suggestions
         const cocktailResponse = await fetch(
-          "${API_BASE_URL}/api/movie-monday/cocktails",
+          `${API_BASE_URL}/api/movie-monday/cocktails`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
