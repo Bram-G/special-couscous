@@ -14,6 +14,7 @@ import {
 import { Plus, X } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface WatchlistCategory {
   id: number;
@@ -75,7 +76,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
       setError(null);
 
       const response = await fetch(
-        "http://localhost:8000/api/watchlists/categories",
+        `${API_BASE_URL}/api/watchlists/categories`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -105,7 +106,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/watchlists/status/${movieDetails.id}`,
+        `${API_BASE_URL}/api/watchlists/status/${movieDetails.id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -153,7 +154,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
       if (isSelected) {
         // Add to watchlist
         const response = await fetch(
-          `http://localhost:8000/api/watchlists/categories/${watchlistId}/movies`,
+          `${API_BASE_URL}/api/watchlists/categories/${watchlistId}/movies`,
           {
             method: "POST",
             headers: {
@@ -181,7 +182,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
       } else {
         // Find the watchlist item ID
         const statusResponse = await fetch(
-          `http://localhost:8000/api/watchlists/status/${movieDetails.id}`,
+          `${API_BASE_URL}/api/watchlists/status/${movieDetails.id}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -199,7 +200,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
           if (watchlistInfo) {
             // Remove from watchlist
             const deleteResponse = await fetch(
-              `http://localhost:8000/api/watchlists/categories/${watchlistId}/movies/${watchlistInfo.itemId}`,
+              `${API_BASE_URL}/api/watchlists/categories/${watchlistId}/movies/${watchlistInfo.itemId}`,
               {
                 method: "DELETE",
                 headers: {
@@ -247,7 +248,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
       setError(null);
 
       const response = await fetch(
-        `http://localhost:8000/api/watchlists/add-to-watchlists`,
+        `${API_BASE_URL}/api/watchlists/add-to-watchlists`,
         {
           method: "POST",
           headers: {
@@ -287,7 +288,7 @@ const AddToWatchlistModal: React.FC<AddToWatchlistModalProps> = ({
       setError(null);
 
       const response = await fetch(
-        "http://localhost:8000/api/watchlists/categories",
+        `${API_BASE_URL}/api/watchlists/categories`,
         {
           method: "POST",
           headers: {

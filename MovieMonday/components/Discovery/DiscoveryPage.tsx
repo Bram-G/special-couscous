@@ -80,6 +80,7 @@ export default function DiscoveryPage() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const { allWatchlistMovieIds } = useWatchlistStatus(0);
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
   // Check for search query in URL
   useEffect(() => {
@@ -182,7 +183,7 @@ export default function DiscoveryPage() {
 
       // First, fetch user's watchlist items from all watchlists
       const watchlistResponse = await fetch(
-        "http://localhost:8000/api/watchlists/all-items",
+        `${API_BASE_URL}/api/watchlists/all-items`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -307,7 +308,7 @@ export default function DiscoveryPage() {
 
       // Fetch the watchlists with explicit request for items
       const response = await fetch(
-        "http://localhost:8000/api/watchlists/public?sort=popular&limit=5&include_items=true",
+        `${API_BASE_URL}/api/watchlists/public?sort=popular&limit=5&include_items=true`,
       );
 
       if (!response.ok) {

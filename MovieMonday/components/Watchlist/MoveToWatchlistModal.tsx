@@ -56,6 +56,7 @@ const MoveToWatchlistModal: React.FC<MoveToWatchlistModalProps> = ({
   const [showCreateNew, setShowCreateNew] = useState(false);
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [creatingWatchlist, setCreatingWatchlist] = useState(false);
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   // Fetch user's watchlists
   useEffect(() => {
@@ -72,7 +73,7 @@ const MoveToWatchlistModal: React.FC<MoveToWatchlistModalProps> = ({
       setError(null);
 
       const response = await fetch(
-        "http://localhost:8000/api/watchlists/categories",
+        `${API_BASE_URL}/api/watchlists/categories`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -110,7 +111,7 @@ const MoveToWatchlistModal: React.FC<MoveToWatchlistModalProps> = ({
 
       // First copy the movie to the new watchlist
       const copyResponse = await fetch(
-        "http://localhost:8000/api/watchlists/copy-movie",
+        `${API_BASE_URL}/api/watchlists/copy-movie`,
         {
           method: "POST",
           headers: {
@@ -136,7 +137,7 @@ const MoveToWatchlistModal: React.FC<MoveToWatchlistModalProps> = ({
 
       // Now remove from the current watchlist
       const deleteResponse = await fetch(
-        `http://localhost:8000/api/watchlists/categories/${currentWatchlistId}/movies/${movieItem.id}`,
+        `${API_BASE_URL}/api/watchlists/categories/${currentWatchlistId}/movies/${movieItem.id}`,
         {
           method: "DELETE",
           headers: {
@@ -169,7 +170,7 @@ const MoveToWatchlistModal: React.FC<MoveToWatchlistModalProps> = ({
       setError(null);
 
       const response = await fetch(
-        "http://localhost:8000/api/watchlists/categories",
+        `${API_BASE_URL}/api/watchlists/categories`,
         {
           method: "POST",
           headers: {

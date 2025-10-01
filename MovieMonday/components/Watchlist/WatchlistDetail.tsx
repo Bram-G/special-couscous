@@ -46,6 +46,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, useSortable, verticalListSortingStrategy, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToParentElement } from '@dnd-kit/modifiers';
+import { CommentSection } from '@/components/Comments';
 import MoveToWatchlistModal from './MoveToWatchlistModal';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -566,6 +567,8 @@ const WatchlistDetail = () => {
           </div>
         </div>
 
+         
+
         <div className="flex gap-2">
           {isAuthenticated && (
             <Button
@@ -728,6 +731,15 @@ const WatchlistDetail = () => {
             </div>
           </SortableContext>
         </DndContext>
+      )}
+       {watchlist && (
+        <div className="mt-12">
+          <CommentSection 
+            contentType="watchlist"
+            contentId={watchlist.id}
+            contentTitle={watchlist.name}
+          />
+        </div>
       )}
 
       {/* Movie Detail Modal */}

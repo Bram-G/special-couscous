@@ -123,7 +123,7 @@ export default function ResendVerificationPage() {
                 >
                   Send to Different Email
                 </Button>
-                <Link href="/auth" color="primary" className="block">
+                <Link href="/login" color="primary" className="block">
                   Back to Login
                 </Link>
               </div>

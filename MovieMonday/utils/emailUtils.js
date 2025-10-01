@@ -14,21 +14,18 @@ const transporter = nodemailer.createTransport({
 // Send verification email
 const sendVerificationEmail = async (user, hostOrOrigin) => {
   try {
-    // Generate token if one doesn't exist
     if (!user.verificationToken) {
       user.verificationToken = crypto.randomBytes(32).toString('hex');
-      user.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      user.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
       await user.save();
     }
 
-    // Determine base URL
-    const isFullUrl = hostOrOrigin.startsWith('http');
-    const baseUrl = isFullUrl ? hostOrOrigin : `https://${hostOrOrigin}`;
+    // Use the FRONTEND_URL environment variable
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     
-    // Create verification URL
+    // IMPORTANT: Don't include brackets - they break the HTML link
     const verificationUrl = `${baseUrl}/verify-email/${user.verificationToken}`;
     
-    // Email content
     const mailOptions = {
       from: process.env.EMAIL_FROM || '"Movie Monday" <noreply@moviemonday.com>',
       to: user.email,
@@ -52,7 +49,6 @@ const sendVerificationEmail = async (user, hostOrOrigin) => {
       `
     };
     
-    // Send the email
     await transporter.sendMail(mailOptions);
     console.log(`Verification email sent to ${user.email}`);
     
@@ -65,22 +61,16 @@ const sendVerificationEmail = async (user, hostOrOrigin) => {
 
 // Send password reset email
 const sendPasswordResetEmail = async (user, hostOrOrigin) => {
-  // Similar implementation as verification email
   try {
-    // Generate token
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.passwordResetToken = resetToken;
-    user.passwordResetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    user.passwordResetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
 
-    // Determine base URL
-    const isFullUrl = hostOrOrigin.startsWith('http');
-    const baseUrl = isFullUrl ? hostOrOrigin : `https://${hostOrOrigin}`;
-    
-    // Create reset URL
+    // Use the FRONTEND_URL environment variable
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const resetUrl = `${baseUrl}/reset-password/${resetToken}`;
     
-    // Email content
     const mailOptions = {
       from: process.env.EMAIL_FROM || '"Movie Monday" <noreply@moviemonday.com>',
       to: user.email,
@@ -104,7 +94,6 @@ const sendPasswordResetEmail = async (user, hostOrOrigin) => {
       `
     };
     
-    // Send the email
     await transporter.sendMail(mailOptions);
     console.log(`Password reset email sent to ${user.email}`);
     

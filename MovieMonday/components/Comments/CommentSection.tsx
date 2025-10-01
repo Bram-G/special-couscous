@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,25 +8,42 @@ import {
   CardHeader,
   Button,
   Skeleton,
-  Select,
-  SelectItem,
   Divider,
 } from '@heroui/react';
-import { MessageSquare, SortAsc, Filter } from 'lucide-react';
+import { MessageSquare, SortAsc } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Comment, CommentSection as CommentSectionType } from '@/types/comments';
+import { Comment } from '@/types/comments';
 import CommentList from './CommentList';
 import CommentForm from './CommentForm';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface CommentSectionProps {
-  movieId: number;
+  // New polymorphic props
+  contentType: 'movie' | 'watchlist' | 'moviemonday';
+  contentId: number;
+  contentTitle?: string;
+  
+  // Legacy props for backward compatibility
+  movieId?: number;
   movieTitle?: string;
 }
 
-export default function CommentSection({ movieId, movieTitle }: CommentSectionProps) {
+export default function CommentSection({ 
+  contentType, 
+  contentId, 
+  contentTitle,
+  // Legacy support
+  movieId,
+  movieTitle 
+}: CommentSectionProps) {
   const { user, token } = useAuth();
+  
+  // Handle legacy props
+  const finalContentType = contentType || 'movie';
+  const finalContentId = contentId || movieId!;
+  const finalContentTitle = contentTitle || movieTitle;
+
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,13 +52,14 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
   const [hasMore, setHasMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [contentInfo, setContentInfo] = useState<any>(null);
 
-  // Fetch comments for the movie
+  // Fetch comments for the content
   const fetchComments = async (sort: 'top' | 'new' | 'controversial' = 'top', page = 1) => {
     try {
       setLoading(page === 1);
       
-      const url = new URL(`${API_BASE_URL}/api/comments/${movieId}`);
+      const url = new URL(`${API_BASE_URL}/api/comments/${finalContentType}/${finalContentId}`);
       url.searchParams.append('sort', sort);
       url.searchParams.append('page', page.toString());
       url.searchParams.append('limit', '20');
@@ -49,7 +68,6 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
         'Content-Type': 'application/json',
       };
 
-      // Add auth header if user is logged in
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
@@ -63,7 +81,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
         throw new Error(`Failed to fetch comments: ${response.status}`);
       }
 
-      const data: CommentSectionType = await response.json();
+      const data = await response.json();
       
       if (page === 1) {
         setComments(data.comments);
@@ -74,6 +92,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
       setTotalComments(data.totalComments);
       setHasMore(data.hasMore);
       setCurrentPage(page);
+      setContentInfo(data.contentInfo);
       setError(null);
     } catch (err) {
       console.error('Error fetching comments:', err);
@@ -98,7 +117,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
     try {
       setSubmittingComment(true);
       
-      const response = await fetch(`${API_BASE_URL}/api/comments/${movieId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/comments/${finalContentType}/${finalContentId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,12 +137,9 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
 
       const data = await response.json();
       
-      // Add the new comment to the appropriate place
       if (parentCommentId) {
-        // This is a reply - we'll handle this when we implement reply functionality
         await fetchComments(currentSort, 1);
       } else {
-        // This is a top-level comment - add it to the beginning
         setComments(prev => [data.comment, ...prev]);
         setTotalComments(prev => prev + 1);
       }
@@ -137,7 +153,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
     }
   };
 
-  // Vote on a comment
+  // Vote on a comment (same as before)
   const voteOnComment = async (commentId: number, voteType: 'upvote' | 'downvote') => {
     if (!user || !token) {
       setError('You must be logged in to vote');
@@ -162,7 +178,6 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
 
       const data = await response.json();
       
-      // Update the comment in state with new vote counts
       setComments(prev => updateCommentInTree(prev, commentId, {
         voteScore: data.newCounts.voteScore,
         upvotes: data.newCounts.upvotes,
@@ -177,7 +192,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
     }
   };
 
-  // Remove vote from a comment
+  // Remove vote (same as before)
   const removeVote = async (commentId: number) => {
     if (!user || !token) return;
 
@@ -197,7 +212,6 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
 
       const data = await response.json();
       
-      // Update the comment in state
       setComments(prev => updateCommentInTree(prev, commentId, {
         voteScore: data.newCounts.voteScore,
         upvotes: data.newCounts.upvotes,
@@ -210,7 +224,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
     }
   };
 
-  // Helper function to update a comment in the nested tree structure
+  // Helper function to update comment in tree (same as before)
   const updateCommentInTree = (
     comments: Comment[], 
     targetId: number, 
@@ -230,7 +244,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
     });
   };
 
-  // Load more comments (pagination)
+  // Load more comments
   const loadMoreComments = async () => {
     if (!hasMore || loading) return;
     await fetchComments(currentSort, currentPage + 1);
@@ -243,10 +257,37 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
     fetchComments(sort, 1);
   };
 
+  // Get display names for different content types
+  const getContentTypeDisplay = () => {
+    switch (finalContentType) {
+      case 'movie':
+        return 'Movie Discussion';
+      case 'watchlist':
+        return 'Watchlist Discussion';
+      case 'moviemonday':
+        return 'Movie Monday Discussion';
+      default:
+        return 'Discussion';
+    }
+  };
+
+  const getPlaceholderText = () => {
+    switch (finalContentType) {
+      case 'movie':
+        return `Share your thoughts about ${finalContentTitle || 'this movie'}...`;
+      case 'watchlist':
+        return `What do you think about this watchlist?`;
+      case 'moviemonday':
+        return `Comment on this Movie Monday event...`;
+      default:
+        return 'Share your thoughts...';
+    }
+  };
+
   // Initial load
   useEffect(() => {
     fetchComments(currentSort);
-  }, [movieId]);
+  }, [finalContentType, finalContentId]);
 
   return (
     <Card className="w-full">
@@ -255,7 +296,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
           <div className="flex items-center gap-2">
             <MessageSquare className="h-6 w-6 text-primary" />
             <h3 className="text-lg font-semibold">
-              Discussion {movieTitle && `• ${movieTitle}`}
+              {getContentTypeDisplay()} {finalContentTitle && `• ${finalContentTitle}`}
             </h3>
           </div>
           <div className="flex items-center gap-2 text-small text-default-500">
@@ -308,7 +349,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
           <CommentForm
             onSubmit={(content) => createComment(content)}
             loading={submittingComment}
-            placeholder={`Share your thoughts about ${movieTitle || 'this movie'}...`}
+            placeholder={getPlaceholderText()}
           />
         ) : (
           <Card>
@@ -363,7 +404,6 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
               currentUser={user}
             />
             
-            {/* Load More Button */}
             {hasMore && (
               <div className="text-center">
                 <Button
@@ -385,7 +425,7 @@ export default function CommentSection({ movieId, movieTitle }: CommentSectionPr
                 No comments yet
               </h4>
               <p className="text-default-500">
-                Be the first to share your thoughts about {movieTitle || 'this movie'}!
+                Be the first to share your thoughts!
               </p>
             </CardBody>
           </Card>
