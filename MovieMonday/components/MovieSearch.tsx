@@ -26,54 +26,25 @@ export const MovieSearch = () => {
   const { isAuthenticated, currentGroupId } = useAuth();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+  // Store currentGroupId in a ref so debounced function can access the latest value
+  const currentGroupIdRef = useRef(currentGroupId);
+  
+  useEffect(() => {
+    currentGroupIdRef.current = currentGroupId;
+    console.log('MovieSearch - currentGroupId updated:', currentGroupId);
+  }, [currentGroupId]);
+
   // Debug logging
   useEffect(() => {
     console.log('MovieSearch - Auth state:', { isAuthenticated, currentGroupId });
   }, [isAuthenticated, currentGroupId]);
 
-  // Create a debounced search function
-  const debouncedSearch = useRef(
-    debounce(async (term: string) => {
-      if (!term) {
-        setSuggestions([]);
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const response = await fetch(
-          `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(term)}&include_adult=false&language=en-US&page=1&api_key=${process.env.NEXT_PUBLIC_API_Key}`,
-        );
-
-        if (!response.ok) {
-          throw new Error(`TMDB API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Get first 5 results for quick suggestions
-        const results = data.results.slice(0, 5);
-        setSuggestions(results);
-
-        // Check watched status in parallel
-        if (currentGroupId && results.length > 0) {
-          console.log('MovieSearch - Checking watched status for group:', currentGroupId);
-          checkWatchedStatus(results);
-        } else {
-          console.log('MovieSearch - NOT checking watched status. currentGroupId:', currentGroupId, 'results.length:', results.length);
-        }
-      } catch (error) {
-        console.error("Error fetching suggestions:", error);
-        setSuggestions([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 300),
-  ).current;
-
   // Check which movies have been watched
   const checkWatchedStatus = async (movies: Movie[]) => {
-    if (!currentGroupId) {
+    // Use the ref to get the latest currentGroupId
+    const groupId = currentGroupIdRef.current;
+    
+    if (!groupId) {
       console.log('MovieSearch checkWatchedStatus - No currentGroupId, skipping');
       return;
     }
@@ -83,7 +54,7 @@ export const MovieSearch = () => {
       
       console.log('MovieSearch - Making check-watched request:', {
         url: `${API_BASE_URL}/api/movie-monday/check-watched`,
-        group_id: currentGroupId,
+        group_id: groupId,
         tmdb_ids: tmdbIds
       });
       
@@ -95,7 +66,7 @@ export const MovieSearch = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            group_id: currentGroupId,
+            group_id: groupId,
             tmdb_ids: tmdbIds
           })
         }
@@ -120,6 +91,45 @@ export const MovieSearch = () => {
       // Silently fail - search results still work without this
     }
   };
+
+  // Create a debounced search function
+  const debouncedSearch = useRef(
+    debounce(async (term: string, performCheckWatchedStatus: (movies: Movie[]) => Promise<void>) => {
+      if (!term) {
+        setSuggestions([]);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(term)}&include_adult=false&language=en-US&page=1&api_key=${process.env.NEXT_PUBLIC_API_Key}`,
+        );
+
+        if (!response.ok) {
+          throw new Error(`TMDB API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Get first 5 results for quick suggestions
+        const results = data.results.slice(0, 5);
+        setSuggestions(results);
+
+        // Check watched status in parallel
+        // Pass the function so it uses the latest currentGroupId via ref
+        if (results.length > 0) {
+          console.log('MovieSearch - Calling checkWatchedStatus with currentGroupIdRef:', currentGroupIdRef.current);
+          performCheckWatchedStatus(results);
+        }
+      } catch (error) {
+        console.error("Error fetching suggestions:", error);
+        setSuggestions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300),
+  ).current;
 
   useEffect(() => {
     return () => {
@@ -147,7 +157,8 @@ export const MovieSearch = () => {
     const value = e.target.value;
     setSearchTerm(value);
     setShowSuggestions(true);
-    debouncedSearch(value);
+    // Pass the checkWatchedStatus function to debounced search
+    debouncedSearch(value, checkWatchedStatus);
   };
 
   const handleMovieClick = (movieId: number) => {
