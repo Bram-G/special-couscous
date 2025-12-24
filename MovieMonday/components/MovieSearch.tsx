@@ -13,7 +13,7 @@ interface Movie {
   title: string;
   poster_path: string | null;
   release_date?: string;
-  isWatched?: boolean; // NEW: Track watched status
+  isWatched?: boolean;
 }
 
 export const MovieSearch = () => {
@@ -23,8 +23,13 @@ export const MovieSearch = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { isAuthenticated, currentGroupId } = useAuth(); // Get current group ID
+  const { isAuthenticated, currentGroupId } = useAuth();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  // Debug logging
+  useEffect(() => {
+    console.log('MovieSearch - Auth state:', { isAuthenticated, currentGroupId });
+  }, [isAuthenticated, currentGroupId]);
 
   // Create a debounced search function
   const debouncedSearch = useRef(
@@ -50,9 +55,12 @@ export const MovieSearch = () => {
         const results = data.results.slice(0, 5);
         setSuggestions(results);
 
-        // Check watched status in parallel (don't await)
+        // Check watched status in parallel
         if (currentGroupId && results.length > 0) {
+          console.log('MovieSearch - Checking watched status for group:', currentGroupId);
           checkWatchedStatus(results);
+        } else {
+          console.log('MovieSearch - NOT checking watched status. currentGroupId:', currentGroupId, 'results.length:', results.length);
         }
       } catch (error) {
         console.error("Error fetching suggestions:", error);
@@ -63,10 +71,21 @@ export const MovieSearch = () => {
     }, 300),
   ).current;
 
-  // NEW: Check which movies have been watched
+  // Check which movies have been watched
   const checkWatchedStatus = async (movies: Movie[]) => {
+    if (!currentGroupId) {
+      console.log('MovieSearch checkWatchedStatus - No currentGroupId, skipping');
+      return;
+    }
+
     try {
       const tmdbIds = movies.map(m => m.id);
+      
+      console.log('MovieSearch - Making check-watched request:', {
+        url: `${API_BASE_URL}/api/movie-monday/check-watched`,
+        group_id: currentGroupId,
+        tmdb_ids: tmdbIds
+      });
       
       const response = await fetch(
         `${API_BASE_URL}/api/movie-monday/check-watched`,
@@ -84,6 +103,7 @@ export const MovieSearch = () => {
 
       if (response.ok) {
         const { watched } = await response.json();
+        console.log('MovieSearch - Watched status response:', watched);
         
         // Update suggestions with watched status
         setSuggestions(prev =>
@@ -92,9 +112,11 @@ export const MovieSearch = () => {
             isWatched: watched.includes(movie.id)
           }))
         );
+      } else {
+        console.error('MovieSearch - check-watched response not ok:', response.status, await response.text());
       }
     } catch (error) {
-      console.error('Error checking watched status:', error);
+      console.error('MovieSearch - Error checking watched status:', error);
       // Silently fail - search results still work without this
     }
   };
@@ -193,7 +215,7 @@ export const MovieSearch = () => {
                         <p className="text-sm font-medium truncate">
                           {movie.title}
                         </p>
-                        {/* NEW: Watched indicator */}
+                        {/* Watched indicator */}
                         {movie.isWatched && (
                           <Badge 
                             color="success" 

@@ -1,8 +1,8 @@
-// Save as hooks/useWatchlistStatus.ts
-
 import { useState, useEffect } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface WatchlistInfo {
   watchlistId: number;
@@ -55,7 +55,7 @@ export default function useWatchlistStatus(
     try {
       // Use the status endpoint to check all watchlists at once
       const response = await fetch(
-        `http://localhost:8000/api/watchlists/status/${movieId}`,
+        `${API_BASE_URL}/api/watchlists/status/${movieId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -85,7 +85,7 @@ export default function useWatchlistStatus(
         setWatchlistIds([]);
         setWatchlistInfo([]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error checking watchlist status:", err);
       setError(err.message || "Failed to check watchlist status");
       // Don't reset status on error to prevent UI flicker
@@ -94,14 +94,12 @@ export default function useWatchlistStatus(
     }
   };
 
-  // Initial check
   useEffect(() => {
     if (movieId) {
       checkWatchlistStatus();
     }
   }, [movieId, token, isAuthenticated]);
 
-  // Provide a way to manually refresh the status
   const refresh = async () => {
     await checkWatchlistStatus();
   };

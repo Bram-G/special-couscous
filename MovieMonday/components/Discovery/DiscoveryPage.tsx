@@ -128,6 +128,14 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
 
     fetchPublicWatchlists();
   }, [isAuthenticated, token]);
+  
+  useEffect(() => {
+  console.log('DiscoveryPage - Auth state updated:', { 
+    isAuthenticated, 
+    currentGroupId, 
+    token: token ? 'exists' : 'null' 
+  });
+}, [isAuthenticated, currentGroupId, token]);
 
   // Fetch trending movies
   const fetchTrending = async () => {
@@ -371,11 +379,20 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
     [],
   );
 
-  const checkWatchedStatus = async (movies: Movie[]) => {
-  if (!currentGroupId || movies.length === 0) return;
+const checkWatchedStatus = async (movies: Movie[]) => {
+  if (!currentGroupId || movies.length === 0) {
+    console.log('DiscoveryPage checkWatchedStatus - Skipping. currentGroupId:', currentGroupId, 'movies.length:', movies.length);
+    return;
+  }
   
   try {
     const tmdbIds = movies.map(m => m.id);
+    
+    console.log('DiscoveryPage - Making check-watched request:', {
+      url: `${API_BASE_URL}/api/movie-monday/check-watched`,
+      group_id: currentGroupId,
+      tmdb_ids: tmdbIds
+    });
     
     const response = await fetch(
       `${API_BASE_URL}/api/movie-monday/check-watched`,
@@ -393,6 +410,7 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
 
     if (response.ok) {
       const { watched } = await response.json();
+      console.log('DiscoveryPage - Watched status response:', watched);
       
       // Update search results with watched status
       setSearchResults(prev =>
@@ -401,9 +419,12 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
           isWatched: watched.includes(movie.id)
         }))
       );
+    } else {
+      const errorText = await response.text();
+      console.error('DiscoveryPage - check-watched response not ok:', response.status, errorText);
     }
   } catch (error) {
-    console.error('Error checking watched status:', error);
+    console.error('DiscoveryPage - Error checking watched status:', error);
     // Silently fail - search results still work without this
   }
 };
@@ -438,11 +459,17 @@ const performSearch = async (query: string) => {
     const data = await response.json();
     const results = data.results || [];
 
+    console.log('DiscoveryPage - Search results:', results.length);
+    console.log('DiscoveryPage - currentGroupId:', currentGroupId);
+
     setSearchResults(results);
     
-    // Check watched status in parallel (don't await)
+    // Check watched status - IMPORTANT: Don't await this
     if (currentGroupId && results.length > 0) {
+      console.log('DiscoveryPage - Calling checkWatchedStatus');
       checkWatchedStatus(results);
+    } else {
+      console.log('DiscoveryPage - NOT calling checkWatchedStatus. currentGroupId:', currentGroupId, 'results.length:', results.length);
     }
   } catch (error) {
     console.error("Error searching movies:", error);
