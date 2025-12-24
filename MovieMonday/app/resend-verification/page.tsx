@@ -96,7 +96,7 @@ export default function ResendVerificationPage() {
               </form>
 
               <div className="text-center">
-                <Link href="/auth" color="primary">
+                <Link href="/login" color="primary">
                   Back to Login
                 </Link>
               </div>

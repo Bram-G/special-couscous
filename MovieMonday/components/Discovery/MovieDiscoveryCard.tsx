@@ -1,6 +1,5 @@
-// components/Discovery/MovieDiscoveryCard.tsx
 import React, { useState } from "react";
-import { Card, Image, Button, useDisclosure, Tooltip } from "@heroui/react";
+import { Card, Image, Button, Badge, useDisclosure, Tooltip } from "@heroui/react";
 import { Heart, Eye, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -15,6 +14,7 @@ interface MovieCardProps {
     poster_path: string;
     release_date?: string;
     vote_average?: number;
+    isWatched?: boolean; // ADD THIS
   };
   reason?: {
     type: string;
@@ -29,6 +29,8 @@ const MovieDiscoveryCard: React.FC<MovieCardProps> = ({ movie, reason }) => {
   const [loading, setLoading] = useState(false);
   const [showSuccessTooltip, setShowSuccessTooltip] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   // Use our custom hook to check watchlist status
   const { inWatchlist, inDefaultWatchlist, refresh } = useWatchlistStatus(
@@ -58,7 +60,7 @@ const MovieDiscoveryCard: React.FC<MovieCardProps> = ({ movie, reason }) => {
       setLoading(true);
 
       const response = await fetch(
-        "http://localhost:8000/api/watchlists/quick-add",
+        `${API_BASE_URL}/api/watchlists/quick-add`,
         {
           method: "POST",
           headers: {
@@ -94,6 +96,18 @@ const MovieDiscoveryCard: React.FC<MovieCardProps> = ({ movie, reason }) => {
     <>
       <Card className="overflow-hidden">
         <div className="relative group">
+          {/* NEW: Watched badge - shows at top right */}
+          {movie.isWatched && (
+            <Badge
+              color="success"
+              variant="solid"
+              className="absolute top-2 right-2 z-20"
+              size="sm"
+            >
+              Watched ✓
+            </Badge>
+          )}
+
           {/* Movie poster */}
           <div
             className="aspect-[2/3] overflow-hidden cursor-pointer"

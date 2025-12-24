@@ -23,7 +23,7 @@ interface Group {
   createdById: string;
   members: GroupMember[];
 }
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const DashboardPage = () => {
   const { isAuthenticated, isLoading, token } = useAuth();
   const router = useRouter();
@@ -34,7 +34,8 @@ const DashboardPage = () => {
     if (!token) return;
 
     try {
-      const response = await fetch("http://localhost:8000/api/users/group", {
+      
+      const response = await fetch(`${API_BASE_URL}/api/users/group`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -44,7 +45,7 @@ const DashboardPage = () => {
 
       if (response.ok) {
         const data = await response.json();
-
+        console.log("Group data fetched:", data);
         setGroupData(data);
       }
     } catch (error) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Input, Avatar } from "@heroui/react";
+import { Input, Avatar, Badge } from "@heroui/react";
 import { Search, Film } from "lucide-react";
 import { useRouter } from "next/navigation";
 import debounce from "lodash/debounce";
@@ -13,6 +13,7 @@ interface Movie {
   title: string;
   poster_path: string | null;
   release_date?: string;
+  isWatched?: boolean; // NEW: Track watched status
 }
 
 export const MovieSearch = () => {
@@ -22,14 +23,14 @@ export const MovieSearch = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, currentGroupId } = useAuth(); // Get current group ID
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   // Create a debounced search function
   const debouncedSearch = useRef(
     debounce(async (term: string) => {
       if (!term) {
         setSuggestions([]);
-
         return;
       }
 
@@ -45,26 +46,66 @@ export const MovieSearch = () => {
 
         const data = await response.json();
 
-        // Only take the first 5 results for quick suggestions
-        setSuggestions(data.results.slice(0, 5));
+        // Get first 5 results for quick suggestions
+        const results = data.results.slice(0, 5);
+        setSuggestions(results);
+
+        // Check watched status in parallel (don't await)
+        if (currentGroupId && results.length > 0) {
+          checkWatchedStatus(results);
+        }
       } catch (error) {
         console.error("Error fetching suggestions:", error);
         setSuggestions([]);
       } finally {
         setIsLoading(false);
       }
-    }, 300), // Wait 300ms after the user stops typing before searching
+    }, 300),
   ).current;
 
+  // NEW: Check which movies have been watched
+  const checkWatchedStatus = async (movies: Movie[]) => {
+    try {
+      const tmdbIds = movies.map(m => m.id);
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/movie-monday/check-watched`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            group_id: currentGroupId,
+            tmdb_ids: tmdbIds
+          })
+        }
+      );
+
+      if (response.ok) {
+        const { watched } = await response.json();
+        
+        // Update suggestions with watched status
+        setSuggestions(prev =>
+          prev.map(movie => ({
+            ...movie,
+            isWatched: watched.includes(movie.id)
+          }))
+        );
+      }
+    } catch (error) {
+      console.error('Error checking watched status:', error);
+      // Silently fail - search results still work without this
+    }
+  };
+
   useEffect(() => {
-    // Clean up the debounced function when component unmounts
     return () => {
       debouncedSearch.cancel();
     };
   }, [debouncedSearch]);
 
   useEffect(() => {
-    // Add click event listener to handle clicking outside
     const handleClickOutside = (event: MouseEvent) => {
       if (
         searchRef.current &&
@@ -75,7 +116,6 @@ export const MovieSearch = () => {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
@@ -83,7 +123,6 @@ export const MovieSearch = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-
     setSearchTerm(value);
     setShowSuggestions(true);
     debouncedSearch(value);
@@ -95,7 +134,6 @@ export const MovieSearch = () => {
     router.push(`/movie/${movieId}`);
   };
 
-  // Handle search completion (when user presses Enter)
   const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && searchTerm.trim()) {
       router.push(`/discover?search=${encodeURIComponent(searchTerm.trim())}`);
@@ -151,40 +189,36 @@ export const MovieSearch = () => {
                       }
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {movie.title}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">
+                          {movie.title}
+                        </p>
+                        {/* NEW: Watched indicator */}
+                        {movie.isWatched && (
+                          <Badge 
+                            color="success" 
+                            variant="flat" 
+                            size="sm"
+                            className="shrink-0"
+                          >
+                            ✓
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-default-500">
                         {movie.release_date
                           ? new Date(movie.release_date).getFullYear()
-                          : ""}
+                          : "Unknown"}
                       </p>
                     </div>
                   </div>
-                  {isAuthenticated && (
-                    <div className="mt-1 pl-10">
-                      <AddToWatchlistButton
-                        movie={{
-                          id: movie.id,
-                          title: movie.title,
-                          posterPath: movie.poster_path,
-                        }}
-                        showText={false}
-                        size="sm"
-                        useQuickAdd={true}
-                        variant="light"
-                      />
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           ) : (
-            searchTerm && (
-              <div className="p-2 text-center text-default-500">
-                No movies found
-              </div>
-            )
+            <div className="p-4 text-center text-default-500">
+              No results found
+            </div>
           )}
         </div>
       )}

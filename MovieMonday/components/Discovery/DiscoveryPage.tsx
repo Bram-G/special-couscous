@@ -31,6 +31,7 @@ interface Movie {
   overview?: string;
   genre_ids?: number[];
   popularity?: number;
+  isWatched?: boolean;
 }
 
 interface PublicWatchlist {
@@ -55,8 +56,7 @@ interface PublicWatchlist {
 export default function DiscoveryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { token, isAuthenticated } = useAuth();
-
+const { token, isAuthenticated, currentGroupId } = useAuth();
   // Movie data state
   const [trending, setTrending] = useState<Movie[]>([]);
   const [recommended, setRecommended] = useState<Movie[]>([]);
@@ -80,6 +80,7 @@ export default function DiscoveryPage() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const { allWatchlistMovieIds } = useWatchlistStatus(0);
+  
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
   // Check for search query in URL
@@ -370,6 +371,43 @@ export default function DiscoveryPage() {
     [],
   );
 
+  const checkWatchedStatus = async (movies: Movie[]) => {
+  if (!currentGroupId || movies.length === 0) return;
+  
+  try {
+    const tmdbIds = movies.map(m => m.id);
+    
+    const response = await fetch(
+      `${API_BASE_URL}/api/movie-monday/check-watched`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          group_id: currentGroupId,
+          tmdb_ids: tmdbIds
+        })
+      }
+    );
+
+    if (response.ok) {
+      const { watched } = await response.json();
+      
+      // Update search results with watched status
+      setSearchResults(prev =>
+        prev.map(movie => ({
+          ...movie,
+          isWatched: watched.includes(movie.id)
+        }))
+      );
+    }
+  } catch (error) {
+    console.error('Error checking watched status:', error);
+    // Silently fail - search results still work without this
+  }
+};
+
   // Handle search input changes
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const query = event.target.value;
@@ -379,35 +417,40 @@ export default function DiscoveryPage() {
   };
 
   // Perform search against TMDB API
-  const performSearch = async (query: string) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      setIsSearching(false);
+const performSearch = async (query: string) => {
+  if (!query.trim()) {
+    setSearchResults([]);
+    setIsSearching(false);
+    return;
+  }
 
-      return;
+  try {
+    setIsSearching(true);
+
+    const response = await fetch(
+      `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(query)}&include_adult=false&page=1`,
+    );
+
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`);
     }
 
-    try {
-      setIsSearching(true);
+    const data = await response.json();
+    const results = data.results || [];
 
-      const response = await fetch(
-        `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(query)}&include_adult=false&page=1`,
-      );
-
-      if (!response.ok) {
-        throw new Error(`TMDB API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      setSearchResults(data.results || []);
-    } catch (error) {
-      console.error("Error searching movies:", error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
+    setSearchResults(results);
+    
+    // Check watched status in parallel (don't await)
+    if (currentGroupId && results.length > 0) {
+      checkWatchedStatus(results);
     }
-  };
+  } catch (error) {
+    console.error("Error searching movies:", error);
+    setSearchResults([]);
+  } finally {
+    setIsSearching(false);
+  }
+};
 
   // Handle adding a movie to watchlist
   const handleAddToWatchlist = (movie: Movie) => {
