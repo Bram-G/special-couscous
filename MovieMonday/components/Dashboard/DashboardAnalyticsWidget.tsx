@@ -28,6 +28,7 @@ import {
   getMoviesByMeal,
 } from "@/utils/analyticsUtils";
 import { useAuth } from "@/contexts/AuthContext";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // Function to normalize item names for display - removes JSON notation
 function normalizeItemName(item) {
@@ -42,7 +43,7 @@ function normalizeItemName(item) {
       if (Array.isArray(parsed) && parsed.length > 0) {
         // Return the first non-empty element if it's an array
         const validItems = parsed.filter(
-          (p) => typeof p === "string" && p.trim(),
+          (p) => typeof p === "string" && p.trim()
         );
 
         if (validItems.length > 0) {
@@ -119,15 +120,12 @@ const DashboardAnalyticsWidget = () => {
       setLoading(true);
       try {
         // Fetch movie data from API
-        const response = await fetch(
-          "http://localhost:8000/api/movie-monday/all",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
+        const response = await fetch(`${API_BASE_URL}/api/movie-monday/all`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
-        );
+        });
 
         if (response.ok) {
           const data = await response.json();
@@ -150,7 +148,7 @@ const DashboardAnalyticsWidget = () => {
   const handleChartItemClick = (
     name: string,
     type: "actor" | "director" | "genre" | "cocktail" | "meal",
-    chartContext?: "winning" | "losing" | "all",
+    chartContext?: "winning" | "losing" | "all"
   ) => {
     if (!name || !movieData.length) return;
 
@@ -330,7 +328,7 @@ const DashboardAnalyticsWidget = () => {
           (item) => ({
             name: normalizeItemName(item.name),
             value: item.value,
-          }),
+          })
         );
       } else {
         cocktailData = PLACEHOLDER_DATA.cocktails;

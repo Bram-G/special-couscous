@@ -43,6 +43,7 @@ import {
 import { useRouter, useParams } from "next/navigation";
 
 import { useAuth } from "@/contexts/AuthContext";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // Enhanced with historical data types
 interface HistoricalStats {
@@ -319,7 +320,7 @@ const MovieMondayDetail: React.FC = () => {
       }
 
       const response = await fetch(
-        `http://localhost:8000/api/movie-monday/${movieMondayId}/details?include_history=true`,
+        `${API_BASE_URL}/api/movie-monday/${movieMondayId}/details?include_history=true`,
         {
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -782,39 +783,39 @@ const MovieMondayDetail: React.FC = () => {
                   Today's Cocktails vs History
                 </h4>
                 <div className="space-y-3">
-                  {(enhancedHistory?.currentMenuComparison?.cocktails || []).map(
-                    (cocktail, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{cocktail.name}</span>
-                            {cocktail.isNew && (
-                              <Badge color="primary" size="sm">
-                                New!
-                              </Badge>
-                            )}
-                          </div>
-                          <span className="text-sm font-medium">
-                            {cocktail.popularityPercentage}% popularity
-                          </span>
-                        </div>
-                        <Progress
-                          className="h-2"
-                          color={getPopularityColor(
-                            cocktail.popularityPercentage
+                  {(
+                    enhancedHistory?.currentMenuComparison?.cocktails || []
+                  ).map((cocktail, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{cocktail.name}</span>
+                          {cocktail.isNew && (
+                            <Badge color="primary" size="sm">
+                              New!
+                            </Badge>
                           )}
-                          size="sm"
-                          value={cocktail.popularityPercentage}
-                        />
-                        {!cocktail.isNew && (
-                          <div className="text-xs text-default-500">
-                            Served {cocktail.historicalCount} times • Last seen{" "}
-                            {formatRelativeDate(cocktail.lastSeen!)}
-                          </div>
-                        )}
+                        </div>
+                        <span className="text-sm font-medium">
+                          {cocktail.popularityPercentage}% popularity
+                        </span>
                       </div>
-                    )
-                  )}
+                      <Progress
+                        className="h-2"
+                        color={getPopularityColor(
+                          cocktail.popularityPercentage
+                        )}
+                        size="sm"
+                        value={cocktail.popularityPercentage}
+                      />
+                      {!cocktail.isNew && (
+                        <div className="text-xs text-default-500">
+                          Served {cocktail.historicalCount} times • Last seen{" "}
+                          {formatRelativeDate(cocktail.lastSeen!)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -1353,10 +1354,10 @@ const MovieMondayDetail: React.FC = () => {
                   </h4>
                   <div className="space-y-3">
                     {(history?.directorAppearances || [])
-  .filter((director) => director.totalAppearances > 1)
-  .sort((a, b) => b.totalAppearances - a.totalAppearances)
-  .slice(0, 3)
-  .map((director) => (
+                      .filter((director) => director.totalAppearances > 1)
+                      .sort((a, b) => b.totalAppearances - a.totalAppearances)
+                      .slice(0, 3)
+                      .map((director) => (
                         <div
                           key={director.id}
                           className="p-3 bg-default-50 rounded-lg"
