@@ -24,7 +24,7 @@ interface MovieMondayData {
     username: string;
   };
 }
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 interface MovieMondaySelectorProps {
   isOpen: boolean;
   onOpenChange: () => void;
@@ -53,20 +53,20 @@ const MovieMondaySelector = ({
     setLoading(true);
     try {
       const response = await fetch(
-        "http://localhost:8000/api/movie-monday/available",
+        `${API_BASE_URL}/api/movie-monday/available`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        },
+        }
       );
 
       if (response.ok) {
         const data = await response.json();
         // Filter movie mondays with less than 3 movies
         const availableMondays = data.filter(
-          (mm: MovieMondayData) => mm.movieSelections.length < 3,
+          (mm: MovieMondayData) => mm.movieSelections.length < 3
         );
 
         setMovieMondays(availableMondays);
