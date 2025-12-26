@@ -38,7 +38,7 @@ export default function TrendingPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `https://api.themoviedb.org/3/trending/movie/${timeWindow}?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=${page}`
+        `https://api.themoviedb.org/3/trending/movie/${timeWindow}?api_key=${process.env.TMDB_API_KEY}&page=${page}`
       );
 
       if (!response.ok) {

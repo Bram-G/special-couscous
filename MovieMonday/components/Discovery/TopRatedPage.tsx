@@ -62,7 +62,7 @@ export default function TopRatedPage() {
       setLoading(true);
       const genreParam = selectedGenre ? `&with_genres=${selectedGenre}` : "";
       const response = await fetch(
-        `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=${page}${genreParam}`
+        `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.TMDB_API_KEY}&page=${page}${genreParam}`
       );
 
       if (!response.ok) {
