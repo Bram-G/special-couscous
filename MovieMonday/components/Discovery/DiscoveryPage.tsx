@@ -19,7 +19,7 @@ import EnhancedMovieCarousel from "@/components/Discovery/EnhancedMovieCarousel"
 import EnhancedWatchlistSection from "@/components/Discovery/EnhancedWatchlistSection";
 import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://moviemondaybackend-777fe52b33c4.herokuapp.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL; 
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 
 // Types for movie data

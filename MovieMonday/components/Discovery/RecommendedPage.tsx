@@ -16,7 +16,7 @@ import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import type { Movie } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function RecommendedPage() {
   const router = useRouter();
