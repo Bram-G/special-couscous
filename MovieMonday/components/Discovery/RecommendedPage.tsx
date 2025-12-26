@@ -144,7 +144,7 @@ export default function RecommendedPage() {
 
       const recommendationPromises = sampleMovies.map((movieId: number) =>
         fetch(
-          `https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`
+          `https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
         )
           .then((res) => (res.ok ? res.json() : { results: [] }))
           .catch(() => ({ results: [] }))
