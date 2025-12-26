@@ -258,7 +258,7 @@ export default function MoviePage() {
     try {
       setLoadingProviders(true);
       const response = await fetch(
-        `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=${process.env.NEXT_PUBLIC_API_Key}`
+        `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}` 
       );
       const data = await response.json();
 

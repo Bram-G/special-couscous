@@ -824,7 +824,7 @@ export function getFoodDrinkAnalytics(movieMondayData: MovieMonday[]) {
 export async function getSimilarMovies(tmdbId: number) {
   try {
     const response = await fetch(
-      `https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${process.env.NEXT_PUBLIC_API_Key}`,
+      `https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
     );
 
     const data = await response.json();
@@ -845,7 +845,7 @@ export async function getSimilarMovies(tmdbId: number) {
 export async function getRecommendedMovies(tmdbId: number) {
   try {
     const response = await fetch(
-      `https://api.themoviedb.org/3/movie/${tmdbId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`,
+      `https://api.themoviedb.org/3/movie/${tmdbId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
     );
 
     const data = await response.json();
@@ -901,7 +901,7 @@ export function extractWatchlistGenres(watchlist: any[]) {
 export async function getMoviesByGenreTMDB(genreId: number, page = 1) {
   try {
     const response = await fetch(
-      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&with_genres=${genreId}&sort_by=popularity.desc&page=${page}`,
+      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&page=${page}`,
     );
 
     const data = await response.json();
@@ -936,7 +936,7 @@ export async function getMoviesByDecade(decade: string, page = 1) {
     }
 
     const response = await fetch(
-      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&primary_release_date.gte=${fromYear}-01-01&primary_release_date.lte=${toYear}-12-31&sort_by=vote_average.desc&vote_count.gte=100&page=${page}`,
+      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&primary_release_date.gte=${fromYear}-01-01&primary_release_date.lte=${toYear}-12-31&sort_by=vote_average.desc&vote_count.gte=100&page=${page}`,
     );
 
     const data = await response.json();
