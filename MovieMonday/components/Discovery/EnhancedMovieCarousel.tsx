@@ -18,11 +18,15 @@ interface EnhancedMovieCarouselProps {
   movies: Movie[];
   loading?: boolean;
   emptyMessage?: string;
+  watchedMovies?: Set<number>;
+  votedButNotPickedMovies?: Set<number>;
   onSuccess?: () => void;
   reason?: (
     movie: Movie,
   ) => { type: string; text: string; detail?: string } | null;
 }
+
+
 
 const EnhancedMovieCarousel: React.FC<EnhancedMovieCarouselProps> = ({
   title,

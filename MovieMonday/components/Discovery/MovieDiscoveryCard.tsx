@@ -1,214 +1,130 @@
-import React, { useState } from "react";
-import { Card, Image, Button, Badge, useDisclosure, Tooltip } from "@heroui/react";
-import { Heart, Eye, Check } from "lucide-react";
+"use client";
+import React from "react";
+import { Card, CardBody, CardFooter, Chip } from "@heroui/react";
+import { Star, Eye, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { useAuth } from "@/contexts/AuthContext";
-import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
-import useWatchlistStatus from "@/hooks/useWatchlistStatus";
+import type { Movie } from "@/types";
 
-interface MovieCardProps {
-  movie: {
-    id: number;
-    title: string;
-    poster_path: string;
-    release_date?: string;
-    vote_average?: number;
-    isWatched?: boolean; // ADD THIS
-  };
-  reason?: {
-    type: string;
-    text: string;
-    detail?: string;
-  } | null;
+interface MovieDiscoveryCardProps {
+  movie: Movie;
+  showAddButton?: boolean;
+  onAddClick?: (movie: Movie) => void;
+  isWatched?: boolean;
+  isVotedButNotPicked?: boolean;
 }
 
-const MovieDiscoveryCard: React.FC<MovieCardProps> = ({ movie, reason }) => {
+export default function EnhancedMovieDiscoveryCard({
+  movie,
+  showAddButton = true,
+  onAddClick,
+  isWatched = false,
+  isVotedButNotPicked = false,
+}: MovieDiscoveryCardProps) {
   const router = useRouter();
-  const { isAuthenticated, token } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [showSuccessTooltip, setShowSuccessTooltip] = useState(false);
-  const { isOpen, onOpen, onClose } = useDisclosure();
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-  // Use our custom hook to check watchlist status
-  const { inWatchlist, inDefaultWatchlist, refresh } = useWatchlistStatus(
-    movie.id,
-  );
-
-  const handleMovieClick = () => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking the add button
+    if ((e.target as HTMLElement).closest("button")) {
+      return;
+    }
     router.push(`/movie/${movie.id}`);
   };
 
-  const getReleaseYear = () => {
-    if (!movie.release_date) return "Unknown";
+  const posterUrl = movie.poster_path
+    ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+    : "/placeholder-movie.png";
 
-    return new Date(movie.release_date).getFullYear();
-  };
-
-  const handleQuickAdd = async () => {
-    if (!isAuthenticated || !token) {
-      // Redirect to login
-      localStorage.setItem("redirectAfterLogin", "/dashboard");
-      router.push("/login");
-
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/watchlists/quick-add`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tmdbMovieId: movie.id,
-            title: movie.title,
-            posterPath: movie.poster_path,
-          }),
-        },
-      );
-
-      if (response.ok) {
-        // Refresh the watchlist status
-        refresh();
-
-        // Show success tooltip
-        setShowSuccessTooltip(true);
-        setTimeout(() => {
-          setShowSuccessTooltip(false);
-        }, 2000);
-      }
-    } catch (error) {
-      console.error("Error adding to watchlist:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const releaseYear = movie.release_date
+    ? new Date(movie.release_date).getFullYear()
+    : "N/A";
 
   return (
-    <>
-      <Card className="overflow-hidden">
-        <div className="relative group">
-          {/* NEW: Watched badge - shows at top right */}
-          {movie.isWatched && (
-            <Badge
-              color="success"
-              variant="solid"
-              className="absolute top-2 right-2 z-20"
-              size="sm"
-            >
-              Watched ✓
-            </Badge>
-          )}
-
-          {/* Movie poster */}
-          <div
-            className="aspect-[2/3] overflow-hidden cursor-pointer"
-            onClick={handleMovieClick}
+    <Card
+      isPressable
+      className="h-full w-full group relative overflow-visible"
+      shadow="sm"
+      onPress={handleCardClick}
+    >
+      {/* Status Badges - positioned at top */}
+      <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
+        {isWatched && (
+          <Chip
+            className="bg-success/90 text-white font-semibold"
+            size="sm"
+            startContent={<Eye className="w-3 h-3" />}
           >
-            <Image
-              removeWrapper
-              alt={movie.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              src={
-                movie.poster_path
-                  ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                  : "/placeholder-poster.jpg"
-              }
-            />
+            Watched
+          </Chip>
+        )}
+        {isVotedButNotPicked && !isWatched && (
+          <Chip
+            className="bg-warning/90 text-white font-semibold"
+            size="sm"
+            startContent={<X className="w-3 h-3" />}
+          >
+            Voted
+          </Chip>
+        )}
+      </div>
 
-            {/* Info overlay on hover */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-              <h3 className="text-white font-medium">{movie.title}</h3>
-              <p className="text-white/70 text-sm">{getReleaseYear()}</p>
-
-              {movie.vote_average && (
-                <div className="flex items-center mt-1">
-                  <div className="bg-primary rounded-full px-2 py-0.5 text-xs font-medium">
-                    {movie.vote_average.toFixed(1)}
-                  </div>
+      <CardBody className="p-0 overflow-hidden">
+        <div className="relative aspect-[2/3] w-full">
+          <img
+            alt={movie.title}
+            className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
+            src={posterUrl}
+          />
+          
+          {/* Overlay with movie info on hover */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+            <div className="text-white space-y-1">
+              <h3 className="font-bold text-sm line-clamp-2">{movie.title}</h3>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-1">
+                  <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                  <span>{movie.vote_average?.toFixed(1) || "N/A"}</span>
                 </div>
-              )}
-
-              {reason && (
-                <div className="mt-2">
-                  <p className="text-white/80 text-xs">{reason.text}</p>
-                  {reason.detail && (
-                    <p className="text-white/60 text-xs">{reason.detail}</p>
-                  )}
-                </div>
+                <span>•</span>
+                <span>{releaseYear}</span>
+              </div>
+              {movie.overview && (
+                <p className="text-xs text-gray-300 line-clamp-3 mt-2">
+                  {movie.overview}
+                </p>
               )}
             </div>
           </div>
-
-          {/* Action buttons overlaid at the bottom */}
-          <div className="absolute bottom-0 left-0 right-0 p-2 flex gap-1">
-            <Button
-              className="flex-1 bg-background/80 backdrop-blur-sm"
-              color="primary"
-              size="sm"
-              startContent={<Eye className="h-4 w-4" />}
-              variant="flat"
-              onPress={handleMovieClick}
-            >
-              View
-            </Button>
-
-            {isAuthenticated && (
-              <Tooltip
-                content={
-                  showSuccessTooltip
-                    ? "Added to My Watchlist"
-                    : inWatchlist
-                      ? "In your watchlist"
-                      : "Add to watchlist"
-                }
-                isOpen={showSuccessTooltip}
-                placement="top"
-              >
-                <Button
-                  className="flex-1 bg-background/80 backdrop-blur-sm"
-                  color={inWatchlist ? "success" : "default"}
-                  isLoading={loading}
-                  size="sm"
-                  startContent={
-                    inWatchlist ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Heart className="h-4 w-4" />
-                    )
-                  }
-                  variant="flat"
-                  onPress={handleQuickAdd}
-                >
-                  {inWatchlist ? "Saved" : "Save"}
-                </Button>
-              </Tooltip>
-            )}
-          </div>
         </div>
-      </Card>
+      </CardBody>
 
-      {/* Advanced watchlist modal for full movie page (not shown on cards) */}
-      <AddToWatchlistModal
-        isOpen={isOpen}
-        movieDetails={{
-          id: movie.id,
-          title: movie.title,
-          posterPath: movie.poster_path,
-        }}
-        onClose={onClose}
-        onSuccess={() => refresh()}
-      />
-    </>
+      <CardFooter className="flex flex-col items-start gap-1 p-3">
+        <p className="text-sm font-semibold line-clamp-1 w-full">
+          {movie.title}
+        </p>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-1 text-default-500">
+            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+            <span className="text-xs">
+              {movie.vote_average?.toFixed(1) || "N/A"}
+            </span>
+          </div>
+          <span className="text-xs text-default-400">{releaseYear}</span>
+        </div>
+
+        {showAddButton && onAddClick && !isWatched && (
+          <button
+            className="mt-2 w-full py-1.5 px-3 bg-primary text-white text-xs rounded-lg hover:bg-primary-600 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddClick(movie);
+            }}
+          >
+            Add to Watchlist
+          </button>
+        )}
+      </CardFooter>
+    </Card>
   );
-};
-
-export default MovieDiscoveryCard;
+}

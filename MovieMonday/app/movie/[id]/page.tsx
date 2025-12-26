@@ -41,6 +41,7 @@ import ActorCard from "@/components/MoviePage/ActorCard";
 import AddToWatchlistButton from "@/components/Watchlist/AddToWatchlistButton";
 import { CommentSection } from "@/components/Comments";
 import "./moviePage.css";
+import WatchedStatusBanner from "@/components/MoviePage/WatchedStatusBanner";
 
 export default function MoviePage() {
   const pathname = usePathname();
@@ -548,7 +549,7 @@ export default function MoviePage() {
           </div>
         </div>
       </div>
-
+      <WatchedStatusBanner tmdbMovieId={movieId} movieTitle={movie.title} />
       {/* Main content */}
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row gap-6">

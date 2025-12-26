@@ -1,148 +1,62 @@
 "use client";
-
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
-  Spinner,
-  Button,
-  Link,
-  useDisclosure,
   Input,
+  Button,
+  Spinner,
+  useDisclosure,
 } from "@heroui/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Film, X, Flame, Star } from "lucide-react";
-import debounce from "lodash/debounce";
+import { Search, X, Flame, Star, Film, Sparkles, Heart, Users } from "lucide-react";
+import debounce from "lodash.debounce";
+import Link from "next/link";
 
-import { useAuth } from "@/contexts/AuthContext";
+import EnhancedMovieCarousel from "@/components/Discovery/MovieCarouselRow";
+import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
-import useWatchlistStatus from "@/hooks/useWatchlistStatus";
-import EnhancedMovieCarousel from "@/components/Discovery/EnhancedMovieCarousel";
-import EnhancedWatchlistSection from "@/components/Discovery/EnhancedWatchlistSection";
-import FixedMovieDiscoveryCard from "@/components/Discovery/FixedMovieDiscoveryCard";
+import WatchlistMovieCarousel from "@/components/Discovery/WatchlistMovieCarousel";
+import type { Movie } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
 
-// Types for movie data
-interface Movie {
-  id: number;
-  title: string;
-  poster_path: string;
-  backdrop_path?: string;
-  release_date?: string;
-  vote_average?: number;
-  overview?: string;
-  genre_ids?: number[];
-  popularity?: number;
-  isWatched?: boolean;
-}
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-interface PublicWatchlist {
-  id: number;
-  name: string;
-  description?: string;
-  likesCount: number;
-  slug?: string;
-  moviesCount: number;
-  owner: {
-    username: string;
-    id: string | number;
-  };
-  items?: Array<{
-    id: number;
-    tmdbMovieId: number;
-    title: string;
-    posterPath?: string;
-  }>;
-}
-
-export default function DiscoveryPage() {
+export default function UpdatedDiscoveryPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-const { token, isAuthenticated, currentGroupId } = useAuth();
-  // Movie data state
-  const [trending, setTrending] = useState<Movie[]>([]);
-  const [recommended, setRecommended] = useState<Movie[]>([]);
-  const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
-  const [publicWatchlists, setPublicWatchlists] = useState<PublicWatchlist[]>(
-    [],
-  );
+  const { isAuthenticated, token, currentGroupId } = useAuth();
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState("");
+  // State
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [searchResults, setSearchResults] = useState<Movie[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  const [trending, setTrending] = useState<Movie[]>([]);
+  const [loadingTrending, setLoadingTrending] = useState(false);
+  
+  const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
+  const [loadingTopRated, setLoadingTopRated] = useState(false);
+  
+  const [recommended, setRecommended] = useState<Movie[]>([]);
+  const [loadingRecommended, setLoadingRecommended] = useState(false);
+  
+  const [publicWatchlists, setPublicWatchlists] = useState<any[]>([]);
+  const [loadingPublicWatchlists, setLoadingPublicWatchlists] = useState(false);
 
-  // Loading states
-  const [loadingTrending, setLoadingTrending] = useState(true);
-  const [loadingRecommended, setLoadingRecommended] = useState(true);
-  const [loadingTopRated, setLoadingTopRated] = useState(true);
-  const [loadingPublicWatchlists, setLoadingPublicWatchlists] = useState(true);
+  const [votedButNotPicked, setVotedButNotPicked] = useState<any[]>([]);
+  const [loadingVotedButNotPicked, setLoadingVotedButNotPicked] = useState(false);
 
-  // Watchlist modal state
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const { allWatchlistMovieIds } = useWatchlistStatus(0);
-  
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-
-  // Check for search query in URL
-  useEffect(() => {
-    const query = searchParams.get("search");
-
-    if (query) {
-      setSearchQuery(query);
-      performSearch(query);
-    }
-  }, [searchParams]);
-
-  // Listen for search input from the navbar
-  useEffect(() => {
-    const handleNavbarSearch = (event: CustomEvent) => {
-      if (window.location.pathname === "/discover") {
-        setSearchQuery(event.detail.query);
-        performSearch(event.detail.query);
-      }
-    };
-
-    // Add event listener
-    window.addEventListener(
-      "navbarSearch",
-      handleNavbarSearch as EventListener,
-    );
-
-    // Clean up
-    return () => {
-      window.removeEventListener(
-        "navbarSearch",
-        handleNavbarSearch as EventListener,
-      );
-    };
-  }, []);
-
-  // Core data loading
-  useEffect(() => {
-    fetchTrending();
-    fetchTopRated();
-
-    if (isAuthenticated && token) {
-      generateRecommendations();
-    }
-
-    fetchPublicWatchlists();
-  }, [isAuthenticated, token]);
-  
-  useEffect(() => {
-  console.log('DiscoveryPage - Auth state updated:', { 
-    isAuthenticated, 
-    currentGroupId, 
-    token: token ? 'exists' : 'null' 
-  });
-}, [isAuthenticated, currentGroupId, token]);
+  const [watchedMovies, setWatchedMovies] = useState<Set<number>>(new Set());
+  const [votedMovies, setVotedMovies] = useState<Set<number>>(new Set());
 
   // Fetch trending movies
   const fetchTrending = async () => {
     try {
       setLoadingTrending(true);
       const response = await fetch(
-        `https://api.themoviedb.org/3/trending/movie/week?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`,
+        `https://api.themoviedb.org/3/trending/movie/week?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`
       );
 
       if (!response.ok) {
@@ -150,7 +64,6 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
       }
 
       const data = await response.json();
-
       setTrending(data.results || []);
     } catch (error) {
       console.error("Error fetching trending movies:", error);
@@ -165,7 +78,7 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
     try {
       setLoadingTopRated(true);
       const response = await fetch(
-        `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`,
+        `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.NEXT_PUBLIC_API_Key}&page=1`
       );
 
       if (!response.ok) {
@@ -173,7 +86,6 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
       }
 
       const data = await response.json();
-
       setTopRatedMovies(data.results || []);
     } catch (error) {
       console.error("Error fetching top rated movies:", error);
@@ -190,7 +102,6 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
     try {
       setLoadingRecommended(true);
 
-      // First, fetch user's watchlist items from all watchlists
       const watchlistResponse = await fetch(
         `${API_BASE_URL}/api/watchlists/all-items`,
         {
@@ -199,7 +110,7 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
             "Content-Type": "application/json",
           },
           credentials: "include",
-        },
+        }
       );
 
       if (!watchlistResponse.ok) {
@@ -211,11 +122,9 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
       if (!watchlistItems || watchlistItems.length === 0) {
         setRecommended([]);
         setLoadingRecommended(false);
-
         return;
       }
 
-      // Get recommendations based on 2-3 random movies from watchlists
       const sampleSize = Math.min(3, watchlistItems.length);
       const sampleMovies = [...watchlistItems]
         .sort(() => 0.5 - Math.random())
@@ -224,38 +133,32 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
       if (sampleMovies.length === 0 || !sampleMovies[0].tmdbMovieId) {
         setRecommended([]);
         setLoadingRecommended(false);
-
         return;
       }
 
-      // Fetch recommendations for each sample movie
       const recommendationPromises = sampleMovies.map((movie) =>
         fetch(
-          `https://api.themoviedb.org/3/movie/${movie.tmdbMovieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`,
+          `https://api.themoviedb.org/3/movie/${movie.tmdbMovieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}`
         )
           .then((res) => {
             if (!res.ok) return { results: [] };
-
             return res.json();
           })
-          .catch(() => ({ results: [] })),
+          .catch(() => ({ results: [] }))
       );
 
       const results = await Promise.all(recommendationPromises);
       const allRecommendations = results.flatMap(
-        (result) => result.results || [],
+        (result) => result.results || []
       );
 
       if (allRecommendations.length === 0) {
         setRecommended([]);
         setLoadingRecommended(false);
-
         return;
       }
 
-      // Use a Map for efficient deduplication by movie ID
       const uniqueRecommendationsMap = new Map();
-
       allRecommendations.forEach((movie) => {
         if (movie && movie.id) {
           uniqueRecommendationsMap.set(movie.id, movie);
@@ -263,41 +166,28 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
       });
 
       const uniqueRecommendations = Array.from(
-        uniqueRecommendationsMap.values(),
+        uniqueRecommendationsMap.values()
       );
 
-      // Remove movies that are already in watchlist
       const watchlistIds = new Set(watchlistItems.map((m) => m.tmdbMovieId));
       const filteredRecommendations = uniqueRecommendations.filter(
-        (movie) => !watchlistIds.has(movie.id),
+        (movie) => !watchlistIds.has(movie.id) && !watchedMovies.has(movie.id)
       );
 
-      if (filteredRecommendations.length === 0) {
-        setRecommended([]);
-        setLoadingRecommended(false);
-
-        return;
-      }
-
-      // Sort by vote average and popularity for better quality recommendations
       const sortedRecommendations = filteredRecommendations.sort((a, b) => {
-        // First prioritize vote count to ensure we're getting well-reviewed movies
         const aVoteCount = a.vote_count || 0;
         const bVoteCount = b.vote_count || 0;
 
-        // Movies with very few votes should be ranked lower regardless of score
         if (aVoteCount > 100 && bVoteCount < 100) return -1;
         if (aVoteCount < 100 && bVoteCount > 100) return 1;
 
-        // Then by vote average
         const aScore = a.vote_average || 0;
         const bScore = b.vote_average || 0;
 
         if (Math.abs(aScore - bScore) > 1) {
-          return bScore - aScore; // Prioritize significantly higher ratings
+          return bScore - aScore;
         }
 
-        // If ratings are similar, consider popularity
         return (b.popularity || 0) - (a.popularity || 0);
       });
 
@@ -310,36 +200,25 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
     }
   };
 
-  // Fetch popular public watchlists
+  // Fetch public watchlists
   const fetchPublicWatchlists = async () => {
     try {
       setLoadingPublicWatchlists(true);
 
-      // Fetch the watchlists with explicit request for items
       const response = await fetch(
-        `${API_BASE_URL}/api/watchlists/public?sort=popular&limit=5&include_items=true`,
+        `${API_BASE_URL}/api/watchlists/public?sort=popular&limit=5&include_items=true`
       );
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch public watchlists: ${response.status}`,
+          `Failed to fetch public watchlists: ${response.status}`
         );
       }
 
       const data = await response.json();
-
-      // Extract watchlists from the response format
       const watchlists = data.categories || [];
 
-      if (watchlists.length === 0) {
-        setPublicWatchlists([]);
-        setLoadingPublicWatchlists(false);
-
-        return;
-      }
-
-      // Normalize the watchlist data to ensure consistent structure
-      const normalizedWatchlists = watchlists.map((watchlist) => ({
+      const normalizedWatchlists = watchlists.map((watchlist: any) => ({
         id: watchlist.id,
         name: watchlist.name || "Unnamed Watchlist",
         description: watchlist.description || "",
@@ -352,7 +231,7 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
           id: watchlist.User?.id || watchlist.owner?.id || 0,
         },
         items: Array.isArray(watchlist.items)
-          ? watchlist.items.map((item) => ({
+          ? watchlist.items.map((item: any) => ({
               id: item.id,
               tmdbMovieId: item.tmdbMovieId || 0,
               title: item.title || "Unknown movie",
@@ -370,126 +249,154 @@ const { token, isAuthenticated, currentGroupId } = useAuth();
     }
   };
 
-  // Debounced search function
+  // Fetch voted but not picked movies
+  const fetchVotedButNotPicked = async () => {
+    if (!currentGroupId) return;
+
+    try {
+      setLoadingVotedButNotPicked(true);
+      const response = await fetch(
+        `${API_BASE_URL}/api/movie-monday/voted-but-not-picked/${currentGroupId}?limit=10`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch voted movies");
+      }
+
+      const data = await response.json();
+      setVotedButNotPicked(data.movies || []);
+    } catch (error) {
+      console.error("Error fetching voted but not picked:", error);
+      setVotedButNotPicked([]);
+    } finally {
+      setLoadingVotedButNotPicked(false);
+    }
+  };
+
+  // Check discovery status for movies
+  const checkDiscoveryStatus = async (tmdbIds: number[]) => {
+    if (!currentGroupId || tmdbIds.length === 0) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/movie-monday/discovery-status`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            group_id: currentGroupId,
+            tmdb_ids: tmdbIds,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setWatchedMovies(new Set(data.watched || []));
+        setVotedMovies(
+          new Set(
+            data.votedButNotPicked?.map((m: any) => m.tmdbMovieId) || []
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error checking discovery status:", error);
+    }
+  };
+
+  // Search movies
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const response = await fetch(
+        `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(
+          query
+        )}&page=1`
+      );
+
+      if (!response.ok) {
+        throw new Error(`TMDB API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const results = data.results || [];
+      
+      setSearchResults(results);
+
+      if (currentGroupId && results.length > 0) {
+        await checkDiscoveryStatus(results.map((m: Movie) => m.id));
+      }
+    } catch (error) {
+      console.error("Error searching movies:", error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounced search
   const debouncedSearch = useCallback(
     debounce((query: string) => {
       if (query) performSearch(query);
       else setSearchResults([]);
     }, 500),
-    [],
+    [currentGroupId]
   );
 
-const checkWatchedStatus = async (movies: Movie[]) => {
-  if (!currentGroupId || movies.length === 0) {
-    console.log('DiscoveryPage checkWatchedStatus - Skipping. currentGroupId:', currentGroupId, 'movies.length:', movies.length);
-    return;
-  }
-  
-  try {
-    const tmdbIds = movies.map(m => m.id);
-    
-    console.log('DiscoveryPage - Making check-watched request:', {
-      url: `${API_BASE_URL}/api/movie-monday/check-watched`,
-      group_id: currentGroupId,
-      tmdb_ids: tmdbIds
-    });
-    
-    const response = await fetch(
-      `${API_BASE_URL}/api/movie-monday/check-watched`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          group_id: currentGroupId,
-          tmdb_ids: tmdbIds
-        })
-      }
-    );
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    debouncedSearch(value);
 
-    if (response.ok) {
-      const { watched } = await response.json();
-      console.log('DiscoveryPage - Watched status response:', watched);
-      
-      // Update search results with watched status
-      setSearchResults(prev =>
-        prev.map(movie => ({
-          ...movie,
-          isWatched: watched.includes(movie.id)
-        }))
-      );
+    const newParams = new URLSearchParams(searchParams.toString());
+    if (value) {
+      newParams.set("q", value);
     } else {
-      const errorText = await response.text();
-      console.error('DiscoveryPage - check-watched response not ok:', response.status, errorText);
+      newParams.delete("q");
     }
-  } catch (error) {
-    console.error('DiscoveryPage - Error checking watched status:', error);
-    // Silently fail - search results still work without this
-  }
-};
-
-  // Handle search input changes
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const query = event.target.value;
-
-    setSearchQuery(query);
-    debouncedSearch(query);
+    router.replace(`/discover?${newParams.toString()}`, { scroll: false });
   };
 
-  // Perform search against TMDB API
-const performSearch = async (query: string) => {
-  if (!query.trim()) {
-    setSearchResults([]);
-    setIsSearching(false);
-    return;
-  }
-
-  try {
-    setIsSearching(true);
-
-    const response = await fetch(
-      `https://api.themoviedb.org/3/search/movie?api_key=${process.env.NEXT_PUBLIC_API_Key}&query=${encodeURIComponent(query)}&include_adult=false&page=1`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const results = data.results || [];
-
-    console.log('DiscoveryPage - Search results:', results.length);
-    console.log('DiscoveryPage - currentGroupId:', currentGroupId);
-
-    setSearchResults(results);
-    
-    // Check watched status - IMPORTANT: Don't await this
-    if (currentGroupId && results.length > 0) {
-      console.log('DiscoveryPage - Calling checkWatchedStatus');
-      checkWatchedStatus(results);
-    } else {
-      console.log('DiscoveryPage - NOT calling checkWatchedStatus. currentGroupId:', currentGroupId, 'results.length:', results.length);
-    }
-  } catch (error) {
-    console.error("Error searching movies:", error);
-    setSearchResults([]);
-  } finally {
-    setIsSearching(false);
-  }
-};
-
-  // Handle adding a movie to watchlist
   const handleAddToWatchlist = (movie: Movie) => {
     setSelectedMovie(movie);
     onOpen();
   };
 
-  // Utility to get movie recommendation reason
-  const getRecommendationReason = (movie: Movie) => {
-    // We're no longer displaying this in the hover state
-    return null;
-  };
+  // Load data on mount
+  useEffect(() => {
+    fetchTrending();
+    fetchTopRated();
+    fetchPublicWatchlists();
+
+    if (isAuthenticated) {
+      generateRecommendations();
+      fetchVotedButNotPicked();
+    }
+
+    if (searchQuery) {
+      performSearch(searchQuery);
+    }
+  }, [isAuthenticated, currentGroupId]);
+
+  // Check discovery status when movies load
+  useEffect(() => {
+    const allMovieIds = [
+      ...trending.map((m) => m.id),
+      ...topRatedMovies.map((m) => m.id),
+      ...recommended.map((m) => m.id),
+    ];
+
+    if (allMovieIds.length > 0) {
+      checkDiscoveryStatus(allMovieIds);
+    }
+  }, [trending, topRatedMovies, recommended]);
 
   return (
     <div className="container mx-auto px-4 pb-16">
@@ -552,39 +459,41 @@ const performSearch = async (query: string) => {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 gap-y-6">
                 {searchResults.map((movie) => (
                   <div key={movie.id} className="aspect-[2/3]">
-                    <FixedMovieDiscoveryCard movie={movie} />
+                    <EnhancedMovieDiscoveryCard
+                      isVotedButNotPicked={votedMovies.has(movie.id)}
+                      isWatched={watchedMovies.has(movie.id)}
+                      movie={movie}
+                      showAddButton={isAuthenticated}
+                      onAddClick={handleAddToWatchlist}
+                    />
                   </div>
                 ))}
               </div>
-            ) : searchQuery ? (
-              <Card className="py-12">
+            ) : (
+              <Card className="p-12">
                 <div className="text-center">
-                  <p className="text-xl font-medium mb-2">
-                    No results found for "{searchQuery}"
-                  </p>
+                  <Search className="w-16 h-16 mx-auto mb-4 text-default-300" />
+                  <h3 className="text-xl font-semibold mb-2">
+                    No movies found
+                  </h3>
                   <p className="text-default-500">
-                    Try searching for a different movie title
+                    Try different search terms
                   </p>
                 </div>
               </Card>
-            ) : null}
+            )}
           </div>
         )}
 
-        {/* Only show other sections if not searching or with no results */}
-        {(!searchQuery || searchResults.length === 0) && (
+        {!searchQuery && (
           <>
-            {/* Featured collections with icons */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+            {/* Quick Access Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <Card
                 isPressable
-                className="p-6"
-                onPress={() =>
-                  window.scrollTo({
-                    top: document.getElementById("trending")?.offsetTop - 100,
-                    behavior: "smooth",
-                  })
-                }
+                as={Link}
+                className="p-6 hover:scale-105 transition-transform"
+                href="/discover/trending"
               >
                 <div className="flex flex-col items-center text-center gap-3">
                   <div className="w-16 h-16 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center">
@@ -599,13 +508,9 @@ const performSearch = async (query: string) => {
 
               <Card
                 isPressable
-                className="p-6"
-                onPress={() =>
-                  window.scrollTo({
-                    top: document.getElementById("top-rated")?.offsetTop - 100,
-                    behavior: "smooth",
-                  })
-                }
+                as={Link}
+                className="p-6 hover:scale-105 transition-transform"
+                href="/discover/top-rated"
               >
                 <div className="flex flex-col items-center text-center gap-3">
                   <div className="w-16 h-16 rounded-full bg-warning-100 dark:bg-warning-900/30 flex items-center justify-center">
@@ -620,13 +525,9 @@ const performSearch = async (query: string) => {
 
               <Card
                 isPressable
-                className="p-6"
-                onPress={() =>
-                  window.scrollTo({
-                    top: document.getElementById("watchlists")?.offsetTop - 100,
-                    behavior: "smooth",
-                  })
-                }
+                as={Link}
+                className="p-6 hover:scale-105 transition-transform"
+                href="/explore-watchlists"
               >
                 <div className="flex flex-col items-center text-center gap-3">
                   <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
@@ -638,16 +539,98 @@ const performSearch = async (query: string) => {
                   </p>
                 </div>
               </Card>
+
+              <Card
+                isPressable
+                as={Link}
+                className="p-6 hover:scale-105 transition-transform"
+                href="/discover/recommended"
+              >
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-secondary-100 dark:bg-secondary-900/30 flex items-center justify-center">
+                    <Sparkles className="h-8 w-8 text-secondary" />
+                  </div>
+                  <h3 className="text-xl font-bold">Recommended For You</h3>
+                  <p className="text-default-500 text-sm">
+                    Personalized suggestions based on your tastes
+                  </p>
+                </div>
+              </Card>
             </div>
 
-            {/* Trending Now Section */}
+            {/* Voted But Not Picked Section */}
+            {isAuthenticated && votedButNotPicked.length > 0 && (
+              <section className="mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <X className="h-6 w-6 text-warning" />
+                    Voted But Not Picked
+                  </h2>
+                  <Button
+                    as={Link}
+                    color="warning"
+                    href="/discover/voted-but-not-picked"
+                    variant="flat"
+                  >
+                    View All
+                  </Button>
+                </div>
+                <p className="text-default-500 mb-4">
+                  Movies your group considered but didn't watch yet
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {votedButNotPicked.slice(0, 10).map((movie) => {
+                    const movieData: Movie = {
+                      id: movie.tmdbMovieId,
+                      title: movie.title,
+                      poster_path: movie.posterPath,
+                      release_date: movie.releaseDate,
+                      vote_average: movie.voteAverage,
+                      overview: movie.overview,
+                      backdrop_path: null,
+                      genre_ids: [],
+                      original_language: "",
+                      original_title: movie.title,
+                      popularity: 0,
+                      video: false,
+                      vote_count: 0,
+                      adult: false,
+                    };
+
+                    return (
+                      <EnhancedMovieDiscoveryCard
+                        key={movie.tmdbMovieId}
+                        isVotedButNotPicked={true}
+                        movie={movieData}
+                        showAddButton={true}
+                        onAddClick={handleAddToWatchlist}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Trending Section */}
             <section className="mb-6" id="trending">
               <EnhancedMovieCarousel
                 loading={loadingTrending}
-                movies={trending}
+                movies={trending.filter((m) => !watchedMovies.has(m.id))}
                 subtitle="The hottest films everyone is watching right now"
                 title="Trending This Week"
+                watchedMovies={watchedMovies}
+                votedButNotPickedMovies={votedMovies}
               />
+              <div className="flex justify-end mt-4">
+                <Button
+                  as={Link}
+                  color="danger"
+                  href="/discover/trending"
+                  variant="flat"
+                >
+                  View All Trending Movies
+                </Button>
+              </div>
             </section>
 
             {/* Personalized Recommendations */}
@@ -656,11 +639,22 @@ const performSearch = async (query: string) => {
                 <EnhancedMovieCarousel
                   emptyMessage="Add movies to your watchlist to get personalized recommendations"
                   loading={loadingRecommended}
-                  movies={recommended}
-                  reason={getRecommendationReason}
+                  movies={recommended.filter((m) => !watchedMovies.has(m.id))}
                   subtitle="Customized suggestions based on your watchlist"
                   title="Recommended For You"
+                  watchedMovies={watchedMovies}
+                  votedButNotPickedMovies={votedMovies}
                 />
+                <div className="flex justify-end mt-4">
+                  <Button
+                    as={Link}
+                    color="secondary"
+                    href="/discover/recommended"
+                    variant="flat"
+                  >
+                    View All Recommendations
+                  </Button>
+                </div>
               </section>
             ) : (
               <Card className="mb-12 overflow-hidden">
@@ -671,70 +665,70 @@ const performSearch = async (query: string) => {
                     </h3>
                     <p className="text-default-600 mb-4">
                       Sign in to see movie recommendations based on your
-                      watchlist and viewing history. Create custom watchlists
-                      and track what you want to watch next.
+                      watchlist and viewing history.
                     </p>
                     <Button as={Link} color="primary" href="/login" size="lg">
                       Sign In
                     </Button>
                   </div>
-
-                  <div className="md:w-1/2 relative h-48 overflow-hidden rounded-lg">
-                    <div className="absolute inset-0 flex gap-1">
-                      {topRatedMovies.slice(0, 5).map((movie) => (
-                        <div
-                          key={movie.id}
-                          className="h-full w-1/5 overflow-hidden"
-                        >
-                          <img
-                            alt=""
-                            className="h-full w-full object-cover opacity-60"
-                            src={
-                              movie.poster_path
-                                ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
-                                : "/placeholder-poster.jpg"
-                            }
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent" />
-                  </div>
                 </div>
               </Card>
             )}
 
-            {/* Top Rated Movies Section */}
+            {/* Top Rated Section */}
             <section className="mb-6" id="top-rated">
               <EnhancedMovieCarousel
                 loading={loadingTopRated}
-                movies={topRatedMovies}
-                subtitle="The best films of all time according to users"
+                movies={topRatedMovies.filter((m) => !watchedMovies.has(m.id))}
+                subtitle="The highest rated films of all time"
                 title="Top Rated Movies"
+                watchedMovies={watchedMovies}
+                votedButNotPickedMovies={votedMovies}
               />
+              <div className="flex justify-end mt-4">
+                <Button
+                  as={Link}
+                  color="warning"
+                  href="/discover/top-rated"
+                  variant="flat"
+                >
+                  View All Top Rated Movies
+                </Button>
+              </div>
             </section>
 
-            {/* Popular Public Watchlists Section */}
+            {/* Public Watchlists */}
             <section className="mb-6" id="watchlists">
-              <EnhancedWatchlistSection
+              <WatchlistMovieCarousel
                 loading={loadingPublicWatchlists}
+                subtitle="Curated collections created by the community"
+                title="Popular Watchlists"
                 watchlists={publicWatchlists}
               />
+              <div className="flex justify-end mt-4">
+                <Button
+                  as={Link}
+                  color="primary"
+                  href="/explore-watchlists"
+                  variant="flat"
+                >
+                  Explore All Watchlists
+                </Button>
+              </div>
             </section>
           </>
         )}
       </div>
 
-      {/* AddToWatchlist Modal */}
+      {/* Add to Watchlist Modal */}
       {selectedMovie && (
         <AddToWatchlistModal
           isOpen={isOpen}
-          movieDetails={{
-            id: selectedMovie.id,
-            title: selectedMovie.title,
-            posterPath: selectedMovie.poster_path,
+          movie={selectedMovie}
+          onClose={() => {
+            onClose();
+            setSelectedMovie(null);
           }}
-          onClose={onClose}
         />
       )}
     </div>
