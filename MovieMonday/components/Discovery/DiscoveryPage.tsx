@@ -20,7 +20,7 @@ import EnhancedWatchlistSection from "@/components/Discovery/EnhancedWatchlistSe
 import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL; 
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 
 // Types for movie data
 interface Movie {

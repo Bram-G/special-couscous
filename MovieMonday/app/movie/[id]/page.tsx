@@ -95,7 +95,7 @@ export default function MoviePage() {
       try {
         setLoading(true);
         const response = await fetch(
-          `https://api.themoviedb.org/3/movie/${extractedId}?append_to_response=credits,videos,release_dates&api_key=${process.env.NEXT_PUBLIC_API_Key}`
+`https://api.themoviedb.org/3/movie/${extractedId}?append_to_response=credits,videos,release_dates&api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
         );
 
         if (!response.ok) {

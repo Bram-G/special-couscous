@@ -21,7 +21,7 @@ const InfiniteMovieScroll = () => {
       try {
         // Use the API key from your environment variables
         const response = await fetch(
-          `https://api.themoviedb.org/3/movie/popular?api_key=${process.env.NEXT_PUBLIC_API_Key}&language=en-US&page=1`,
+          `https://api.themoviedb.org/3/movie/popular?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=en-US&page=1`
         );
 
         if (!response.ok) {
@@ -36,15 +36,15 @@ const InfiniteMovieScroll = () => {
         // Create separate arrays for each column to ensure diversity
         const firstColumnMovies = shuffleArray([...shuffledMovies]).slice(
           0,
-          10,
+          10
         );
         const secondColumnMovies = shuffleArray([...shuffledMovies]).slice(
           0,
-          10,
+          10
         );
         const thirdColumnMovies = shuffleArray([...shuffledMovies]).slice(
           0,
-          10,
+          10
         );
 
         // Combine all movies for easier state management
