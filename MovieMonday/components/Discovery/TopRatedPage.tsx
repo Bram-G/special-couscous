@@ -18,6 +18,10 @@ import type { Movie } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+
+const MOVIES_PER_PAGE = 60; // We'll fetch 3 TMDB pages (20 each) to get 60 movies
+const TMDB_PAGES_PER_FETCH = 3; // Number of TMDB pages to fetch at once
 
 const GENRE_OPTIONS = [
   { value: "", label: "All Genres" },
@@ -56,25 +60,42 @@ export default function TopRatedPage() {
   const [watchedMovies, setWatchedMovies] = useState<Set<number>>(new Set());
   const [votedButNotPicked, setVotedButNotPicked] = useState<Set<number>>(new Set());
 
-  // Fetch top rated movies
+  // Fetch top rated movies - now fetches multiple TMDB pages at once
   const fetchTopRatedMovies = useCallback(async (page: number) => {
     try {
       setLoading(true);
       const genreParam = selectedGenre ? `&with_genres=${selectedGenre}` : "";
-      const response = await fetch(
-        `https://api.themoviedb.org/3/movie/top_rated?api_key=${process.env.TMDB_API_KEY}&page=${page}${genreParam}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`TMDB API error: ${response.status}`);
+      
+      // Calculate which TMDB pages we need to fetch
+      // If we're on page 1, fetch TMDB pages 1-3
+      // If we're on page 2, fetch TMDB pages 4-6, etc.
+      const startTmdbPage = ((page - 1) * TMDB_PAGES_PER_FETCH) + 1;
+      const tmdbPagePromises = [];
+      
+      // Fetch multiple TMDB pages in parallel
+      for (let i = 0; i < TMDB_PAGES_PER_FETCH; i++) {
+        const tmdbPage = startTmdbPage + i;
+        tmdbPagePromises.push(
+          fetch(
+            `https://api.themoviedb.org/3/movie/top_rated?api_key=${TMDB_API_KEY}&page=${tmdbPage}${genreParam}`
+          ).then(res => res.json())
+        );
       }
 
-      const data = await response.json();
-      setMovies(data.results || []);
-      setTotalPages(Math.min(data.total_pages, 500));
+      const responses = await Promise.all(tmdbPagePromises);
       
-      if (currentGroupId && data.results?.length > 0) {
-        await checkDiscoveryStatus(data.results.map((m: Movie) => m.id));
+      // Combine all results
+      const allMovies: Movie[] = responses.flatMap(data => data.results || []);
+      
+      // Use the total pages from the first response and adjust for our pagination
+      const tmdbTotalPages = responses[0]?.total_pages || 1;
+      const adjustedTotalPages = Math.ceil(Math.min(tmdbTotalPages, 500) / TMDB_PAGES_PER_FETCH);
+      
+      setMovies(allMovies);
+      setTotalPages(adjustedTotalPages);
+      
+      if (currentGroupId && allMovies.length > 0) {
+        await checkDiscoveryStatus(allMovies.map((m: Movie) => m.id));
       }
     } catch (error) {
       console.error("Error fetching top rated movies:", error);
@@ -178,7 +199,7 @@ export default function TopRatedPage() {
               Page {currentPage} of {totalPages}
             </Chip>
             <Chip color="default" variant="flat">
-              {movies.length} movies
+              {movies.length} movies showing
             </Chip>
             {selectedGenre && (
               <Chip color="warning" variant="flat">

@@ -8,6 +8,7 @@ import AddToWatchlistButton from "./Watchlist/AddToWatchlistButton";
 
 import { useAuth } from "@/contexts/AuthContext";
 
+
 interface Movie {
   id: number;
   title: string;
@@ -17,6 +18,7 @@ interface Movie {
 }
 
 export const MovieSearch = () => {
+  const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState<Movie[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +27,7 @@ export const MovieSearch = () => {
   const router = useRouter();
   const { isAuthenticated, currentGroupId } = useAuth();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
+;
   // Store currentGroupId in a ref so debounced function can access the latest value
   const currentGroupIdRef = useRef(currentGroupId);
   
@@ -103,7 +105,7 @@ export const MovieSearch = () => {
       setIsLoading(true);
       try {
         const response = await fetch(
-          `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(term)}&include_adult=false&language=en-US&page=1&api_key=${process.env.NEXT_PUBLIC_API_Key}`,
+                  `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(term)}&include_adult=false&language=en-US&page=1&api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
         );
 
         if (!response.ok) {
