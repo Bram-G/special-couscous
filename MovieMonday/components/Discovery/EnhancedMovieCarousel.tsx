@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button, Card, Spinner } from "@heroui/react";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 
-import FixedMovieDiscoveryCard from "./FixedMovieDiscoveryCard";
+import EnhancedMovieDiscoveryCard from "./EnhancedMovieDiscoveryCard";
 
 interface Movie {
   id: number;
@@ -10,6 +10,15 @@ interface Movie {
   poster_path?: string;
   release_date?: string;
   vote_average?: number;
+  overview?: string;
+  backdrop_path?: string | null;
+  genre_ids?: number[];
+  original_language?: string;
+  original_title?: string;
+  popularity?: number;
+  video?: boolean;
+  vote_count?: number;
+  adult?: boolean;
 }
 
 interface EnhancedMovieCarouselProps {
@@ -18,15 +27,13 @@ interface EnhancedMovieCarouselProps {
   movies: Movie[];
   loading?: boolean;
   emptyMessage?: string;
-  watchedMovies?: Set<number>;
-  votedButNotPickedMovies?: Set<number>;
   onSuccess?: () => void;
   reason?: (
     movie: Movie,
   ) => { type: string; text: string; detail?: string } | null;
+  watchedMovies?: Set<number>;
+  votedButNotPickedMovies?: Set<number>;
 }
-
-
 
 const EnhancedMovieCarousel: React.FC<EnhancedMovieCarouselProps> = ({
   title,
@@ -35,6 +42,8 @@ const EnhancedMovieCarousel: React.FC<EnhancedMovieCarouselProps> = ({
   loading = false,
   emptyMessage = "No movies found",
   reason,
+  watchedMovies = new Set(),
+  votedButNotPickedMovies = new Set(),
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -164,9 +173,11 @@ const EnhancedMovieCarousel: React.FC<EnhancedMovieCarouselProps> = ({
         >
           {visibleMovies.map((movie) => (
             <div key={movie.id} className="aspect-[2/3]">
-              <FixedMovieDiscoveryCard
+              <EnhancedMovieDiscoveryCard
+                isVotedButNotPicked={votedButNotPickedMovies.has(movie.id)}
+                isWatched={watchedMovies.has(movie.id)}
                 movie={movie}
-                reason={reason ? reason(movie) : null}
+                showAddButton={false}
               />
             </div>
           ))}

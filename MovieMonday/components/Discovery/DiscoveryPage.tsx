@@ -12,7 +12,7 @@ import { Search, X, Flame, Star, Film, Sparkles, Heart, Users } from "lucide-rea
 import debounce from "lodash.debounce";
 import Link from "next/link";
 
-import EnhancedMovieCarousel from "@/components/Discovery/MovieCarouselRow";
+import EnhancedMovieCarousel from "@/components/Discovery/EnhancedMovieCarousel";
 import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import WatchlistMovieCarousel from "@/components/Discovery/WatchlistMovieCarousel";
