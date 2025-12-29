@@ -11,6 +11,7 @@ import {
 import { Sparkles, ArrowLeft, Users, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+
 import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import type { Movie } from "@/types";

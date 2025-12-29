@@ -55,8 +55,6 @@ export default function TopRatedPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedGenre, setSelectedGenre] = useState("");
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [watchedMovies, setWatchedMovies] = useState<Set<number>>(new Set());
   const [votedButNotPicked, setVotedButNotPicked] = useState<Set<number>>(new Set());
 
@@ -138,10 +136,6 @@ export default function TopRatedPage() {
     setCurrentPage(1);
   }, [selectedGenre]);
 
-  const handleAddToWatchlist = (movie: Movie) => {
-    setSelectedMovie(movie);
-    setIsModalOpen(true);
-  };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -230,7 +224,6 @@ export default function TopRatedPage() {
                 isWatched={watchedMovies.has(movie.id)}
                 movie={movie}
                 showAddButton={isAuthenticated}
-                onAddClick={handleAddToWatchlist}
               />
             ))}
           </div>
@@ -254,17 +247,6 @@ export default function TopRatedPage() {
             <p className="text-default-500">Try adjusting your filters</p>
           </div>
         </Card>
-      )}
-
-      {selectedMovie && (
-        <AddToWatchlistModal
-          isOpen={isModalOpen}
-          movie={selectedMovie}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedMovie(null);
-          }}
-        />
       )}
     </div>
   );

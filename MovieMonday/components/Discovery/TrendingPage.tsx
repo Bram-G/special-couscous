@@ -28,8 +28,6 @@ export default function TrendingPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [timeWindow, setTimeWindow] = useState<"day" | "week">("week");
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [watchedMovies, setWatchedMovies] = useState<Set<number>>(new Set());
   const [votedButNotPicked, setVotedButNotPicked] = useState<Set<number>>(new Set());
 
@@ -97,10 +95,6 @@ const response = await fetch(
     setCurrentPage(1);
   }, [timeWindow]);
 
-  const handleAddToWatchlist = (movie: Movie) => {
-    setSelectedMovie(movie);
-    setIsModalOpen(true);
-  };
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -183,7 +177,6 @@ const response = await fetch(
                 isWatched={watchedMovies.has(movie.id)}
                 movie={movie}
                 showAddButton={isAuthenticated}
-                onAddClick={handleAddToWatchlist}
               />
             ))}
           </div>
@@ -209,18 +202,7 @@ const response = await fetch(
           </div>
         </Card>
       )}
-
-      {/* Add to Watchlist Modal */}
-      {selectedMovie && (
-        <AddToWatchlistModal
-          isOpen={isModalOpen}
-          movie={selectedMovie}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedMovie(null);
-          }}
-        />
-      )}
+     
     </div>
   );
 }

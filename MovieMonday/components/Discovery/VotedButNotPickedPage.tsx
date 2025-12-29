@@ -26,8 +26,7 @@ export default function VotedButNotPickedPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
 
   useEffect(() => {
     if (!isAuthenticated || !currentGroupId) {
@@ -59,29 +58,6 @@ export default function VotedButNotPickedPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAddToWatchlist = (movie: any) => {
-    // Convert to Movie format
-    const movieData: Movie = {
-      id: movie.tmdbMovieId,
-      title: movie.title,
-      poster_path: movie.posterPath,
-      release_date: movie.releaseDate,
-      vote_average: movie.voteAverage,
-      overview: movie.overview,
-      backdrop_path: null,
-      genre_ids: [],
-      original_language: "",
-      original_title: movie.title,
-      popularity: 0,
-      video: false,
-      vote_count: 0,
-      adult: false,
-    };
-    
-    setSelectedMovie(movieData);
-    setIsModalOpen(true);
   };
 
   const handlePageChange = (page: number) => {
@@ -169,7 +145,7 @@ export default function VotedButNotPickedPage() {
                     isVotedButNotPicked={true}
                     movie={movieData}
                     showAddButton={true}
-                    onAddClick={() => handleAddToWatchlist(movie)}
+                    
                   />
                   <div className="mt-2 text-center">
                     <div className="flex items-center justify-center gap-1 text-xs text-default-500">
@@ -214,16 +190,7 @@ export default function VotedButNotPickedPage() {
         </Card>
       )}
 
-      {selectedMovie && (
-        <AddToWatchlistModal
-          isOpen={isModalOpen}
-          movie={selectedMovie}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedMovie(null);
-          }}
-        />
-      )}
+      
     </div>
   );
 }
