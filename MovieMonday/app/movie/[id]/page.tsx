@@ -549,7 +549,12 @@ export default function MoviePage() {
           </div>
         </div>
       </div>
-      <WatchedStatusBanner tmdbMovieId={movieId} movieTitle={movie.title} />
+      {movieDetails && movieId && (
+  <WatchedStatusBanner 
+    tmdbMovieId={parseInt(movieId)} 
+    movieTitle={movieDetails.title} 
+  />
+)}
       {/* Main content */}
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row gap-6">
