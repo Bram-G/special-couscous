@@ -96,8 +96,9 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
   return (
     <>
       <Card
+        isPressable
         className="group relative cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl"
-        onClick={handleCardClick}
+        onPress={handleCardClick}
       >
         {/* Badges - Top Left */}
         <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
@@ -159,7 +160,9 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
             {/* Hover Overlay - ONLY VISIBLE ON HOVER */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
               <div className="text-white space-y-2">
-                <h3 className="font-bold text-base line-clamp-2">{movie.title}</h3>
+                <h3 className="font-bold text-base line-clamp-2">
+                  {movie.title}
+                </h3>
                 <div className="flex items-center gap-2 text-sm">
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
