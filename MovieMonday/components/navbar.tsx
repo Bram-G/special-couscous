@@ -13,6 +13,7 @@ import {
   DropdownItem,
   Avatar,
   Button,
+  Spinner,
 } from "@heroui/react";
 import { link as linkStyles } from "@heroui/theme";
 import NextLink from "next/link";
@@ -21,6 +22,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { ChartPieIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { MovieSearch } from "@/components/MovieSearch";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,12 +33,10 @@ const ThemeSwitchableLogo = () => {
   const { theme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // After mounting, we can safely use the theme
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Determine what theme to use for the logo
   const currentTheme = mounted
     ? theme === "system"
       ? resolvedTheme
@@ -59,23 +59,19 @@ const ThemeSwitchableLogo = () => {
           width={150}
         />
       ) : (
-        // Show a placeholder during SSR/before hydration
         <div className="h-7 w-32 bg-default-100 animate-pulse rounded" />
       )}
     </div>
   );
 };
 
-// Function to get user initials
 const getUserInitials = (username: string | undefined): string => {
   if (!username) return "?";
 
-  // For single word usernames, take first two letters
   if (!username.includes(" ")) {
     return username.substring(0, Math.min(username.length, 2)).toUpperCase();
   }
 
-  // For multiple words, take first letter of each word
   const nameParts = username.split(" ");
 
   return (
@@ -86,8 +82,13 @@ const getUserInitials = (username: string | undefined): string => {
 export const Navbar = () => {
   const { isAuthenticated, logout, user } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
-  // After mounting, we have access to authentication state
+  // FIX: Control menu open state so we can close it before navigating.
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // Track which route we're navigating to, to show a loading indicator.
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -95,15 +96,37 @@ export const Navbar = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      // Redirect to home page after logout
       window.location.href = "/";
     } catch (error) {
       console.error("Logout failed:", error);
     }
   };
 
+  // FIX: Close the menu, show a loading state, then navigate.
+  // This gives the user immediate feedback that something is happening
+  // instead of watching the page change behind the still-open menu.
+  const handleMenuNavigation = (href: string) => {
+    setIsMenuOpen(false);
+    setNavigatingTo(href);
+    // Small delay so the close animation plays before the route change
+    setTimeout(() => {
+      router.push(href);
+      setNavigatingTo(null);
+    }, 150);
+  };
+
+  const handleMenuLogout = async () => {
+    setIsMenuOpen(false);
+    await handleLogout();
+  };
+
   return (
-    <NextUINavbar maxWidth="xl" position="sticky">
+    <NextUINavbar
+      maxWidth="xl"
+      position="sticky"
+      isMenuOpen={isMenuOpen}
+      onMenuOpenChange={setIsMenuOpen}
+    >
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
         <NavbarBrand>
           <NextLink className="flex justify-start items-center" href="/">
@@ -124,7 +147,6 @@ export const Navbar = () => {
           <ThemeSwitch />
         </NavbarItem>
 
-        {/* Auth-dependent buttons - only render after client-side hydration */}
         {mounted && (
           <>
             {isAuthenticated && (
@@ -154,7 +176,9 @@ export const Navbar = () => {
                         className="transition-transform cursor-pointer"
                         color="primary"
                         name={
-                          user?.username ? getUserInitials(user.username) : "U"
+                          user?.username
+                            ? getUserInitials(user.username)
+                            : "U"
                         }
                         size="sm"
                       />
@@ -208,6 +232,7 @@ export const Navbar = () => {
         )}
       </NavbarContent>
 
+      {/* Mobile right side */}
       <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
         <NavbarItem>
           <ThemeSwitch />
@@ -217,10 +242,9 @@ export const Navbar = () => {
           <NavbarItem>
             <Button
               isIconOnly
-              as={NextLink}
               className="min-w-0"
-              href="/dashboard"
               variant="light"
+              onPress={() => handleMenuNavigation("/dashboard")}
             >
               <ChartPieIcon className="h-5 w-5" />
             </Button>
@@ -230,7 +254,7 @@ export const Navbar = () => {
         <NavbarMenuToggle />
       </NavbarContent>
 
-      {/* Mobile menu */}
+      {/* Mobile menu — now controlled so we can close it before navigating */}
       <NavbarMenu className="pt-2 pb-4 px-2">
         <NavbarMenuItem className="mb-4">
           <MovieSearch />
@@ -241,55 +265,71 @@ export const Navbar = () => {
             {isAuthenticated ? (
               <>
                 <NavbarMenuItem className="py-1.5">
-                  <NextLink
+                  <button
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm",
+                      "data-[active=true]:text-primary text-sm w-full text-left flex items-center justify-between",
                     )}
-                    href="/dashboard"
+                    onClick={() => handleMenuNavigation("/dashboard")}
                   >
-                    Dashboard
-                  </NextLink>
+                    <span>Dashboard</span>
+                    {navigatingTo === "/dashboard" && (
+                      <Spinner size="sm" color="current" />
+                    )}
+                  </button>
                 </NavbarMenuItem>
+
                 <NavbarMenuItem className="py-1.5">
-                  <NextLink
+                  <button
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm",
+                      "data-[active=true]:text-primary text-sm w-full text-left flex items-center justify-between",
                     )}
-                    href="/watchlist"
+                    onClick={() => handleMenuNavigation("/watchlist")}
                   >
-                    My Watchlists
-                  </NextLink>
+                    <span>My Watchlists</span>
+                    {navigatingTo === "/watchlist" && (
+                      <Spinner size="sm" color="current" />
+                    )}
+                  </button>
                 </NavbarMenuItem>
+
                 <NavbarMenuItem className="py-1.5">
-                  <NextLink
+                  <button
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm",
+                      "data-[active=true]:text-primary text-sm w-full text-left flex items-center justify-between",
                     )}
-                    href="/analytics"
+                    onClick={() => handleMenuNavigation("/analytics")}
                   >
-                    Analytics
-                  </NextLink>
+                    <span>Analytics</span>
+                    {navigatingTo === "/analytics" && (
+                      <Spinner size="sm" color="current" />
+                    )}
+                  </button>
                 </NavbarMenuItem>
+
                 <NavbarMenuItem className="py-1.5">
-                  <NextLink
+                  <button
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium text-sm",
+                      "data-[active=true]:text-primary text-sm w-full text-left flex items-center justify-between",
                     )}
-                    href="/settings"
+                    onClick={() => handleMenuNavigation("/settings")}
                   >
-                    Settings
-                  </NextLink>
+                    <span>Settings</span>
+                    {navigatingTo === "/settings" && (
+                      <Spinner size="sm" color="current" />
+                    )}
+                  </button>
                 </NavbarMenuItem>
+
                 <NavbarMenuItem className="py-1.5">
                   <Button
                     className="text-sm font-normal w-full"
                     color="danger"
                     variant="flat"
-                    onPress={handleLogout}
+                    onPress={handleMenuLogout}
                   >
                     Logout
                   </Button>
@@ -298,34 +338,33 @@ export const Navbar = () => {
             ) : (
               <>
                 <NavbarMenuItem>
-                  <NextLink
+                  <button
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium",
+                      "data-[active=true]:text-primary text-sm w-full text-left",
                     )}
-                    href="/"
+                    onClick={() => handleMenuNavigation("/")}
                   >
                     Home
-                  </NextLink>
+                  </button>
                 </NavbarMenuItem>
                 <NavbarMenuItem>
-                  <NextLink
+                  <button
                     className={clsx(
                       linkStyles({ color: "foreground" }),
-                      "data-[active=true]:text-primary data-[active-true]:font-medium",
+                      "data-[active=true]:text-primary text-sm w-full text-left",
                     )}
-                    href="/about"
+                    onClick={() => handleMenuNavigation("/about")}
                   >
                     About
-                  </NextLink>
+                  </button>
                 </NavbarMenuItem>
                 <NavbarMenuItem>
                   <Button
-                    as={NextLink}
                     className="text-sm font-normal w-full"
                     color="primary"
-                    href="/login"
                     variant="solid"
+                    onPress={() => handleMenuNavigation("/login")}
                   >
                     Login
                   </Button>

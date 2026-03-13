@@ -101,7 +101,7 @@ interface DateButtonStatus {
   variant: ButtonVariant;
   color: ButtonColor;
 }
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   slidesPerView = 5,
   onDateSelect,
@@ -597,21 +597,18 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       // Format date as YYYY-MM-DD
       const dateString = date.toISOString().split("T")[0];
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/movie-monday/create`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            date: dateString,
-            groupId: groupId,
-          }),
+      const response = await fetch(`${API_BASE_URL}/api/movie-monday/create`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      );
+        credentials: "include",
+        body: JSON.stringify({
+          date: dateString,
+          groupId: groupId,
+        }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -1134,9 +1131,11 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
             </div>
           ) : (
             // Movie and event details display
-            <div className="flex gap-4 p-4">
+            // FIX: flex-col on mobile, flex-row on md+ so cards stack cleanly
+            <div className="flex flex-col md:flex-row gap-4 p-4">
               {/* Movie Cards Section */}
-              <div className="w-3/5 grid grid-cols-3 gap-4">
+              {/* FIX: full width on mobile, 3/5 on md+ */}
+              <div className="w-full md:w-3/5 grid grid-cols-3 gap-2 md:gap-4">
                 {[0, 1, 2].map((index) => {
                   const movieSelections =
                     selectedMonday?.movieSelections?.sort(
@@ -1145,86 +1144,99 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                   const movie = movieSelections[index];
 
                   return (
-                    <Card
+                    // FIX: HeroUI Card ignores aspect-ratio CSS on itself.
+                    // Use a wrapper div to establish the 2:3 box, then
+                    // position the Card absolutely inside it so it fills the space.
+                    <div
                       key={index}
-                      className={`w-full h-80 relative group overflow-hidden ${
-                        movie?.isWinner
-                          ? "ring-2 ring-yellow-400 shadow-lg shadow-yellow-400/50"
-                          : ""
-                      }`}
+                      className="relative w-full"
+                      style={{ aspectRatio: "2/3" }}
                     >
-                      {movie ? (
-                        <div className="relative h-full">
-                          {/* Movie poster area */}
-                          <div
-                            className="absolute inset-0 z-0 cursor-pointer"
-                            onClick={() => handleMovieClick(movie.tmdbMovieId)}
-                          >
-                            <Image
-                              alt={movie.title}
-                              className="object-cover w-full h-full"
-                              src={`https://image.tmdb.org/t/p/w500${movie.posterPath}`}
-                            />
-                          </div>
-
-                          {/* Action panel */}
-                          <div
-                            className="absolute bottom-0 left-0 right-0 bg-black/80 
-                        transform translate-y-full group-hover:translate-y-0 
-                        transition-transform duration-300 ease-in-out z-10
-                        flex flex-col items-center justify-center p-3 h-1/3"
-                          >
-                            <p className="text-white text-center font-medium mb-2 truncate w-full">
-                              {movie.title}
-                            </p>
-                            <div className="flex gap-2">
-                              <Button
-                                className={
-                                  movie.isWinner
-                                    ? "bg-warning-500 hover:bg-warning-600"
-                                    : ""
-                                }
-                                color={movie.isWinner ? "warning" : "primary"}
-                                startContent={<CrownIcon className="h-4 w-4" />}
-                                variant={movie.isWinner ? "solid" : "solid"}
-                                onPress={() => handleSetWinner(movie.id)}
-                              >
-                                {movie.isWinner
-                                  ? "Remove Win"
-                                  : "Set as Winner"}
-                              </Button>
-                              <Button
-                                isIconOnly
-                                color="danger"
-                                variant="light"
-                                onPress={() => handleRemoveMovie(movie.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                      <Card
+                        className={`absolute inset-0 overflow-hidden group ${
+                          movie?.isWinner
+                            ? "ring-2 ring-yellow-400 shadow-lg shadow-yellow-400/50"
+                            : ""
+                        }`}
+                      >
+                        {movie ? (
+                          <div className="relative h-full">
+                            {/* Movie poster area */}
+                            <div
+                              className="absolute inset-0 z-0 cursor-pointer"
+                              onClick={() =>
+                                handleMovieClick(movie.tmdbMovieId)
+                              }
+                            >
+                              <Image
+                                alt={movie.title}
+                                className="object-cover w-full h-full"
+                                src={`https://image.tmdb.org/t/p/w500${movie.posterPath}`}
+                              />
                             </div>
-                          </div>
 
-                          {/* Winner indicator */}
-                          {movie.isWinner && (
-                            <div className="absolute top-2 right-2 z-20">
-                              <div className="bg-yellow-500 text-white rounded-full p-1">
-                                <Trophy className="h-5 w-5" />
+                            {/* Action panel */}
+                            <div
+                              className="absolute bottom-0 left-0 right-0 bg-black/80 
+                                transform translate-y-full group-hover:translate-y-0 
+                                transition-transform duration-300 ease-in-out z-10
+                                flex flex-col items-center justify-center p-2 h-1/3"
+                            >
+                              <p className="text-white text-center font-medium mb-1 truncate w-full text-xs">
+                                {movie.title}
+                              </p>
+                              <div className="flex gap-1">
+                                <Button
+                                  className={
+                                    movie.isWinner
+                                      ? "bg-warning-500 hover:bg-warning-600"
+                                      : ""
+                                  }
+                                  color={movie.isWinner ? "warning" : "primary"}
+                                  size="sm"
+                                  startContent={
+                                    <CrownIcon className="h-3 w-3" />
+                                  }
+                                  variant="solid"
+                                  onPress={() => handleSetWinner(movie.id)}
+                                >
+                                  {movie.isWinner ? "Unset" : "Winner"}
+                                </Button>
+                                <Button
+                                  isIconOnly
+                                  color="danger"
+                                  size="sm"
+                                  variant="light"
+                                  onPress={() => handleRemoveMovie(movie.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               </div>
                             </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="h-full flex items-center justify-center">
-                          <p className="text-default-400">Empty Slot</p>
-                        </div>
-                      )}
-                    </Card>
+
+                            {/* Winner indicator */}
+                            {movie.isWinner && (
+                              <div className="absolute top-2 right-2 z-20">
+                                <div className="bg-yellow-500 text-white rounded-full p-1">
+                                  <Trophy className="h-4 w-4" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="h-full flex items-center justify-center">
+                            <p className="text-default-400 text-xs">Empty</p>
+                          </div>
+                        )}
+                      </Card>
+                    </div>
                   );
                 })}
               </div>
 
               {/* Event Details Section */}
-              <div className="w-2/5">
+              {/* FIX: full width on mobile, 2/5 on md+ */}
+              <div className="w-full md:w-2/5">
                 <Card className="p-4 h-full">
                   <div className="flex flex-col h-full">
                     {/* Header with edit/save buttons */}

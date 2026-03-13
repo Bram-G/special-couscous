@@ -62,7 +62,7 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
     onClose: onMovieMondayModalClose,
   } = useDisclosure();
 
-  const posterUrl = movie.poster_path
+  const posterUrl = movie.poster_path && !imageError
     ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
     : "/placeholder-movie.png";
 
@@ -70,26 +70,20 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
     ? new Date(movie.release_date).getFullYear()
     : "N/A";
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    // Don't navigate if clicking on a button or other interactive element
-    const target = e.target as HTMLElement;
-    if (
-      target.closest("button") ||
-      target.closest("[role='button']") ||
-      target.closest("a")
-    ) {
-      return;
-    }
+
+  const handleCardClick = () => {
     router.push(`/movie/${movie.id}`);
   };
 
   const handleWatchlistClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     onWatchlistModalOpen();
   };
 
   const handleMovieMondayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     onMovieMondayModalOpen();
   };
 
@@ -122,43 +116,18 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
           )}
         </div>
 
-        {/* Action Buttons - Top Right - ONLY VISIBLE ON HOVER */}
-        {showAddButton && !isWatched && (
-          <div className="absolute top-2 right-2 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Tooltip content="Add to Watchlist">
-              <Button
-                isIconOnly
-                className="bg-primary text-white"
-                size="sm"
-                onClick={handleWatchlistClick}
-              >
-                <Heart className="w-4 h-4" />
-              </Button>
-            </Tooltip>
-            <Tooltip content="Add to Movie Monday">
-              <Button
-                isIconOnly
-                className="bg-secondary text-white"
-                size="sm"
-                onClick={handleMovieMondayClick}
-              >
-                <Calendar className="w-4 h-4" />
-              </Button>
-            </Tooltip>
-          </div>
-        )}
-
         <CardBody className="p-0 overflow-hidden">
-          <div className="relative aspect-[2/3] w-full">
+          {/* Poster image */}
+          <div className="relative aspect-[2/3] w-full overflow-hidden">
             <img
               alt={movie.title}
-              className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-cover"
               src={posterUrl}
               onError={() => setImageError(true)}
             />
 
-            {/* Hover Overlay - ONLY VISIBLE ON HOVER */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+            {/* Gradient overlay — shown on hover */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
               <div className="text-white space-y-2">
                 <h3 className="font-bold text-base line-clamp-2">
                   {movie.title}
@@ -175,6 +144,27 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
                   <p className="text-xs text-gray-300 line-clamp-4 mt-2">
                     {movie.overview}
                   </p>
+                )}
+
+                {/* Action buttons — only shown when showAddButton is true */}
+                {showAddButton && (
+                  <div className="flex gap-2 mt-2 pt-2 border-t border-white/20">
+                    {/* Watchlist button — stop propagation so card onPress isn't also triggered */}
+                    <button
+                      className="flex-1 flex items-center justify-center gap-1 bg-primary/90 hover:bg-primary text-white text-xs font-semibold py-1.5 rounded-md transition-colors"
+                      onClick={handleWatchlistClick}
+                    >
+                      <Plus className="w-3 h-3" />
+                      Watchlist
+                    </button>
+                    <button
+                      className="flex-1 flex items-center justify-center gap-1 bg-secondary/90 hover:bg-secondary text-white text-xs font-semibold py-1.5 rounded-md transition-colors"
+                      onClick={handleMovieMondayClick}
+                    >
+                      <Calendar className="w-3 h-3" />
+                      Monday
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
