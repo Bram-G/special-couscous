@@ -95,7 +95,7 @@ export default function MoviePage() {
       try {
         setLoading(true);
         const response = await fetch(
-`https://api.themoviedb.org/3/movie/${extractedId}?append_to_response=credits,videos,release_dates&api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+          `https://api.themoviedb.org/3/movie/${extractedId}?append_to_response=credits,videos,release_dates&api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
         );
 
         if (!response.ok) {
@@ -150,7 +150,7 @@ export default function MoviePage() {
             title: movieDetails.title,
             posterPath: movieDetails.poster_path,
           }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -183,7 +183,7 @@ export default function MoviePage() {
               "Content-Type": "application/json",
             },
             credentials: "include",
-          }
+          },
         );
 
         if (!response.ok) {
@@ -207,7 +207,7 @@ export default function MoviePage() {
                 "Content-Type": "application/json",
               },
               credentials: "include",
-            }
+            },
           );
 
           if (!deleteResponse.ok) {
@@ -230,14 +230,14 @@ export default function MoviePage() {
               title: movieDetails?.title,
               posterPath: movieDetails?.poster_path,
             }),
-          }
+          },
         );
 
         if (!addResponse.ok) {
           const errorData = await addResponse.json();
 
           throw new Error(
-            `Failed to add movie to watchlist: ${errorData.message || "Unknown error"}`
+            `Failed to add movie to watchlist: ${errorData.message || "Unknown error"}`,
           );
         }
       }
@@ -258,7 +258,7 @@ export default function MoviePage() {
     try {
       setLoadingProviders(true);
       const response = await fetch(
-        `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}` 
+        `https://api.themoviedb.org/3/movie/${id}/watch/providers?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
       );
       const data = await response.json();
 
@@ -270,7 +270,7 @@ export default function MoviePage() {
           : [];
 
       setWatchProviders(
-        usProviders.length > 0 ? usProviders : firstRegionProviders
+        usProviders.length > 0 ? usProviders : firstRegionProviders,
       );
     } catch (error) {
       console.error("Error fetching watch providers:", error);
@@ -307,7 +307,7 @@ export default function MoviePage() {
                 movie.cast &&
                 movie.cast.some(
                   (castMember) =>
-                    castMember.name.toLowerCase() === actorName.toLowerCase()
+                    castMember.name.toLowerCase() === actorName.toLowerCase(),
                 );
 
               if (actorInCast) {
@@ -391,7 +391,7 @@ export default function MoviePage() {
       (person) =>
         person.job === "Screenplay" ||
         person.job === "Writer" ||
-        person.job === "Story"
+        person.job === "Story",
     );
   };
 
@@ -402,7 +402,7 @@ export default function MoviePage() {
     }
 
     const trailers = movieDetails.videos.results.filter(
-      (video) => video.type === "Trailer" && video.site === "YouTube"
+      (video) => video.type === "Trailer" && video.site === "YouTube",
     );
 
     return trailers.length > 0 ? trailers[0] : null;
@@ -444,55 +444,53 @@ export default function MoviePage() {
 
   return (
     <div className="movie-detail-page w-full">
-      {/* Hero Section with Backdrop */}
+      {/* ── Hero Section ── */}
       <div
-        className="relative w-full bg-cover bg-center h-[70vh]"
+        className="relative w-full bg-cover bg-center"
         style={{
           backgroundImage: backdropUrl ? `url(${backdropUrl})` : "none",
           backgroundColor: !backdropUrl ? "rgba(0,0,0,0.8)" : "transparent",
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+        {/* Gradient overlay — stronger on mobile so text is always readable */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/30 md:from-background md:via-background/50 md:to-transparent" />
 
-        {/* Content container */}
-        <div className="container mx-auto px-4 h-full relative z-10">
-          <div className="flex flex-col md:flex-row items-end h-full pb-10">
-            {/* Poster */}
-            <div className="hidden md:block w-64 flex-shrink-0 shadow-xl rounded-lg overflow-hidden">
-              <Image
-                removeWrapper
+        {/* Hero content */}
+        <div className="container mx-auto px-4 relative z-10 py-8 md:py-0 md:h-[70vh] flex items-end">
+          <div className="flex flex-row items-end w-full pb-0 md:pb-10 gap-4">
+            {/* Poster — compact on mobile (sits inline with title), full size on desktop */}
+            <div className="w-24 flex-shrink-0 md:w-64 shadow-xl rounded-lg overflow-hidden">
+              <img
                 alt={movieDetails.title}
-                className="w-full h-auto"
+                className="w-full h-auto rounded-lg"
                 src={posterUrl}
               />
             </div>
 
-            {/* Movie info - with text-left alignment and adaptive text color */}
-            <div className="md:ml-8 flex-1 text-left">
-              <h1 className="text-4xl md:text-5xl font-bold text-foreground">
+            {/* Movie info */}
+            <div className="flex-1 md:ml-4 text-left">
+              <h1 className="text-2xl md:text-5xl font-bold text-foreground leading-tight">
                 {movieDetails.title}
               </h1>
 
-              <div className="flex flex-wrap items-center gap-3 mt-2 text-foreground/80">
+              <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-2 text-foreground/80 text-sm md:text-base">
                 {movieDetails.release_date && (
                   <span>{getReleaseYear(movieDetails.release_date)}</span>
                 )}
-
                 {movieDetails.runtime && (
                   <>
                     <span className="w-1 h-1 rounded-full bg-foreground/80" />
                     <span className="flex items-center">
-                      <Clock className="w-4 h-4 mr-1" />
+                      <Clock className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                       {formatRuntime(movieDetails.runtime)}
                     </span>
                   </>
                 )}
-
                 {movieDetails.vote_average > 0 && (
                   <>
                     <span className="w-1 h-1 rounded-full bg-foreground/80" />
                     <span className="flex items-center">
-                      <Star className="w-4 h-4 mr-1 text-yellow-400" />
+                      <Star className="w-3 h-3 md:w-4 md:h-4 mr-1 text-yellow-400" />
                       {movieDetails.vote_average.toFixed(1)}
                     </span>
                   </>
@@ -500,7 +498,7 @@ export default function MoviePage() {
               </div>
 
               {/* Genres */}
-              <div className="flex flex-wrap gap-2 mt-4">
+              <div className="flex flex-wrap gap-1.5 md:gap-2 mt-3 md:mt-4">
                 {movieDetails.genres?.map((genre) => (
                   <Chip key={genre.id} color="primary" size="sm" variant="flat">
                     {genre.name}
@@ -508,68 +506,62 @@ export default function MoviePage() {
                 ))}
               </div>
 
-              {/* Tagline with adaptive text color */}
+              {/* Tagline */}
               {movieDetails.tagline && (
-                <p className="mt-4 text-xl italic text-foreground/70">
+                <p className="mt-3 md:mt-4 text-sm md:text-xl italic text-foreground/70 line-clamp-2 md:line-clamp-none">
                   {movieDetails.tagline}
                 </p>
               )}
-
-              {/* Action buttons for mobile */}
-              <div className="fixed bottom-0 left-0 right-0 md:hidden bg-background/80 backdrop-blur-md border-t border-default-200 p-3 z-10">
-                <div className="flex gap-2">
-                  <AddToWatchlistButton
-                    fullWidth
-                    color="primary"
-                    movie={{
-                      id: movieDetails.id,
-                      title: movieDetails.title,
-                      posterPath: movieDetails.poster_path,
-                    }}
-                    size="md"
-                    variant="solid"
-                  />
-
-                  <Button
-                    fullWidth
-                    color="secondary"
-                    startContent={<Calendar />}
-                    variant="solid"
-                    onPress={
-                      isAuthenticated
-                        ? () => setShowMovieMondayModal(true)
-                        : () => handleLoginRedirect("moviemonday")
-                    }
-                  >
-                    {isAuthenticated ? "Movie Monday" : "Sign in"}
-                  </Button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Watched status banner */}
       {movieDetails && movieId && (
-  <WatchedStatusBanner 
-    tmdbMovieId={parseInt(movieId)} 
-    movieTitle={movieDetails.title} 
-  />
-)}
-      {/* Main content */}
-      <div className="container mx-auto px-4 py-8">
+        <WatchedStatusBanner
+          tmdbMovieId={parseInt(movieId)}
+          movieTitle={movieDetails.title}
+        />
+      )}
+
+      {/* ── Fixed bottom bar (mobile only) ── */}
+      {/* z-50 ensures nothing ever renders on top of the action buttons */}
+      <div className="fixed bottom-0 left-0 right-0 md:hidden bg-background/90 backdrop-blur-md border-t border-default-200 p-3 z-50">
+        <div className="flex gap-2">
+          <AddToWatchlistButton
+            fullWidth
+            color="primary"
+            movie={{
+              id: movieDetails.id,
+              title: movieDetails.title,
+              posterPath: movieDetails.poster_path,
+            }}
+            size="md"
+            variant="solid"
+          />
+          <Button
+            fullWidth
+            color="secondary"
+            startContent={<Calendar />}
+            variant="solid"
+            onPress={
+              isAuthenticated
+                ? () => setShowMovieMondayModal(true)
+                : () => handleLoginRedirect("moviemonday")
+            }
+          >
+            {isAuthenticated ? "Movie Monday" : "Sign in"}
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Main content ── */}
+      {/* pb-24 on mobile so the last content item never hides behind the fixed bar */}
+      <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
         <div className="flex flex-col md:flex-row gap-6">
           {/* Left Column */}
           <div className="w-full md:w-2/3">
-            {/* Mobile poster */}
-            <div className="block md:hidden w-48 mb-6 mx-auto">
-              <Image
-                removeWrapper
-                alt={movieDetails.title}
-                className="w-full h-auto rounded-lg shadow-lg"
-                src={posterUrl}
-              />
-            </div>
-
             {/* Overview section */}
             <div className="mb-6 text-left">
               <h2 className="text-xl font-bold mb-2">Overview</h2>
@@ -783,7 +775,7 @@ export default function MoviePage() {
                                       {company.name}
                                     </p>
                                   </div>
-                                )
+                                ),
                               )}
                             </div>
                           </div>

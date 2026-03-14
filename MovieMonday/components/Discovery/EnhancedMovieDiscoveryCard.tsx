@@ -37,7 +37,7 @@ interface EnhancedMovieDiscoveryCardProps {
   isWatched?: boolean;
   isVotedButNotPicked?: boolean;
   showAddButton?: boolean;
-  onAddClick?: (movie: Movie) => void; // Legacy - kept for compatibility
+  onAddClick?: (movie: Movie) => void;
 }
 
 const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
@@ -49,7 +49,6 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
   const router = useRouter();
   const [imageError, setImageError] = useState(false);
 
-  // Modal controls
   const {
     isOpen: isWatchlistModalOpen,
     onOpen: onWatchlistModalOpen,
@@ -62,7 +61,7 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
     onClose: onMovieMondayModalClose,
   } = useDisclosure();
 
-  const posterUrl = movie.poster_path && !imageError
+  const posterUrl = movie.poster_path
     ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
     : "/placeholder-movie.png";
 
@@ -70,20 +69,18 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
     ? new Date(movie.release_date).getFullYear()
     : "N/A";
 
-
+  // FIXED: Simplified to not require event parameter
   const handleCardClick = () => {
     router.push(`/movie/${movie.id}`);
   };
 
   const handleWatchlistClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
     onWatchlistModalOpen();
   };
 
   const handleMovieMondayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
     onMovieMondayModalOpen();
   };
 
@@ -116,56 +113,54 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
           )}
         </div>
 
+        {/* Action Buttons - Top Right - ONLY VISIBLE ON HOVER */}
+        {showAddButton && !isWatched && (
+          <div className="absolute top-2 right-2 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Tooltip content="Add to Watchlist">
+              <Button
+                isIconOnly
+                className="bg-primary text-white"
+                size="sm"
+                onClick={handleWatchlistClick}
+              >
+                <Heart className="w-4 h-4" />
+              </Button>
+            </Tooltip>
+            <Tooltip content="Add to Movie Monday">
+              <Button
+                isIconOnly
+                className="bg-secondary text-white"
+                size="sm"
+                onClick={handleMovieMondayClick}
+              >
+                <Calendar className="w-4 h-4" />
+              </Button>
+            </Tooltip>
+          </div>
+        )}
+
         <CardBody className="p-0 overflow-hidden">
-          {/* Poster image */}
-          <div className="relative aspect-[2/3] w-full overflow-hidden">
+          <div className="relative aspect-[2/3] w-full">
             <img
               alt={movie.title}
-              className="w-full h-full object-cover"
+              className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
               src={posterUrl}
               onError={() => setImageError(true)}
             />
 
-            {/* Gradient overlay — shown on hover */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-              <div className="text-white space-y-2">
-                <h3 className="font-bold text-base line-clamp-2">
-                  {movie.title}
-                </h3>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span>{movie.vote_average?.toFixed(1) || "N/A"}</span>
-                  </div>
-                  <span>•</span>
-                  <span>{releaseYear}</span>
+            {/* Hover Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+              <h3 className="text-white font-bold text-sm mb-1 line-clamp-2">
+                {movie.title}
+              </h3>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-1 text-yellow-400">
+                  <Star className="w-3 h-3 fill-yellow-400" />
+                  <span className="font-semibold">
+                    {movie.vote_average?.toFixed(1) || "N/A"}
+                  </span>
                 </div>
-                {movie.overview && (
-                  <p className="text-xs text-gray-300 line-clamp-4 mt-2">
-                    {movie.overview}
-                  </p>
-                )}
-
-                {/* Action buttons — only shown when showAddButton is true */}
-                {showAddButton && (
-                  <div className="flex gap-2 mt-2 pt-2 border-t border-white/20">
-                    {/* Watchlist button — stop propagation so card onPress isn't also triggered */}
-                    <button
-                      className="flex-1 flex items-center justify-center gap-1 bg-primary/90 hover:bg-primary text-white text-xs font-semibold py-1.5 rounded-md transition-colors"
-                      onClick={handleWatchlistClick}
-                    >
-                      <Plus className="w-3 h-3" />
-                      Watchlist
-                    </button>
-                    <button
-                      className="flex-1 flex items-center justify-center gap-1 bg-secondary/90 hover:bg-secondary text-white text-xs font-semibold py-1.5 rounded-md transition-colors"
-                      onClick={handleMovieMondayClick}
-                    >
-                      <Calendar className="w-3 h-3" />
-                      Monday
-                    </button>
-                  </div>
-                )}
+                <span className="text-white/70">{releaseYear}</span>
               </div>
             </div>
           </div>
@@ -175,21 +170,12 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
       {/* Modals */}
       <AddToWatchlistModal
         isOpen={isWatchlistModalOpen}
-        movieDetails={{
-          id: movie.id,
-          title: movie.title,
-          posterPath: movie.poster_path,
-        }}
+        movie={movie}
         onClose={onWatchlistModalClose}
       />
-
       <AddToMovieMondayModal
         isOpen={isMovieMondayModalOpen}
-        movie={{
-          id: movie.id,
-          title: movie.title,
-          poster_path: movie.poster_path,
-        }}
+        movie={movie}
         onClose={onMovieMondayModalClose}
       />
     </>
