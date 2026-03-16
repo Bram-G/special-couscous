@@ -239,42 +239,51 @@ const DiscoveryPage = () => {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Discover Movies</h1>
-        <p className="text-default-500">
-          Explore trending movies, top rated films, and personalized recommendations
-        </p>
-      </div>
+      {/* Hero */}
+<div className="relative mb-10 rounded-2xl overflow-hidden bg-gradient-to-br from-primary-900/40 via-default-100/10 to-secondary-900/30 border border-default-200/20 px-8 py-12 text-center">
+  {/* Subtle background glow blobs */}
+  <div className="absolute top-0 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+  <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-secondary/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Search Bar */}
-      <div className="mb-8">
-        <Input
-          classNames={{
-            base: "max-w-2xl",
-            inputWrapper: "h-12",
-          }}
-          endContent={
-            searchQuery ? (
-              <Button
-                isIconOnly
-                size="sm"
-                variant="light"
-                onPress={clearSearch}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Search className="h-5 w-5 text-default-400" />
-            )
-          }
-          placeholder="Search for movies..."
-          size="lg"
-          startContent={<Film className="h-5 w-5 text-default-400" />}
-          value={searchQuery}
-          onChange={handleSearchChange}
-        />
-      </div>
+  <div className="relative z-10">
+    <div className="flex items-center justify-center gap-2 mb-3">
+      <Film className="w-6 h-6 text-primary" />
+      <span className="text-sm font-semibold uppercase tracking-widest text-primary">
+        Movie Monday
+      </span>
+    </div>
+    <h1 className="text-4xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-white via-default-100 to-default-400 bg-clip-text text-transparent">
+      Discover Movies
+    </h1>
+    <p className="text-default-400 text-base md:text-lg max-w-xl mx-auto mb-8">
+      Explore trending films, top rated picks, and personalized recommendations for your group.
+    </p>
+
+    {/* Search Bar — moved inside the hero */}
+    <div className="flex justify-center">
+      <Input
+        classNames={{
+          base: "max-w-xl w-full",
+          inputWrapper: "h-12 shadow-lg",
+        }}
+        endContent={
+          searchQuery ? (
+            <Button isIconOnly size="sm" variant="light" onPress={clearSearch}>
+              <X className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Search className="h-5 w-5 text-default-400" />
+          )
+        }
+        placeholder="Search for movies..."
+        size="lg"
+        startContent={<Film className="h-5 w-5 text-default-400" />}
+        value={searchQuery}
+        onChange={handleSearchChange}
+      />
+    </div>
+  </div>
+</div>
 
       {/* Search Results */}
       {searchQuery && (
