@@ -49,82 +49,96 @@ const GENRE_OPTIONS = [
 export default function TopRatedPage() {
   const router = useRouter();
   const { isAuthenticated, token, currentGroupId } = useAuth();
-  
+
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedGenre, setSelectedGenre] = useState("");
   const [watchedMovies, setWatchedMovies] = useState<Set<number>>(new Set());
-  const [votedButNotPicked, setVotedButNotPicked] = useState<Set<number>>(new Set());
+  const [votedButNotPicked, setVotedButNotPicked] = useState<Set<number>>(
+    new Set(),
+  );
 
   // Fetch top rated movies - now fetches multiple TMDB pages at once
-  const fetchTopRatedMovies = useCallback(async (page: number) => {
-    try {
-      setLoading(true);
-      const genreParam = selectedGenre ? `&with_genres=${selectedGenre}` : "";
-      
-      // Calculate which TMDB pages we need to fetch
-      // If we're on page 1, fetch TMDB pages 1-3
-      // If we're on page 2, fetch TMDB pages 4-6, etc.
-      const startTmdbPage = ((page - 1) * TMDB_PAGES_PER_FETCH) + 1;
-      const tmdbPagePromises = [];
-      
-      // Fetch multiple TMDB pages in parallel
-      for (let i = 0; i < TMDB_PAGES_PER_FETCH; i++) {
-        const tmdbPage = startTmdbPage + i;
-        tmdbPagePromises.push(
-          fetch(
-            `https://api.themoviedb.org/3/movie/top_rated?api_key=${TMDB_API_KEY}&page=${tmdbPage}${genreParam}`
-          ).then(res => res.json())
-        );
-      }
+  const fetchTopRatedMovies = useCallback(
+    async (page: number) => {
+      try {
+        setLoading(true);
+        const genreParam = selectedGenre ? `&with_genres=${selectedGenre}` : "";
 
-      const responses = await Promise.all(tmdbPagePromises);
-      
-      // Combine all results
-      const allMovies: Movie[] = responses.flatMap(data => data.results || []);
-      
-      // Use the total pages from the first response and adjust for our pagination
-      const tmdbTotalPages = responses[0]?.total_pages || 1;
-      const adjustedTotalPages = Math.ceil(Math.min(tmdbTotalPages, 500) / TMDB_PAGES_PER_FETCH);
-      
-      setMovies(allMovies);
-      setTotalPages(adjustedTotalPages);
-      
-      if (currentGroupId && allMovies.length > 0) {
-        await checkDiscoveryStatus(allMovies.map((m: Movie) => m.id));
+        // Calculate which TMDB pages we need to fetch
+        // If we're on page 1, fetch TMDB pages 1-3
+        // If we're on page 2, fetch TMDB pages 4-6, etc.
+        const startTmdbPage = (page - 1) * TMDB_PAGES_PER_FETCH + 1;
+        const tmdbPagePromises = [];
+
+        // Fetch multiple TMDB pages in parallel
+        for (let i = 0; i < TMDB_PAGES_PER_FETCH; i++) {
+          const tmdbPage = startTmdbPage + i;
+          tmdbPagePromises.push(
+            fetch(
+              `https://api.themoviedb.org/3/movie/top_rated?api_key=${TMDB_API_KEY}&page=${tmdbPage}${genreParam}`,
+            ).then((res) => res.json()),
+          );
+        }
+
+        const responses = await Promise.all(tmdbPagePromises);
+
+        // Combine all results
+        const allMovies: Movie[] = responses.flatMap(
+          (data) => data.results || [],
+        );
+
+        // Use the total pages from the first response and adjust for our pagination
+        const tmdbTotalPages = responses[0]?.total_pages || 1;
+        const adjustedTotalPages = Math.ceil(
+          Math.min(tmdbTotalPages, 500) / TMDB_PAGES_PER_FETCH,
+        );
+
+        setMovies(allMovies);
+        setTotalPages(adjustedTotalPages);
+
+        if (currentGroupId && allMovies.length > 0) {
+          await checkDiscoveryStatus(allMovies.map((m: Movie) => m.id));
+        }
+      } catch (error) {
+        console.error("Error fetching top rated movies:", error);
+        setMovies([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching top rated movies:", error);
-      setMovies([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedGenre, currentGroupId]);
+    },
+    [selectedGenre, currentGroupId],
+  );
 
   const checkDiscoveryStatus = async (tmdbIds: number[]) => {
     if (!currentGroupId) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/movie-monday/discovery-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${API_BASE_URL}/api/movie-monday/discovery-status`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            group_id: currentGroupId,
+            tmdb_ids: tmdbIds,
+          }),
         },
-        body: JSON.stringify({
-          group_id: currentGroupId,
-          tmdb_ids: tmdbIds,
-        }),
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
         setWatchedMovies(new Set(data.watched || []));
-        setVotedButNotPicked(new Set(data.votedButNotPicked?.map((m: any) => m.tmdbMovieId) || []));
+        setVotedButNotPicked(
+          new Set(data.votedButNotPicked?.map((m: any) => m.tmdbMovieId) || []),
+        );
       }
     } catch (error) {
-      console.error('Error checking discovery status:', error);
+      console.error("Error checking discovery status:", error);
     }
   };
 
@@ -136,13 +150,13 @@ export default function TopRatedPage() {
     setCurrentPage(1);
   }, [selectedGenre]);
 
-
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const selectedGenreName = GENRE_OPTIONS.find(g => g.value === selectedGenre)?.label || "All Genres";
+  const selectedGenreName =
+    GENRE_OPTIONS.find((g) => g.value === selectedGenre)?.label || "All Genres";
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -158,9 +172,9 @@ export default function TopRatedPage() {
         </Button>
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-warning-100 dark:bg-warning-900/30 flex items-center justify-center">
-              <Star className="h-6 w-6 text-warning" />
+          <div className="flex items-start gap-2">
+            <div className="w-9 h-9 rounded-full bg-warning-100 dark:bg-warning-900/30 flex items-center justify-center flex-shrink-0 mt-1">
+              <Star className="h-4 w-4 text-warning" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">Top Rated Movies</h1>

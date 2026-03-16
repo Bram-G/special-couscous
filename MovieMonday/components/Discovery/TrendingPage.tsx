@@ -22,66 +22,76 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function TrendingPage() {
   const router = useRouter();
   const { isAuthenticated, token, currentGroupId } = useAuth();
-  
+
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [timeWindow, setTimeWindow] = useState<"day" | "week">("week");
   const [watchedMovies, setWatchedMovies] = useState<Set<number>>(new Set());
-  const [votedButNotPicked, setVotedButNotPicked] = useState<Set<number>>(new Set());
+  const [votedButNotPicked, setVotedButNotPicked] = useState<Set<number>>(
+    new Set(),
+  );
 
   // Fetch trending movies
-  const fetchTrendingMovies = useCallback(async (page: number) => {
-    try {
-      setLoading(true);
-const response = await fetch(
-  `https://api.themoviedb.org/3/trending/movie/${timeWindow}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&page=${page}`
-);
+  const fetchTrendingMovies = useCallback(
+    async (page: number) => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `https://api.themoviedb.org/3/trending/movie/${timeWindow}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&page=${page}`,
+        );
 
-      if (!response.ok) {
-        throw new Error(`TMDB API error: ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`TMDB API error: ${response.status}`);
+        }
 
-      const data = await response.json();
-      setMovies(data.results || []);
-      setTotalPages(Math.min(data.total_pages, 500)); // TMDB limits to 500 pages
-      
-      // Check watched status for these movies
-      if (currentGroupId && data.results?.length > 0) {
-        await checkDiscoveryStatus(data.results.map((m: Movie) => m.id));
+        const data = await response.json();
+        setMovies(data.results || []);
+        setTotalPages(Math.min(data.total_pages, 500)); // TMDB limits to 500 pages
+
+        // Check watched status for these movies
+        if (currentGroupId && data.results?.length > 0) {
+          await checkDiscoveryStatus(data.results.map((m: Movie) => m.id));
+        }
+      } catch (error) {
+        console.error("Error fetching trending movies:", error);
+        setMovies([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching trending movies:", error);
-      setMovies([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [timeWindow, currentGroupId]);
+    },
+    [timeWindow, currentGroupId],
+  );
 
   // Check watched status and voted-but-not-picked status
   const checkDiscoveryStatus = async (tmdbIds: number[]) => {
     if (!currentGroupId) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/movie-monday/discovery-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${API_BASE_URL}/api/movie-monday/discovery-status`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            group_id: currentGroupId,
+            tmdb_ids: tmdbIds,
+          }),
         },
-        body: JSON.stringify({
-          group_id: currentGroupId,
-          tmdb_ids: tmdbIds,
-        }),
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
         setWatchedMovies(new Set(data.watched || []));
-        setVotedButNotPicked(new Set(data.votedButNotPicked?.map((m: any) => m.tmdbMovieId) || []));
+        setVotedButNotPicked(
+          new Set(data.votedButNotPicked?.map((m: any) => m.tmdbMovieId) || []),
+        );
       }
     } catch (error) {
-      console.error('Error checking discovery status:', error);
+      console.error("Error checking discovery status:", error);
     }
   };
 
@@ -95,10 +105,9 @@ const response = await fetch(
     setCurrentPage(1);
   }, [timeWindow]);
 
-
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -115,9 +124,9 @@ const response = await fetch(
         </Button>
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center">
-              <Flame className="h-6 w-6 text-danger" />
+          <div className="flex items-start gap-2">
+            <div className="w-9 h-9 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center flex-shrink-0 mt-1">
+              <Flame className="h-4 w-4 text-danger" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">Trending Movies</h1>
@@ -202,7 +211,6 @@ const response = await fetch(
           </div>
         </Card>
       )}
-     
     </div>
   );
 }

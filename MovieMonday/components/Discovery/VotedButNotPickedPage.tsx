@@ -1,12 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import {
-  Card,
-  Button,
-  Spinner,
-  Chip,
-  Pagination,
-} from "@heroui/react";
+import { Card, Button, Spinner, Chip, Pagination } from "@heroui/react";
 import { X, ArrowLeft, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -20,13 +14,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function VotedButNotPickedPage() {
   const router = useRouter();
   const { isAuthenticated, currentGroupId } = useAuth();
-  
+
   const [movies, setMovies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-
 
   useEffect(() => {
     if (!isAuthenticated || !currentGroupId) {
@@ -41,7 +34,7 @@ export default function VotedButNotPickedPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_BASE_URL}/api/movie-monday/voted-but-not-picked/${currentGroupId}?page=${currentPage}&limit=24`
+        `${API_BASE_URL}/api/movie-monday/voted-but-not-picked/${currentGroupId}?page=${currentPage}&limit=24`,
       );
 
       if (!response.ok) {
@@ -62,14 +55,14 @@ export default function VotedButNotPickedPage() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
@@ -86,9 +79,9 @@ export default function VotedButNotPickedPage() {
           Back to Discovery
         </Button>
 
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-warning-100 dark:bg-warning-900/30 flex items-center justify-center">
-            <X className="h-6 w-6 text-warning" />
+        <div className="flex items-start gap-2">
+          <div className="w-9 h-9 rounded-full bg-warning-100 dark:bg-warning-900/30 flex items-center justify-center flex-shrink-0 mt-1">
+            <X className="h-4 w-4 text-warning" />
           </div>
           <div>
             <h1 className="text-3xl font-bold">Voted But Not Picked</h1>
@@ -145,7 +138,6 @@ export default function VotedButNotPickedPage() {
                     isVotedButNotPicked={true}
                     movie={movieData}
                     showAddButton={true}
-                    
                   />
                   <div className="mt-2 text-center">
                     <div className="flex items-center justify-center gap-1 text-xs text-default-500">
@@ -174,23 +166,17 @@ export default function VotedButNotPickedPage() {
         <Card className="p-12">
           <div className="text-center">
             <X className="w-16 h-16 mx-auto mb-4 text-default-300" />
-            <h3 className="text-xl font-semibold mb-2">
-              No movies here yet
-            </h3>
+            <h3 className="text-xl font-semibold mb-2">No movies here yet</h3>
             <p className="text-default-500 mb-4">
-              When you vote on movies that don't win, they'll appear here for future consideration
+              When you vote on movies that don't win, they'll appear here for
+              future consideration
             </p>
-            <Button
-              color="primary"
-              onPress={() => router.push("/dashboard")}
-            >
+            <Button color="primary" onPress={() => router.push("/dashboard")}>
               Go to Dashboard
             </Button>
           </div>
         </Card>
       )}
-
-      
     </div>
   );
 }

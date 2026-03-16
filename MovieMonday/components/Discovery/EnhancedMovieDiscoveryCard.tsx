@@ -4,12 +4,12 @@ import React, { useState } from "react";
 import {
   Card,
   CardBody,
-  Badge,
+  Chip,
   Tooltip,
   Button,
   useDisclosure,
 } from "@heroui/react";
-import { Eye, X, Star, Plus, Calendar, Heart } from "lucide-react";
+import { Eye, Clock, Star, Calendar, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
@@ -37,7 +37,7 @@ interface EnhancedMovieDiscoveryCardProps {
   isWatched?: boolean;
   isVotedButNotPicked?: boolean;
   showAddButton?: boolean;
-  onAddClick?: (movie: Movie) => void;
+  onAddClick?: (movie: Movie) => void; // Legacy - kept for compatibility
 }
 
 const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
@@ -61,16 +61,24 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
     onClose: onMovieMondayModalClose,
   } = useDisclosure();
 
-  const posterUrl = movie.poster_path
-    ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-    : "/placeholder-movie.png";
+  const posterUrl =
+    !imageError && movie.poster_path
+      ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+      : "/placeholder-movie.png";
 
   const releaseYear = movie.release_date
     ? new Date(movie.release_date).getFullYear()
     : "N/A";
 
-  // FIXED: Simplified to not require event parameter
-  const handleCardClick = () => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("button") ||
+      target.closest("[role='button']") ||
+      target.closest("a")
+    ) {
+      return;
+    }
     router.push(`/movie/${movie.id}`);
   };
 
@@ -91,25 +99,25 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
         className="group relative cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl"
         onPress={handleCardClick}
       >
-        {/* Badges - Top Left */}
+        {/* Status Pills - Top Left */}
         <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
           {isWatched && (
-            <Badge
-              className="flex items-center gap-1 bg-success/90 text-white px-2 py-1"
+            <Chip
+              className="bg-success/90 text-white font-semibold"
               size="sm"
+              startContent={<Eye className="w-3 h-3" />}
             >
-              <Eye className="w-3 h-3" />
-              <span className="text-xs font-semibold">Watched</span>
-            </Badge>
+              Watched
+            </Chip>
           )}
           {isVotedButNotPicked && !isWatched && (
-            <Badge
-              className="flex items-center gap-1 bg-warning/90 text-white px-2 py-1"
+            <Chip
+              className="bg-warning/90 text-white font-semibold"
               size="sm"
+              startContent={<X className="w-3 h-3" />}
             >
-              <X className="w-3 h-3" />
-              <span className="text-xs font-semibold">Voted</span>
-            </Badge>
+              Voted
+            </Chip>
           )}
         </div>
 
@@ -141,26 +149,42 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
 
         <CardBody className="p-0 overflow-hidden">
           <div className="relative aspect-[2/3] w-full">
+            {/* Poster image — dimmed when watched */}
             <img
               alt={movie.title}
-              className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
+              className={`object-cover w-full h-full transition-transform duration-300 group-hover:scale-105 ${
+                isWatched ? "brightness-50" : ""
+              }`}
               src={posterUrl}
               onError={() => setImageError(true)}
             />
 
-            {/* Hover Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-              <h3 className="text-white font-bold text-sm mb-1 line-clamp-2">
-                {movie.title}
-              </h3>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="flex items-center gap-1 text-yellow-400">
-                  <Star className="w-3 h-3 fill-yellow-400" />
-                  <span className="font-semibold">
-                    {movie.vote_average?.toFixed(1) || "N/A"}
-                  </span>
+            {/* Watched centre icon overlay */}
+            {isWatched && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <Eye className="w-10 h-10 text-white/80 drop-shadow-lg" />
+              </div>
+            )}
+
+            {/* Hover Overlay - ONLY VISIBLE ON HOVER */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+              <div className="text-white space-y-2">
+                <h3 className="font-bold text-base line-clamp-2">
+                  {movie.title}
+                </h3>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <span>{movie.vote_average?.toFixed(1) || "N/A"}</span>
+                  </div>
+                  <span>•</span>
+                  <span>{releaseYear}</span>
                 </div>
-                <span className="text-white/70">{releaseYear}</span>
+                {movie.overview && (
+                  <p className="text-xs text-gray-300 line-clamp-4 mt-2">
+                    {movie.overview}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -170,12 +194,21 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
       {/* Modals */}
       <AddToWatchlistModal
         isOpen={isWatchlistModalOpen}
-        movie={movie}
+        movieDetails={{
+          id: movie.id,
+          title: movie.title,
+          posterPath: movie.poster_path,
+        }}
         onClose={onWatchlistModalClose}
       />
+
       <AddToMovieMondayModal
         isOpen={isMovieMondayModalOpen}
-        movie={movie}
+        movie={{
+          id: movie.id,
+          title: movie.title,
+          poster_path: movie.poster_path,
+        }}
         onClose={onMovieMondayModalClose}
       />
     </>

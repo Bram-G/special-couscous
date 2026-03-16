@@ -1,16 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  Card,
-  Button,
-  Spinner,
-  Chip,
-  Tabs,
-  Tab,
-} from "@heroui/react";
+import { Card, Button, Spinner, Chip, Tabs, Tab } from "@heroui/react";
 import { Sparkles, ArrowLeft, Users, Heart } from "lucide-react";
 import { useRouter } from "next/navigation";
-
 
 import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
@@ -22,15 +14,19 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function RecommendedPage() {
   const router = useRouter();
   const { isAuthenticated, token, currentGroupId } = useAuth();
-  
-  const [personalRecommendations, setPersonalRecommendations] = useState<Movie[]>([]);
+
+  const [personalRecommendations, setPersonalRecommendations] = useState<
+    Movie[]
+  >([]);
   const [groupRecommendations, setGroupRecommendations] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("personal");
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [watchedMovies, setWatchedMovies] = useState<Set<number>>(new Set());
-  const [votedButNotPicked, setVotedButNotPicked] = useState<Set<number>>(new Set());
+  const [votedButNotPicked, setVotedButNotPicked] = useState<Set<number>>(
+    new Set(),
+  );
   const [groupStats, setGroupStats] = useState<any>(null);
 
   // Fetch personal recommendations (based on watchlist)
@@ -47,7 +43,7 @@ export default function RecommendedPage() {
             "Content-Type": "application/json",
           },
           credentials: "include",
-        }
+        },
       );
 
       if (!watchlistResponse.ok) {
@@ -69,14 +65,16 @@ export default function RecommendedPage() {
 
       const recommendationPromises = sampleMovies.map((movie) =>
         fetch(
-          `https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+          `https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
         )
           .then((res) => (res.ok ? res.json() : { results: [] }))
-          .catch(() => ({ results: [] }))
+          .catch(() => ({ results: [] })),
       );
 
       const results = await Promise.all(recommendationPromises);
-      const allRecommendations = results.flatMap((result) => result.results || []);
+      const allRecommendations = results.flatMap(
+        (result) => result.results || [],
+      );
 
       // Deduplicate and filter out watchlist movies
       const uniqueRecommendationsMap = new Map();
@@ -86,9 +84,12 @@ export default function RecommendedPage() {
         }
       });
 
-      const watchlistIds = new Set(watchlistItems.map((m: any) => m.tmdbMovieId));
-      const filtered = Array.from(uniqueRecommendationsMap.values())
-        .filter((movie: Movie) => !watchlistIds.has(movie.id));
+      const watchlistIds = new Set(
+        watchlistItems.map((m: any) => m.tmdbMovieId),
+      );
+      const filtered = Array.from(uniqueRecommendationsMap.values()).filter(
+        (movie: Movie) => !watchlistIds.has(movie.id),
+      );
 
       // Sort by quality
       const sorted = filtered.sort((a: Movie, b: Movie) => {
@@ -122,7 +123,7 @@ export default function RecommendedPage() {
     try {
       // Get group's voting/watching history
       const historyResponse = await fetch(
-        `${API_BASE_URL}/api/movie-monday/group-recommendations/${currentGroupId}`
+        `${API_BASE_URL}/api/movie-monday/group-recommendations/${currentGroupId}`,
       );
 
       if (!historyResponse.ok) {
@@ -138,21 +139,26 @@ export default function RecommendedPage() {
       }
 
       // Get recommendations from group's watch history
-      const sampleSize = Math.min(5, historyData.recommendations.basedOnMovies.length);
+      const sampleSize = Math.min(
+        5,
+        historyData.recommendations.basedOnMovies.length,
+      );
       const sampleMovies = [...historyData.recommendations.basedOnMovies]
         .sort(() => 0.5 - Math.random())
         .slice(0, sampleSize);
 
       const recommendationPromises = sampleMovies.map((movieId: number) =>
         fetch(
-          `https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+          `https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
         )
           .then((res) => (res.ok ? res.json() : { results: [] }))
-          .catch(() => ({ results: [] }))
+          .catch(() => ({ results: [] })),
       );
 
       const results = await Promise.all(recommendationPromises);
-      const allRecommendations = results.flatMap((result) => result.results || []);
+      const allRecommendations = results.flatMap(
+        (result) => result.results || [],
+      );
 
       // Deduplicate
       const uniqueRecommendationsMap = new Map();
@@ -164,19 +170,24 @@ export default function RecommendedPage() {
 
       // Filter out already watched movies
       const alreadyWatched = new Set(historyData.recommendations.basedOnMovies);
-      const filtered = Array.from(uniqueRecommendationsMap.values())
-        .filter((movie: Movie) => !alreadyWatched.has(movie.id));
+      const filtered = Array.from(uniqueRecommendationsMap.values()).filter(
+        (movie: Movie) => !alreadyWatched.has(movie.id),
+      );
 
       // Sort by quality and genre match
       const topGenres = new Set(historyData.recommendations.topGenres || []);
       const sorted = filtered.sort((a: Movie, b: Movie) => {
         // Boost movies matching top genres
-        const aGenreMatch = a.genre_ids?.some((id: number) => 
-          topGenres.has(id.toString())
-        ) ? 1 : 0;
-        const bGenreMatch = b.genre_ids?.some((id: number) => 
-          topGenres.has(id.toString())
-        ) ? 1 : 0;
+        const aGenreMatch = a.genre_ids?.some((id: number) =>
+          topGenres.has(id.toString()),
+        )
+          ? 1
+          : 0;
+        const bGenreMatch = b.genre_ids?.some((id: number) =>
+          topGenres.has(id.toString()),
+        )
+          ? 1
+          : 0;
 
         if (aGenreMatch !== bGenreMatch) {
           return bGenreMatch - aGenreMatch;
@@ -197,24 +208,29 @@ export default function RecommendedPage() {
     if (!currentGroupId || tmdbIds.length === 0) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/movie-monday/discovery-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${API_BASE_URL}/api/movie-monday/discovery-status`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            group_id: currentGroupId,
+            tmdb_ids: tmdbIds,
+          }),
         },
-        body: JSON.stringify({
-          group_id: currentGroupId,
-          tmdb_ids: tmdbIds,
-        }),
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
         setWatchedMovies(new Set(data.watched || []));
-        setVotedButNotPicked(new Set(data.votedButNotPicked?.map((m: any) => m.tmdbMovieId) || []));
+        setVotedButNotPicked(
+          new Set(data.votedButNotPicked?.map((m: any) => m.tmdbMovieId) || []),
+        );
       }
     } catch (error) {
-      console.error('Error checking discovery status:', error);
+      console.error("Error checking discovery status:", error);
     }
   };
 
@@ -234,15 +250,19 @@ export default function RecommendedPage() {
     } else {
       router.push("/discover");
     }
-  }, [isAuthenticated, fetchPersonalRecommendations, fetchGroupRecommendations]);
+  }, [
+    isAuthenticated,
+    fetchPersonalRecommendations,
+    fetchGroupRecommendations,
+  ]);
 
   // Check discovery status when recommendations load
   useEffect(() => {
     const allMovieIds = [
-      ...personalRecommendations.map(m => m.id),
-      ...groupRecommendations.map(m => m.id),
+      ...personalRecommendations.map((m) => m.id),
+      ...groupRecommendations.map((m) => m.id),
     ];
-    
+
     if (allMovieIds.length > 0) {
       checkDiscoveryStatus(allMovieIds);
     }
@@ -253,12 +273,13 @@ export default function RecommendedPage() {
     setIsModalOpen(true);
   };
 
-  const currentMovies = activeTab === "personal" 
-    ? personalRecommendations 
-    : groupRecommendations;
+  const currentMovies =
+    activeTab === "personal" ? personalRecommendations : groupRecommendations;
 
   // Filter out watched movies from display
-  const displayMovies = currentMovies.filter(movie => !watchedMovies.has(movie.id));
+  const displayMovies = currentMovies.filter(
+    (movie) => !watchedMovies.has(movie.id),
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -273,9 +294,9 @@ export default function RecommendedPage() {
           Back to Discovery
         </Button>
 
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-full bg-secondary-100 dark:bg-secondary-900/30 flex items-center justify-center">
-            <Sparkles className="h-6 w-6 text-secondary" />
+        <div className="flex items-start gap-2 mb-4">
+          <div className="w-9 h-9 rounded-full bg-secondary-100 dark:bg-secondary-900/30 flex items-center justify-center flex-shrink-0 mt-1">
+            <Sparkles className="h-4 w-4 text-secondary" />
           </div>
           <div>
             <h1 className="text-3xl font-bold">Recommended For You</h1>
@@ -286,7 +307,7 @@ export default function RecommendedPage() {
         </div>
 
         {/* Tabs */}
-        <Tabs 
+        <Tabs
           aria-label="Recommendation types"
           selectedKey={activeTab}
           onSelectionChange={(key) => setActiveTab(key as string)}
@@ -373,20 +394,22 @@ export default function RecommendedPage() {
           <div className="text-center">
             <Sparkles className="w-16 h-16 mx-auto mb-4 text-default-300" />
             <h3 className="text-xl font-semibold mb-2">
-              {activeTab === "personal" 
-                ? "Add movies to your watchlist" 
-                : "Start watching movies with your group"
-              }
+              {activeTab === "personal"
+                ? "Add movies to your watchlist"
+                : "Start watching movies with your group"}
             </h3>
             <p className="text-default-500 mb-4">
               {activeTab === "personal"
                 ? "We'll generate personalized recommendations based on your watchlist"
-                : "Recommendations will appear based on movies your group has voted on"
-              }
+                : "Recommendations will appear based on movies your group has voted on"}
             </p>
             <Button
               color="primary"
-              onPress={() => router.push(activeTab === "personal" ? "/watchlist" : "/dashboard")}
+              onPress={() =>
+                router.push(
+                  activeTab === "personal" ? "/watchlist" : "/dashboard",
+                )
+              }
             >
               {activeTab === "personal" ? "Go to Watchlist" : "Go to Dashboard"}
             </Button>
