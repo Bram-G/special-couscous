@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Card, Button, Spinner, Chip, Pagination } from "@heroui/react";
-import { X, ArrowLeft, Calendar } from "lucide-react";
+import { X as XIcon, ArrowLeft, Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
@@ -81,7 +81,7 @@ export default function VotedButNotPickedPage() {
 
         <div className="flex items-start gap-2">
           <div className="w-9 h-9 rounded-full bg-warning-100 dark:bg-warning-900/30 flex items-center justify-center flex-shrink-0 mt-1">
-            <X className="h-4 w-4 text-warning" />
+            <XIcon className="h-4 w-4 text-warning" />
           </div>
           <div>
             <h1 className="text-3xl font-bold">Voted But Not Picked</h1>
@@ -165,7 +165,7 @@ export default function VotedButNotPickedPage() {
       ) : (
         <Card className="p-12">
           <div className="text-center">
-            <X className="w-16 h-16 mx-auto mb-4 text-default-300" />
+            <XIcon className="w-16 h-16 mx-auto mb-4 text-default-300" />
             <h3 className="text-xl font-semibold mb-2">No movies here yet</h3>
             <p className="text-default-500 mb-4">
               When you vote on movies that don't win, they'll appear here for
