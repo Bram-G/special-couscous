@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardBody, Button, Spinner, Link } from "@heroui/react";
 import { ChevronLeft, ChevronRight, Info, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-import MovieDiscoveryCard from "./MovieDiscoveryCard";
+import EnhancedMovieDiscoveryCard from "./EnhancedMovieDiscoveryCard";
 
 interface Movie {
   id: number;
@@ -260,7 +259,7 @@ const WatchlistMovieCarousel: React.FC<WatchlistMovieCarouselProps> = ({
           {/* Movie carousel */}
           <div className="flex gap-4 px-3 overflow-hidden">
             {visibleMovies.map((movie) => (
-              <MovieDiscoveryCard key={movie.id} movie={movie} />
+              <EnhancedMovieDiscoveryCard key={movie.id} movie={movie} />
             ))}
           </div>
 
