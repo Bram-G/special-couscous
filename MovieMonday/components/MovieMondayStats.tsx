@@ -3,7 +3,9 @@ import React, { useState, useEffect } from "react";
 import { Card, CardBody, Spinner } from "@heroui/react";
 import { Utensils, Wine, Calendar } from "lucide-react";
 import { useTheme } from "next-themes";
-import CountUp from "react-countup"; // You'll need to install this package
+import CountUp from "react-countup";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface Stats {
   totalMovieMondays: number;
@@ -21,15 +23,13 @@ const MovieMondayStats: React.FC = () => {
       try {
         setLoading(true);
         const response = await fetch(
-          "http://localhost:8000/api/movie-monday/stats",
+          `${API_BASE_URL}/api/movie-monday/stats`,
         );
 
         if (response.ok) {
           const data = await response.json();
-
           setStats(data);
         } else {
-          // Fallback stats if API fails
           setStats({
             totalMovieMondays: 246,
             totalMealsShared: 517,
@@ -38,7 +38,6 @@ const MovieMondayStats: React.FC = () => {
         }
       } catch (error) {
         console.error("Error fetching MovieMonday stats:", error);
-        // Fallback stats if API fails
         setStats({
           totalMovieMondays: 246,
           totalMealsShared: 517,
@@ -52,7 +51,6 @@ const MovieMondayStats: React.FC = () => {
     fetchStats();
   }, []);
 
-  // Determine styles based on theme
   const cardBg = theme === "light" ? "bg-white" : "bg-gray-800";
   const textColor = theme === "light" ? "text-gray-800" : "text-white";
   const subTextColor = theme === "light" ? "text-gray-600" : "text-gray-300";
