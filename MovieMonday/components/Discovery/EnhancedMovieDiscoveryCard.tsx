@@ -9,7 +9,7 @@ import {
   Button,
   useDisclosure,
 } from "@heroui/react";
-import { Eye, Clock, Star, Calendar, Heart } from "lucide-react";
+import { Eye, Clock, Star, Calendar, Heart, X as XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
@@ -114,7 +114,7 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
             <Chip
               className="bg-warning/90 text-white font-semibold"
               size="sm"
-              startContent={<X className="w-3 h-3" />}
+              startContent={<XIcon className="w-3 h-3" />}
             >
               Voted
             </Chip>

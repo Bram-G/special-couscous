@@ -1,15 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  Card,
-  Spinner,
-  Button,
-  Input,
-  useDisclosure,
-} from "@heroui/react";
+import { Card, Spinner, Button, Input, useDisclosure } from "@heroui/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Film, X, Flame, Star, TrendingUp, Award, List, Users } from "lucide-react";
+import {
+  Search,
+  Film,
+  X,
+  Flame,
+  Star,
+  TrendingUp,
+  Award,
+  List,
+  Users,
+} from "lucide-react";
 import debounce from "lodash/debounce";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,7 +23,7 @@ import EnhancedMovieCarousel from "@/components/Discovery/EnhancedMovieCarousel"
 import EnhancedWatchlistSection from "@/components/Discovery/EnhancedWatchlistSection";
 import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL; 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 
 // Types for movie data
@@ -51,13 +55,15 @@ const DiscoveryPage = () => {
   const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
   const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
   const [votedMovies, setVotedMovies] = useState<VotedMovie[]>([]);
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Movie[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   const [watchedMovies, setWatchedMovies] = useState<Set<number>>(new Set());
-  const [votedButNotPickedMovies, setVotedButNotPickedMovies] = useState<Set<number>>(new Set());
+  const [votedButNotPickedMovies, setVotedButNotPickedMovies] = useState<
+    Set<number>
+  >(new Set());
 
   const [loading, setLoading] = useState(true);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
@@ -82,14 +88,14 @@ const DiscoveryPage = () => {
             group_id: currentGroupId,
             tmdb_ids: tmdbIds,
           }),
-        }
+        },
       );
 
       if (response.ok) {
         const data = await response.json();
         setWatchedMovies(new Set(data.watched));
         setVotedButNotPickedMovies(
-          new Set(data.votedButNotPicked.map((m: VotedMovie) => m.tmdbMovieId))
+          new Set(data.votedButNotPicked.map((m: VotedMovie) => m.tmdbMovieId)),
         );
       }
     } catch (error) {
@@ -108,7 +114,7 @@ const DiscoveryPage = () => {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -127,14 +133,14 @@ const DiscoveryPage = () => {
       try {
         // Fetch trending
         const trendingRes = await fetch(
-          `https://api.themoviedb.org/3/trending/movie/week?api_key=${TMDB_API_KEY}`
+          `https://api.themoviedb.org/3/trending/movie/week?api_key=${TMDB_API_KEY}`,
         );
         const trendingData = await trendingRes.json();
         setTrendingMovies(trendingData.results?.slice(0, 20) || []);
 
         // Fetch top rated
         const topRatedRes = await fetch(
-          `https://api.themoviedb.org/3/movie/top_rated?api_key=${TMDB_API_KEY}`
+          `https://api.themoviedb.org/3/movie/top_rated?api_key=${TMDB_API_KEY}`,
         );
         const topRatedData = await topRatedRes.json();
         setTopRatedMovies(topRatedData.results?.slice(0, 20) || []);
@@ -173,7 +179,7 @@ const DiscoveryPage = () => {
       setIsSearching(true);
       try {
         const response = await fetch(
-          `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`
+          `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`,
         );
         const data = await response.json();
         const results = data.results || [];
@@ -190,7 +196,7 @@ const DiscoveryPage = () => {
         setIsSearching(false);
       }
     }, 500),
-    [currentGroupId, isAuthenticated]
+    [currentGroupId, isAuthenticated],
   );
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,7 +232,7 @@ const DiscoveryPage = () => {
 
   // Filter recommendations to exclude watched movies
   const filteredRecommendations = recommendedMovies.filter(
-    (m) => !watchedMovies.has(m.id)
+    (m) => !watchedMovies.has(m.id),
   );
 
   if (loading) {
@@ -240,50 +246,65 @@ const DiscoveryPage = () => {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-8">
       {/* Hero */}
-<div className="relative mb-10 rounded-2xl overflow-hidden bg-gradient-to-br from-primary-900/40 via-default-100/10 to-secondary-900/30 border border-default-200/20 px-8 py-12 text-center">
-  {/* Subtle background glow blobs */}
-  <div className="absolute top-0 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-  <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-secondary/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative mb-10 rounded-2xl overflow-hidden border border-default-200/20 px-8 py-12 text-center">
+        {/* Background layer */}
+        <div className="absolute inset-0 bg-default-100/5" />
 
-  <div className="relative z-10">
-    <div className="flex items-center justify-center gap-2 mb-3">
-      <Film className="w-6 h-6 text-primary" />
-      <span className="text-sm font-semibold uppercase tracking-widest text-primary">
-        Movie Monday
-      </span>
-    </div>
-    <h1 className="text-4xl md:text-5xl font-bold mb-3 bg-gradient-to-r from-white via-default-100 to-default-400 bg-clip-text text-transparent">
-      Discover Movies
-    </h1>
-    <p className="text-default-400 text-base md:text-lg max-w-xl mx-auto mb-8">
-      Explore trending films, top rated picks, and personalized recommendations for your group.
-    </p>
+        {/* Blobs — anchored to corners so they don't fight the text */}
+        <div className="absolute -top-10 -left-10 w-72 h-72 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -right-10 w-72 h-72 bg-secondary/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-40 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
 
-    {/* Search Bar — moved inside the hero */}
-    <div className="flex justify-center">
-      <Input
-        classNames={{
-          base: "max-w-xl w-full",
-          inputWrapper: "h-12 shadow-lg",
-        }}
-        endContent={
-          searchQuery ? (
-            <Button isIconOnly size="sm" variant="light" onPress={clearSearch}>
-              <X className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Search className="h-5 w-5 text-default-400" />
-          )
-        }
-        placeholder="Search for movies..."
-        size="lg"
-        startContent={<Film className="h-5 w-5 text-default-400" />}
-        value={searchQuery}
-        onChange={handleSearchChange}
-      />
-    </div>
-  </div>
-</div>
+        {/* Content */}
+        <div className="relative z-10">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <Film className="w-5 h-5 text-primary" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-primary">
+              Movie Monday
+            </span>
+          </div>
+
+          {/* Solid white title — no gradient fade-out */}
+          <h1 className="text-4xl md:text-5xl font-bold mb-3 text-foreground">
+            Discover Movies
+          </h1>
+
+          <p className="text-default-500 text-base md:text-lg max-w-xl mx-auto mb-8">
+            Explore trending films, top rated picks, and personalized
+            recommendations for your group.
+          </p>
+
+          {/* Search Bar */}
+          <div className="flex justify-center">
+            <Input
+              classNames={{
+                base: "max-w-xl w-full",
+                inputWrapper:
+                  "h-12 shadow-lg bg-default-100/50 backdrop-blur-sm",
+              }}
+              endContent={
+                searchQuery ? (
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    onPress={clearSearch}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Search className="h-5 w-5 text-default-400" />
+                )
+              }
+              placeholder="Search for movies..."
+              size="lg"
+              startContent={<Film className="h-5 w-5 text-default-400" />}
+              value={searchQuery}
+              onChange={handleSearchChange}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Search Results */}
       {searchQuery && (
@@ -306,7 +327,9 @@ const DiscoveryPage = () => {
             </div>
           ) : (
             !isSearching && (
-              <p className="text-default-500">No results found for "{searchQuery}"</p>
+              <p className="text-default-500">
+                No results found for "{searchQuery}"
+              </p>
             )
           )}
         </div>
