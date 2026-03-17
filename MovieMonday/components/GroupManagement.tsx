@@ -13,9 +13,9 @@ import {
   Divider,
   Avatar,
 } from "@heroui/react";
-import { Users, UserPlus, LogOut, UserMinus, Calendar } from "lucide-react";
+import { Users, UserPlus, LogOut, UserMinus, Calendar, Mail, Link as LinkIcon, Check } from "lucide-react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Define interfaces for our types
 interface GroupMember {
@@ -33,7 +33,7 @@ interface Group {
   name: string;
   createdById: string;
   members: GroupMember[];
-  createdAt: string; // Add createdAt property
+  createdAt: string;
 }
 
 type ConfirmActionType = "leave" | "remove" | null;
@@ -42,16 +42,20 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
   const [group, setGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
-  const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
   const [groupName, setGroupName] = useState<string>("");
-  const [inviteEmail, setInviteEmail] = useState<string>("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmActionType>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>("");
-  const [inviteLink, setInviteLink] = useState<string>("");
+
+  // Invite link modal state
   const [showInviteLinkModal, setShowInviteLinkModal] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string>("");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState<string>("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState<string>("");
 
   const generateInviteLink = async () => {
     if (!group) return;
@@ -70,10 +74,13 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
         },
       );
       const data = await response.json();
-      // Construct the full URL on the frontend
       const baseUrl = window.location.origin;
 
       setInviteLink(`${baseUrl}/groups/join/${data.inviteToken}`);
+      setInviteEmail("");
+      setEmailSent(false);
+      setEmailError("");
+      setCopySuccess(false);
       setShowInviteLinkModal(true);
     } catch (error) {
       console.error("Error generating invite link:", error);
@@ -90,12 +97,55 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
     }
   };
 
+  const sendInviteEmail = async () => {
+    if (!inviteEmail || !group) return;
+
+    setSendingEmail(true);
+    setEmailError("");
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE_URL}/api/groups/${group.id}/invite-email`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            email: inviteEmail,
+            inviteLink,
+          }),
+        },
+      );
+
+      if (response.ok) {
+        setEmailSent(true);
+        setInviteEmail("");
+      } else {
+        const data = await response.json();
+        setEmailError(data.error || "Failed to send invite email");
+      }
+    } catch (error) {
+      setEmailError("Failed to send invite email");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const closeInviteModal = () => {
+    setShowInviteLinkModal(false);
+    setInviteLink("");
+    setCopySuccess(false);
+    setInviteEmail("");
+    setEmailSent(false);
+    setEmailError("");
+  };
+
   useEffect(() => {
     fetchUserGroup();
-    // For debugging the date format
-    if (group?.createdAt) {
-      console.log("Group creation date:", group.createdAt);
-    }
   }, []);
 
   const fetchUserGroup = async () => {
@@ -114,7 +164,6 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
 
       if (token) {
         const decodedToken = JSON.parse(atob(token.split(".")[1]));
-
         setCurrentUserId(decodedToken.id);
       }
 
@@ -166,7 +215,6 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
         credentials: "include",
       });
 
-      // Refresh the group data or redirect if needed
       setGroup(null);
 
       if (props.onGroupUpdate) {
@@ -213,50 +261,17 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
     setSelectedUserId(null);
   };
 
-  const inviteUser = async () => {
-    if (!group) return;
-
-    try {
-      const token = localStorage.getItem("token");
-
-      await fetch(`${API_BASE_URL}/api/groups/${group.id}/invites`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ invitedUserEmail: inviteEmail }),
-      });
-      setShowInviteModal(false);
-      setInviteEmail("");
-      await fetchUserGroup();
-
-      if (props.onGroupUpdate) {
-        props.onGroupUpdate();
-      }
-    } catch (error) {
-      console.error("Error inviting user:", error);
-    }
-  };
-
-  // Format date function for displaying createdAt
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Unknown";
     try {
-      // Handle PostgreSQL timestamp format
       const date = new Date(dateString);
-
       if (isNaN(date.getTime())) return "Unknown";
-
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
         day: "numeric",
       });
     } catch (error) {
-      console.error("Error parsing date:", error);
-
       return "Unknown";
     }
   };
@@ -337,109 +352,74 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
             {group.members?.length || 0} member
             {group.members?.length !== 1 ? "s" : ""}
           </p>
-          <div className="flex gap-2 ">
-            <Calendar className="h-4 w-4 text-default-400" />
-            <span className="text-xs text-default-400">
-              Created: {formatDate(group.createdAt)}
-            </span>
+          <div className="flex items-center gap-1 text-xs text-default-400">
+            <Calendar className="h-3 w-3" />
+            <span>Since {formatDate(group.createdAt)}</span>
           </div>
         </div>
       </CardHeader>
+
       <Divider />
-      <CardBody className="flex flex-col h-64 overflow-hidden">
-        {/* Scrollable member list */}
-        <div className="flex-grow overflow-y-auto pr-1">
-          <div className="flex flex-col gap-3">
-            {/* Group Owner Label */}
-            <p className="text-xs font-medium text-default-500 uppercase tracking-wider mt-2">
-              Owner
-            </p>
 
-            {/* List Owner First */}
-            {group.members
-              ?.filter((member) => member.id === group.createdById)
-              .map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-default-100"
-                >
-                  <Avatar
-                    isBordered
-                    className="h-10 w-10"
-                    color="primary"
-                    name={member.username.charAt(0).toUpperCase()}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{member.username}</p>
-                    <p className="text-xs text-default-500">{member.email}</p>
-                  </div>
-                </div>
-              ))}
-
-            {/* Members Label */}
-            {group.members?.some(
-              (member) => member.id !== group.createdById,
-            ) && (
-              <p className="text-xs font-medium text-default-500 uppercase tracking-wider mt-4">
-                Members
-              </p>
-            )}
-
-            {/* List Other Members */}
-            {group.members
-              ?.filter((member) => member.id !== group.createdById)
-              .map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-default-100"
-                >
-                  <Avatar
-                    className="h-10 w-10"
-                    name={member.username.charAt(0).toUpperCase()}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{member.username}</p>
-                    <p className="text-xs text-default-500">{member.email}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    {group.createdById === currentUserId && (
-                      <Button
-                        isIconOnly
-                        color="danger"
-                        variant="light"
-                        onPress={() => {
-                          setConfirmAction("remove");
-                          setSelectedUserId(member.id);
-                          setShowConfirmModal(true);
-                        }}
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {member.id === currentUserId && (
-                      <Button
-                        color="danger"
-                        endContent={<LogOut className="h-4 w-4" />}
-                        size="sm"
-                        variant="light"
-                        onPress={() => {
-                          setConfirmAction("leave");
-                          setShowConfirmModal(true);
-                        }}
-                      >
-                        Leave
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-          </div>
+      <CardBody className="overflow-y-auto">
+        <div className="space-y-1">
+          {group.members?.map((member) => (
+            <div
+              key={member.id}
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-default-50"
+            >
+              <Avatar name={member.username} size="sm" />
+              <div className="flex-1">
+                <p className="font-medium text-sm">{member.username}</p>
+                <p className="text-xs text-default-400">{member.email}</p>
+              </div>
+              {member.id === group.createdById && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  Owner
+                </span>
+              )}
+              {currentUserId === group.createdById &&
+                member.id !== group.createdById && (
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    color="danger"
+                    onPress={() => {
+                      setSelectedUserId(member.id);
+                      setConfirmAction("remove");
+                      setShowConfirmModal(true);
+                    }}
+                  >
+                    <UserMinus className="h-4 w-4" />
+                  </Button>
+                )}
+            </div>
+          ))}
         </div>
 
-        {/* Pinned "Add Member" Button - Always visible at bottom */}
+        {/* Leave group button for non-owners */}
+        {currentUserId !== group.createdById && (
+          <div className="mt-4">
+            <Button
+              color="danger"
+              variant="flat"
+              size="sm"
+              startContent={<LogOut className="h-4 w-4" />}
+              onPress={() => {
+                setConfirmAction("leave");
+                setShowConfirmModal(true);
+              }}
+            >
+              Leave Group
+            </Button>
+          </div>
+        )}
+
+        {/* Pinned "Add Member" Button */}
         <Divider className="my-3" />
         <div
-          className="flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-default-300 bg-default-50 cursor-pointer"
+          className="flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-default-300 bg-default-50 cursor-pointer hover:bg-default-100 transition-colors"
           onClick={generateInviteLink}
         >
           <div className="h-10 w-10 rounded-full bg-default-100 flex items-center justify-center">
@@ -454,29 +434,106 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
         </div>
       </CardBody>
 
-      {/* Modals */}
-      <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)}>
+      {/* Invite Link Modal — with optional email send */}
+      <Modal isOpen={showInviteLinkModal} onClose={closeInviteModal} size="md">
         <ModalContent>
-          <ModalHeader>Invite Member</ModalHeader>
+          <ModalHeader>Invite Someone</ModalHeader>
           <ModalBody>
-            <Input
-              label="Email Address"
-              placeholder="Enter their email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-            />
+            <div className="space-y-5">
+              {/* Shareable link section */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-default-700 flex items-center gap-1.5">
+                  <LinkIcon className="h-4 w-4" />
+                  Share invite link
+                </p>
+                <p className="text-xs text-default-500">
+                  Anyone with this link can join your group. Expires in 7 days.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    size="sm"
+                    className="flex-1"
+                    value={inviteLink}
+                  />
+                  <Button
+                    size="sm"
+                    color={copySuccess ? "success" : "primary"}
+                    startContent={
+                      copySuccess ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <LinkIcon className="h-4 w-4" />
+                      )
+                    }
+                    onPress={copyToClipboard}
+                  >
+                    {copySuccess ? "Copied!" : "Copy"}
+                  </Button>
+                </div>
+              </div>
+
+              <Divider />
+
+              {/* Optional email section */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-default-700 flex items-center gap-1.5">
+                  <Mail className="h-4 w-4" />
+                  Send invite by email{" "}
+                  <span className="text-default-400 font-normal">(optional)</span>
+                </p>
+                <p className="text-xs text-default-500">
+                  We'll email the invite link directly — great for people who
+                  don't have an account yet.
+                </p>
+
+                {emailSent ? (
+                  <div className="flex items-center gap-2 text-success text-sm bg-success/10 rounded-lg p-3">
+                    <Check className="h-4 w-4 shrink-0" />
+                    Invite email sent!
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      size="sm"
+                      type="email"
+                      placeholder="friend@example.com"
+                      value={inviteEmail}
+                      errorMessage={emailError}
+                      isInvalid={!!emailError}
+                      className="flex-1"
+                      onChange={(e) => {
+                        setInviteEmail(e.target.value);
+                        setEmailError("");
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      color="primary"
+                      variant="flat"
+                      isLoading={sendingEmail}
+                      isDisabled={!inviteEmail}
+                      startContent={
+                        !sendingEmail ? <Mail className="h-4 w-4" /> : undefined
+                      }
+                      onPress={sendInviteEmail}
+                    >
+                      Send
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={() => setShowInviteModal(false)}>
-              Cancel
-            </Button>
-            <Button color="primary" onPress={inviteUser}>
-              Send Invite
+            <Button variant="flat" onPress={closeInviteModal}>
+              Close
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
+      {/* Confirm action modal */}
       <Modal
         isOpen={showConfirmModal}
         onClose={() => {
@@ -509,48 +566,6 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
             </Button>
             <Button color="danger" onPress={handleConfirmAction}>
               Confirm
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      <Modal
-        isOpen={showInviteLinkModal}
-        onClose={() => {
-          setShowInviteLinkModal(false);
-          setInviteLink("");
-          setCopySuccess(false);
-        }}
-      >
-        <ModalContent>
-          <ModalHeader>Share Invite Link</ModalHeader>
-          <ModalBody>
-            <div className="space-y-4">
-              <p className="text-default-600">
-                Share this link with others to invite them to your group. The
-                link will expire in 7 days.
-              </p>
-              <div className="flex items-center gap-2">
-                <Input readOnly className="flex-1" value={inviteLink} />
-                <Button
-                  color={copySuccess ? "success" : "primary"}
-                  onPress={copyToClipboard}
-                >
-                  {copySuccess ? "Copied!" : "Copy"}
-                </Button>
-              </div>
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              variant="flat"
-              onPress={() => {
-                setShowInviteLinkModal(false);
-                setInviteLink("");
-                setCopySuccess(false);
-              }}
-            >
-              Close
             </Button>
           </ModalFooter>
         </ModalContent>

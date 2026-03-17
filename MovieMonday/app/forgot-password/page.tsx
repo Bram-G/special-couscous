@@ -5,6 +5,8 @@ import { Card, CardBody, Button, Input, Link } from "@heroui/react";
 import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { CheckCircle } from "lucide-react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,7 +18,6 @@ export default function ForgotPasswordPage() {
 
     if (!email) {
       setError("Email is required");
-
       return;
     }
 
@@ -24,22 +25,18 @@ export default function ForgotPasswordPage() {
     setError("");
 
     try {
-      const response = await fetch(
-        "http://localhost:8000/auth/forgot-password",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email }),
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({ email }),
+      });
 
       if (response.ok) {
         setSubmitted(true);
       } else {
         const data = await response.json();
-
         setError(data.message || "Failed to send reset email");
       }
     } catch (error) {

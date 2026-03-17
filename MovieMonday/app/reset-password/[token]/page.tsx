@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { LockClosedIcon } from "@heroicons/react/24/outline";
 import { CheckCircle, XCircle } from "lucide-react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
 interface PageProps {
   params: {
     token: string;
@@ -40,7 +42,6 @@ export default function ResetPasswordPage({ params }: PageProps) {
     }
 
     setErrors(newErrors);
-
     return isValid;
   };
 
@@ -52,7 +53,7 @@ export default function ResetPasswordPage({ params }: PageProps) {
     setLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:8000/auth/reset-password/${params.token}`,
+        `${API_BASE_URL}/auth/reset-password/${params.token}`,
         {
           method: "POST",
           headers: {
