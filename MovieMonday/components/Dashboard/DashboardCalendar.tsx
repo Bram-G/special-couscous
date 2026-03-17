@@ -105,6 +105,7 @@ interface DateButtonStatus {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+
 const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   slidesPerView = 5,
   onDateSelect,
@@ -312,6 +313,11 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
     return nextMonday;
   };
+
+  const toTitleCase = (str: string): string => {
+  return str.toLowerCase().replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
+};
+
 
   // Initialize Mondays for the calendar
   const initializeMondays = (): Date[] => {
@@ -537,39 +543,41 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     handleInputWithSuggestions(e, "dessert", dessertSuggestions);
   };
 
-  const addItemToCategory = (
-    type: "cocktail" | "meal" | "dessert",
-    value: string,
-  ) => {
-    if (!value.trim()) return;
+const addItemToCategory = (
+  type: "cocktail" | "meal" | "dessert",
+  value: string,
+) => {
+  if (!value.trim()) return;
 
-    switch (type) {
-      case "cocktail":
-        setEditableDetails((prev) => ({
-          ...prev,
-          cocktails: [...prev.cocktails, value.trim()],
-        }));
-        setNewCocktail("");
-        break;
-      case "meal":
-        setEditableDetails((prev) => ({
-          ...prev,
-          meals: [...prev.meals, value.trim()],
-        }));
-        setNewMeal("");
-        break;
-      case "dessert":
-        setEditableDetails((prev) => ({
-          ...prev,
-          desserts: [...prev.desserts, value.trim()],
-        }));
-        setNewDessert("");
-        break;
-    }
+  const normalized = toTitleCase(value.trim());
 
-    setFilteredSuggestions([]);
-    setActiveSuggestionType(null);
-  };
+  switch (type) {
+    case "cocktail":
+      setEditableDetails((prev) => ({
+        ...prev,
+        cocktails: [...prev.cocktails, normalized],
+      }));
+      setNewCocktail("");
+      break;
+    case "meal":
+      setEditableDetails((prev) => ({
+        ...prev,
+        meals: [...prev.meals, normalized],
+      }));
+      setNewMeal("");
+      break;
+    case "dessert":
+      setEditableDetails((prev) => ({
+        ...prev,
+        desserts: [...prev.desserts, normalized],
+      }));
+      setNewDessert("");
+      break;
+  }
+
+  setFilteredSuggestions([]);
+  setActiveSuggestionType(null);
+};
 
   // Create a new MovieMonday
   const handleCreateMovieMonday = async (date: Date) => {
@@ -642,36 +650,37 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
   // Save all event details
   const handleSaveAll = async () => {
-    if (!selectedMonday || !token) return;
+  if (!selectedMonday || !token) return;
 
-    setSavingDetails(true);
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/movie-monday/${selectedMonday.id}/event-details`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(editableDetails),
+  setSavingDetails(true);
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/movie-monday/${selectedMonday.id}/event-details`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify(editableDetails),
+      },
+    );
 
-      if (!response.ok) {
-        throw new Error("Failed to save event details");
-      }
-
-      if (selectedDate) {
-        await handleDateClick(selectedDate);
-      }
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Error saving details:", error);
-    } finally {
-      setSavingDetails(false);
+    if (!response.ok) {
+      throw new Error("Failed to save event details");
     }
-  };
+
+    // Use proceedWithDateSelection instead of handleDateClick to bypass
+    // the unsaved changes check (which would fire since isEditing is still true)
+    if (selectedDate) {
+      await proceedWithDateSelection(selectedDate);
+    }
+  } catch (error) {
+    console.error("Error saving details:", error);
+  } finally {
+    setSavingDetails(false);
+  }
+};
 
   // Update the picker for a MovieMonday
   const handlePickerChange = async (newPickerId: string) => {
