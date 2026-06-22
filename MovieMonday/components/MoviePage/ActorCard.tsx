@@ -1,7 +1,8 @@
 import React from "react";
 import { Avatar, Tooltip } from "@heroui/react";
 import { Trophy, Film } from "lucide-react";
-
+import { useRouter } from "next/navigation";
+ 
 // Type definitions for props
 interface ActorStats {
   appearances: number;
@@ -13,7 +14,7 @@ interface ActorStats {
     isWinner?: boolean;
   }>;
 }
-
+ 
 interface ActorCardProps {
   actor: {
     id: number;
@@ -22,17 +23,26 @@ interface ActorCardProps {
     profile_path?: string;
   };
   stats: ActorStats | null;
-  onClick: (actor: any) => void;
+  // Optional: kept for backward compatibility with existing call sites.
+  // If provided it runs first; navigation to the actor page still happens after.
+  onClick?: (actor: any) => void;
 }
-
+ 
 const ActorCard = ({ actor, stats, onClick }: ActorCardProps) => {
+  const router = useRouter();
+ 
   // Determine if actor has any stats
   const hasStats = stats && stats.appearances > 0;
-
+ 
+  const handleClick = () => {
+    if (onClick) onClick(actor);
+    if (actor?.id) router.push(`/actor/${actor.id}`);
+  };
+ 
   return (
     <div
       className="flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
-      onClick={() => onClick(actor)}
+      onClick={handleClick}
     >
       {/* Use a fixed height container for the entire card to ensure consistent layout */}
       <div className="h-36 flex flex-col items-center">
@@ -46,7 +56,7 @@ const ActorCard = ({ actor, stats, onClick }: ActorCardProps) => {
               : null
           }
         />
-
+ 
         {/* Stats badge - positioned consistently regardless of presence */}
         <div className="h-6 mb-1">
           {hasStats && (
@@ -59,7 +69,7 @@ const ActorCard = ({ actor, stats, onClick }: ActorCardProps) => {
                   {stats.appearances}
                 </div>
               </Tooltip>
-
+ 
               {stats.wins > 0 && (
                 <Tooltip
                   content={`${stats.wins} winning Movie Monday selections`}
@@ -73,12 +83,12 @@ const ActorCard = ({ actor, stats, onClick }: ActorCardProps) => {
             </div>
           )}
         </div>
-
+ 
         {/* Actor name and character - fixed height containers */}
         <div className="h-5 flex items-center">
           <p className="font-medium text-sm line-clamp-1">{actor.name}</p>
         </div>
-
+ 
         <div className="h-4 flex items-center">
           <p className="text-xs text-default-500 line-clamp-1">
             {actor.character || ""}
@@ -88,5 +98,5 @@ const ActorCard = ({ actor, stats, onClick }: ActorCardProps) => {
     </div>
   );
 };
-
+ 
 export default ActorCard;

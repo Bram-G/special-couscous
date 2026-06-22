@@ -70,15 +70,14 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
     ? new Date(movie.release_date).getFullYear()
     : "N/A";
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (
-      target.closest("button") ||
-      target.closest("[role='button']") ||
-      target.closest("a")
-    ) {
+  const handleCardClick = (e: { target: EventTarget | null }) => {
+    const target = e.target as HTMLElement | null;
+
+
+    if (target?.closest("button") || target?.closest("a")) {
       return;
     }
+
     router.push(`/movie/${movie.id}`);
   };
 
