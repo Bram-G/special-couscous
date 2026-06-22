@@ -9,7 +9,7 @@ import {
   Button,
   useDisclosure,
 } from "@heroui/react";
-import { Eye, Clock, Star, Calendar, Heart, X as XIcon } from "lucide-react";
+import { Eye, Star, Calendar, Heart, X as XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
@@ -70,15 +70,27 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
     ? new Date(movie.release_date).getFullYear()
     : "N/A";
 
-  const handleCardClick = (e: { target: EventTarget | null }) => {
-    const target = e.target as HTMLElement | null;
-
-
+  // Navigate to the movie page. Native click means action buttons that call
+  // e.stopPropagation() in their own onClick reliably suppress navigation.
+  // The closest("button") guard is a belt-and-suspenders check: it matches
+  // real <button> elements only (NOT the card's role="button" div), so a tap
+  // on the poster always navigates while a tap on Heart/Calendar never does.
+  const navigateToMovie = (target: HTMLElement | null) => {
     if (target?.closest("button") || target?.closest("a")) {
       return;
     }
-
     router.push(`/movie/${movie.id}`);
+  };
+
+  const handleCardClick = (e: React.MouseEvent<HTMLElement>) => {
+    navigateToMovie(e.target as HTMLElement | null);
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      navigateToMovie(e.target as HTMLElement | null);
+    }
   };
 
   const handleWatchlistClick = (e: React.MouseEvent) => {
@@ -94,9 +106,11 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
   return (
     <>
       <Card
-        isPressable
         className="group relative cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl"
-        onPress={handleCardClick}
+        role="button"
+        tabIndex={0}
+        onClick={handleCardClick}
+        onKeyDown={handleCardKeyDown}
       >
         {/* Status Pills - Top Left */}
         <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
@@ -166,7 +180,8 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
             )}
 
             {/* Hover Overlay - ONLY VISIBLE ON HOVER */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+            {/* pointer-events-none so clicks always reach the card handler */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 pointer-events-none">
               <div className="text-white space-y-2">
                 <h3 className="font-bold text-base line-clamp-2">
                   {movie.title}
