@@ -1,6 +1,6 @@
 "use client";
-import EnhancedHomePage from "../components/HomePage/EnhancedHomePage";
+import DynamicHomePage from "../components/HomePage/DynamicHomePage";
 
 export default function Home() {
-  return <EnhancedHomePage />;
+  return <DynamicHomePage />;
 }
