@@ -124,6 +124,7 @@ export const Navbar = () => {
     <NextUINavbar
       maxWidth="xl"
       position="sticky"
+      height="3.25rem"
       isMenuOpen={isMenuOpen}
       onMenuOpenChange={setIsMenuOpen}
     >

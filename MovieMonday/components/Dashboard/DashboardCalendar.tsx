@@ -38,6 +38,7 @@ import {
 import { useRouter } from "next/navigation";
 import { CrownIcon } from "lucide-react";
 import confetti from "canvas-confetti";
+import MonthlyMondaySelector from "./MonthlyMondaySelector";
 
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -901,149 +902,15 @@ const addItemToCategory = (
   return (
     <div className="space-y-4 w-full">
       {/* Calendar Header - Navigation */}
-      <Card className="w-full p-4 sticky top-0 z-10 overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <CalendarIcon className="h-5 w-5 mr-2" />
-            <h3 className="text-lg font-semibold">Movie Monday Calendar</h3>
-          </div>
-
-          <div>
-            <Button
-              className="text-sm"
-              variant="flat"
-              onPress={() => {
-                setDatePickerMonth(new Date());
-                setShowDatePicker(true);
-              }}
-            >
-              Jump to Date
-            </Button>
-          </div>
-        </div>
-
-        {/* Calendar with side navigation */}
-        <div className="flex items-center">
-          <div className="flex-1 flex flex-col">
-            {/* Month labels */}
-            <div className="flex mb-2 w-full justify-center">
-              <div className="flex mb-6 relative pt-2 w-5/6 justify-between">
-                {mondayDates.map((date, idx) => {
-                  if (isMonthStart(date, idx, mondayDates)) {
-                    const monthDatesCount = mondayDates
-                      .slice(idx)
-                      .findIndex(
-                        (d) =>
-                          d.getMonth() !== date.getMonth() ||
-                          d.getFullYear() !== date.getFullYear(),
-                      );
-
-                    const width =
-                      monthDatesCount === -1
-                        ? ((mondayDates.length - idx) / mondayDates.length) *
-                          100
-                        : (monthDatesCount / mondayDates.length) * 100;
-
-                    return (
-                      <div
-                        key={`month-${date.toISOString()}`}
-                        className="text-sm font-medium text-default-600 absolute"
-                        style={{
-                          left: `${(idx / mondayDates.length) * 100}%`,
-                          width: `${width}%`,
-                        }}
-                      >
-                        {date.toLocaleDateString("default", {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                        <div className="h-px bg-gray-300 w-[95%] mx-auto mt-1" />
-                      </div>
-                    );
-                  }
-
-                  return null;
-                })}
-              </div>
-            </div>
-
-            {/* Calendar Days in single row */}
-            <div className="flex items-center justify-between">
-              {/* Left Arrow */}
-              <Button
-                isIconOnly
-                aria-label="Previous weeks"
-                className="min-w-unit-12 h-16"
-                variant="light"
-                onPress={handlePrevious}
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </Button>
-
-              <div
-                className={`flex w-full transition-transform duration-300 m-2 w-5/6 ${
-                  animationDirection === "left"
-                    ? "translate-x-[-3%] opacity-50"
-                    : animationDirection === "right"
-                      ? "translate-x-[3%] opacity-50"
-                      : ""
-                }`}
-              >
-                {mondayDates.map((date, index) => {
-                  const dateStatus = getDateButtonStatus(date);
-                  let statusDescription = "No event scheduled";
-
-                  if (dateStatus.status === "completed") {
-                    statusDescription = "Event completed";
-                  } else if (dateStatus.status === "in-progress") {
-                    statusDescription = "Event in progress";
-                  } else if (dateStatus.status === "pending") {
-                    statusDescription = "Event pending";
-                  }
-
-                  const isNewMonth = isMonthStart(date, index, mondayDates);
-
-                  return (
-                    <div key={date.toISOString()} className="flex-1 flex">
-                      {isNewMonth && index > 0 && (
-                        <div className="w-px bg-default-300 self-stretch mx-1" />
-                      )}
-                      <Tooltip content={statusDescription}>
-                        <Button
-                          className="h-16 w-full flex flex-col items-center justify-center"
-                          color={dateStatus.color}
-                          variant={dateStatus.variant}
-                          onPress={() => handleDateClick(date)}
-                        >
-                          <span className="text-sm">
-                            {date.toLocaleDateString("default", {
-                              weekday: "short",
-                            })}
-                          </span>
-                          <span className="text-lg font-bold">
-                            {date.getDate()}
-                          </span>
-                        </Button>
-                      </Tooltip>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Right Arrow */}
-              <Button
-                isIconOnly
-                aria-label="Next weeks"
-                className="min-w-unit-12 h-16"
-                variant="light"
-                onPress={handleNext}
-              >
-                <ChevronRight className="h-6 w-6" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Card>
+      <MonthlyMondaySelector
+  selectedDate={selectedDate}
+  token={token}
+  onSelectDate={handleDateClick}
+  onJumpToDate={() => {
+    setDatePickerMonth(new Date());
+    setShowDatePicker(true);
+  }}
+/>
 
       {selectedDate && (
         <Card className="w-full">
