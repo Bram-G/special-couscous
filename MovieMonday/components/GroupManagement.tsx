@@ -13,7 +13,17 @@ import {
   Divider,
   Avatar,
 } from "@heroui/react";
-import { Users, UserPlus, LogOut, UserMinus, Calendar, Mail, Link as LinkIcon, Check } from "lucide-react";
+import {
+  Users,
+  UserPlus,
+  LogOut,
+  UserMinus,
+  Calendar,
+  Mail,
+  Link as LinkIcon,
+  Check,
+} from "lucide-react";
+import GroupVisibilityToggle from "./GroupVisibilityToggle";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -34,6 +44,9 @@ interface Group {
   createdById: string;
   members: GroupMember[];
   createdAt: string;
+  isPublic?: boolean;
+  slug?: string | null;
+  description?: string | null;
 }
 
 type ConfirmActionType = "leave" | "remove" | null;
@@ -362,6 +375,21 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
       <Divider />
 
       <CardBody className="overflow-y-auto">
+        <GroupVisibilityToggle
+          groupId={group.id}
+          isOwner={currentUserId === group.createdById}
+          initialIsPublic={group.isPublic}
+          slug={group.slug}
+          onChange={(updated) => {
+            setGroup((prev) =>
+              prev
+                ? { ...prev, isPublic: updated.isPublic, slug: updated.slug }
+                : prev,
+            );
+            props.onGroupUpdate?.();
+          }}
+        />
+        <Divider className="my-3" />
         <div className="space-y-1">
           {group.members?.map((member) => (
             <div
@@ -480,7 +508,9 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
                 <p className="text-sm font-medium text-default-700 flex items-center gap-1.5">
                   <Mail className="h-4 w-4" />
                   Send invite by email{" "}
-                  <span className="text-default-400 font-normal">(optional)</span>
+                  <span className="text-default-400 font-normal">
+                    (optional)
+                  </span>
                 </p>
                 <p className="text-xs text-default-500">
                   We'll email the invite link directly — great for people who
