@@ -231,4 +231,4 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
   );
 };
 
-export default EnhancedMovieDiscoveryCard;
+export default EnhancedMovieDiscoveryCard; 
