@@ -25,8 +25,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-const IMPORT_CHUNK_SIZE = 20; // MovieMondays per request — keeps each call well under 30s
-
+const IMPORT_CHUNK_SIZE = 5; 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ImportResults {
@@ -352,7 +351,7 @@ export default function DataManagement() {
         const res = await fetch(`${API_BASE_URL}/api/admin/enrich-tmdb`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ offset, batchSize: 15 }),
+          body: JSON.stringify({ offset, batchSize: 5 }),
         });
 
         if (!res.ok) throw new Error(`Server error ${res.status}`);
