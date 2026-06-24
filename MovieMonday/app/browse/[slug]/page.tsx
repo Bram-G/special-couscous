@@ -1,4 +1,4 @@
-// app/browse/[slug]/page.tsx
+// app/public/[slug]/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -8,167 +8,207 @@ import { Button, Chip, Spinner } from "@heroui/react";
 import {
   ArrowLeft,
   Star,
-  Film,
+  Trophy,
   UtensilsCrossed,
   Wine,
-  Users,
-  CalendarDays,
+  IceCream,
+  User as UserIcon,
+  Sparkles,
+  Clapperboard,
 } from "lucide-react";
+import CommentSection from "@/components/Comments/CommentSection";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+interface Crew {
+  id: number;
+  personId: number;
+  name: string;
+  job: string;
+}
+interface Cast {
+  id: number;
+  actorId: number;
+  name: string;
+  character: string;
+  profilePath: string | null;
+}
 interface Selection {
   id: number;
+  tmdbMovieId: number;
   title: string;
   posterPath: string | null;
   isWinner: boolean;
+  genres?: unknown;
+  releaseYear?: number | null;
+  cast?: Cast[];
+  crew?: Crew[];
 }
-interface CalendarMonday {
+interface EventDetails {
+  meals?: unknown;
+  cocktails?: unknown;
+  desserts?: unknown;
+}
+interface MovieMonday {
   id: number;
-  date: string;
   slug: string;
+  date: string;
   weekTheme: string | null;
-  status: string;
+  picker?: { id: number; username: string } | null;
   movieSelections: Selection[];
-}
-interface GroupHeader {
-  name: string;
-  description: string | null;
-  owner: { id: number; username: string };
-  stats: {
-    totalWeeks: number;
-    totalMovies: number;
-    totalWinners: number;
-    totalMembers: number;
-    totalMeals: number;
-    totalCocktails: number;
-    activeSince: string;
-  };
+  eventDetails?: EventDetails | null;
+  Group?: { id: number; name: string; slug: string } | null;
 }
 
-// Parse "YYYY-MM-DD" (or ISO) as a LOCAL date to avoid timezone day-shift
-const parseLocalDate = (s: string) => {
-  const [y, m, d] = String(s).split("T")[0].split("-").map(Number);
-  return new Date(y, m - 1, d);
-};
-const monthKeyOf = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-const posterUrl = (path?: string | null) =>
+const posterUrl = (path?: string | null, size: "w342" | "w500" = "w500") =>
   !path
     ? "/placeholder-poster.jpg"
     : path.startsWith("http")
       ? path
-      : `https://image.tmdb.org/t/p/w342${path}`;
+      : `https://image.tmdb.org/t/p/${size}${path}`;
 
-// Reorder up to 3 posters so the winner sits in the middle of the fan
-const orderPosters = (movies: Selection[]): Selection[] => {
-  const arr = movies.slice(0, 3);
-  const wIdx = arr.findIndex((m) => m.isWinner);
-  if (wIdx <= 0) return arr;
-  const [winner] = arr.splice(wIdx, 1);
-  arr.splice(Math.floor(arr.length / 2), 0, winner);
-  return arr;
+const parseLocalDate = (s: string) => {
+  const [y, m, d] = String(s).split("T")[0].split("-").map(Number);
+  return new Date(y, m - 1, d);
 };
 
-// One Monday rendered as a poster-collage card (winner centered, ringed, starred)
-const MondayCard = ({ monday }: { monday: CalendarMonday }) => {
-  const posters = orderPosters(monday.movieSelections);
-  const date = parseLocalDate(monday.date);
-  const winner = monday.movieSelections.find((m) => m.isWinner);
+// meals/cocktails/desserts/genres can be arrays or JSON strings
+const normalizeList = (value: unknown): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter((v) => typeof v === "string");
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return value.trim() ? [value] : [];
+    }
+  }
+  return [];
+};
 
+const directorOf = (m: Selection) =>
+  (m.crew || []).find((c) => c.job === "Director")?.name;
+
+// Build a short, human recap + a few "did you notice" facts from the picks
+// themselves — shared people/genres across the night and who took it.
+function buildRecap(selections: Selection[]): {
+  blurb: string | null;
+  facts: string[];
+} {
+  if (!selections || selections.length === 0)
+    return { blurb: null, facts: [] };
+
+  const total = selections.length;
+  const winner = selections.find((s) => s.isWinner);
+
+  // Count distinct people / genres across the night (dedupe within a movie)
+  const tally = (
+    pick: (s: Selection) => string[]
+  ): { name: string; count: number }[] => {
+    const counts = new Map<string, number>();
+    selections.forEach((s) => {
+      const seen = new Set<string>();
+      pick(s).forEach((name) => {
+        if (!name || seen.has(name)) return;
+        seen.add(name);
+        counts.set(name, (counts.get(name) || 0) + 1);
+      });
+    });
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .filter((x) => x.count >= 2)
+      .sort((a, b) => b.count - a.count);
+  };
+
+  const actors = tally((s) => (s.cast || []).slice(0, 8).map((c) => c.name));
+  const directors = tally((s) =>
+    (s.crew || []).filter((c) => c.job === "Director").map((c) => c.name)
+  );
+  const genres = tally((s) => normalizeList(s.genres));
+
+  const facts: string[] = [];
+
+  const topGenre = genres[0];
+  if (topGenre && topGenre.count === total) {
+    facts.push(`All ${total} picks are ${topGenre.name.toLowerCase()} films.`);
+  } else if (topGenre) {
+    facts.push(
+      `${topGenre.count} of the night's picks share the ${topGenre.name.toLowerCase()} genre.`
+    );
+  }
+
+  const topActor = actors[0];
+  if (topActor) {
+    facts.push(
+      topActor.count === total
+        ? `${topActor.name} appears in every film tonight.`
+        : `${topActor.name} shows up in ${topActor.count} of the picks.`
+    );
+  }
+
+  const topDirector = directors[0];
+  if (topDirector) {
+    facts.push(
+      `${topDirector.name} directed ${topDirector.count} of the night's films.`
+    );
+  }
+
+  // Compose a one/two sentence blurb
+  const parts: string[] = [];
+  if (topGenre && topGenre.count === total) {
+    parts.push(`A ${topGenre.name.toLowerCase()} night through and through`);
+  } else if (topGenre) {
+    parts.push(`A night leaning ${topGenre.name.toLowerCase()}`);
+  } else {
+    parts.push(`Three films on the table`);
+  }
+  if (winner) parts.push(`${winner.title} took the win`);
+
+  const blurb = parts.length ? `${parts.join(", and ")}.` : null;
+
+  return { blurb, facts };
+}
+
+// Wrapping pill — long names wrap instead of overflowing the column
+const MenuBlock = ({
+  icon,
+  label,
+  items,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  items: string[];
+}) => {
+  if (items.length === 0) return null;
   return (
-    <NextLink
-      href={`/public/${monday.slug}`}
-      className="group block h-full rounded-2xl outline-none transition-transform duration-200 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-primary"
-    >
-      <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-default-200 bg-content1 shadow-sm transition-shadow duration-200 group-hover:shadow-xl">
-        {/* Fanned poster header — posters rotate out and clip at the edges */}
-        <div className="relative h-44 overflow-hidden bg-default-200">
-          {posters.length > 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center px-4">
-              {posters.map((m, i) => {
-                const offset = i - (posters.length - 1) / 2;
-                return (
-                  <div
-                    key={`${monday.id}-${m.id}`}
-                    className={`relative -mx-2 flex-shrink-0 ${
-                      m.isWinner ? "z-10" : ""
-                    }`}
-                    style={{
-                      transform: `rotate(${offset * 7}deg) translateY(${
-                        Math.abs(offset) * 8
-                      }px)`,
-                      zIndex: posters.length - Math.abs(offset),
-                    }}
-                  >
-                    <img
-                      src={posterUrl(m.posterPath)}
-                      alt={m.title}
-                      loading="lazy"
-                      className={`h-36 w-auto rounded-md object-cover shadow-md transition-transform duration-300 group-hover:scale-105 ${
-                        m.isWinner
-                          ? "ring-2 ring-primary"
-                          : "ring-1 ring-black/10"
-                      }`}
-                    />
-                    {m.isWinner && (
-                      <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
-                        <Star className="h-3 w-3 fill-current" />
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <Film className="h-10 w-10 text-default-400" />
-            </div>
-          )}
-          {/* Fade the bottom of the collage into the card body */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-content1 to-transparent" />
-        </div>
-
-        {/* Body */}
-        <div className="flex flex-1 flex-col gap-0.5 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-            {date.toLocaleDateString("en-US", { weekday: "long" })}
-          </p>
-          <p className="text-lg font-bold leading-tight text-foreground">
-            {date.toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-          {monday.weekTheme ? (
-            <p className="mt-1 line-clamp-2 text-sm text-default-500">
-              {monday.weekTheme}
-            </p>
-          ) : winner ? (
-            <p className="mt-1 line-clamp-1 text-sm text-default-500">
-              Winner:{" "}
-              <span className="text-foreground">{winner.title}</span>
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-default-400">
-              {monday.movieSelections.length} nominated
-            </p>
-          )}
-        </div>
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <span className="text-primary">{icon}</span>
+        {label}
       </div>
-    </NextLink>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item, i) => (
+          <span
+            key={`${label}-${i}`}
+            className="inline-block max-w-full whitespace-normal break-words rounded-full bg-default-100 px-3 py-1 text-sm text-default-700"
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 };
 
-export default function GroupCalendarPage() {
+export default function PublicMovieMondayPage() {
   const params = useParams();
   const slug = (Array.isArray(params?.slug) ? params?.slug[0] : params?.slug) as
     | string
     | undefined;
 
-  const [header, setHeader] = useState<GroupHeader | null>(null);
-  const [mondays, setMondays] = useState<CalendarMonday[]>([]);
+  const [monday, setMonday] = useState<MovieMonday | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -178,26 +218,17 @@ export default function GroupCalendarPage() {
     (async () => {
       try {
         setLoading(true);
-        const [calRes, headRes] = await Promise.all([
-          fetch(
-            `${API_BASE_URL}/api/movie-monday/browse/group/${slug}/calendar`
-          ),
-          fetch(`${API_BASE_URL}/api/movie-monday/browse/group/${slug}`),
-        ]);
-
-        if (!calRes.ok) {
+        const res = await fetch(
+          `${API_BASE_URL}/api/movie-monday/public/${slug}`
+        );
+        if (!res.ok) {
           if (active) setNotFound(true);
           return;
         }
-        const calData = await calRes.json();
-        if (active) setMondays(calData.movieMondays || []);
-
-        if (headRes.ok) {
-          const headData = await headRes.json();
-          if (active) setHeader(headData.group || null);
-        }
+        const data = await res.json();
+        if (active) setMonday(data.movieMonday || null);
       } catch (err) {
-        console.error("Error loading group calendar:", err);
+        console.error("Error loading public Movie Monday:", err);
         if (active) setNotFound(true);
       } finally {
         if (active) setLoading(false);
@@ -208,34 +239,10 @@ export default function GroupCalendarPage() {
     };
   }, [slug]);
 
-  // Group Mondays into month sections, newest month first and newest Monday
-  // first within each — no empty day cells, every card is an actual Monday
-  const monthSections = useMemo(() => {
-    const map = new Map<string, CalendarMonday[]>();
-    mondays.forEach((m) => {
-      const key = monthKeyOf(parseLocalDate(m.date));
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(m);
-    });
-
-    return Array.from(map.entries())
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([key, list]) => {
-        const [y, mo] = key.split("-").map(Number);
-        return {
-          key,
-          label: new Date(y, mo - 1, 1).toLocaleDateString("en-US", {
-            month: "long",
-            year: "numeric",
-          }),
-          mondays: list.sort(
-            (a, b) =>
-              parseLocalDate(b.date).getTime() -
-              parseLocalDate(a.date).getTime()
-          ),
-        };
-      });
-  }, [mondays]);
+  const recap = useMemo(
+    () => buildRecap(monday?.movieSelections || []),
+    [monday]
+  );
 
   if (loading) {
     return (
@@ -245,12 +252,14 @@ export default function GroupCalendarPage() {
     );
   }
 
-  if (notFound) {
+  if (notFound || !monday) {
     return (
       <div className="flex h-[60vh] w-full flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-2xl font-bold text-foreground">Group not found</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          Movie Monday not found
+        </h1>
         <p className="text-default-500">
-          This group may be private or the link may be incorrect.
+          This page may be private or the link may be incorrect.
         </p>
         <Button as={NextLink} href="/" variant="flat" color="primary">
           Back home
@@ -259,119 +268,197 @@ export default function GroupCalendarPage() {
     );
   }
 
-  const stats = header?.stats;
-  const since = stats ? parseLocalDate(stats.activeSince).getFullYear() : null;
+  const meals = normalizeList(monday.eventDetails?.meals);
+  const cocktails = normalizeList(monday.eventDetails?.cocktails);
+  const desserts = normalizeList(monday.eventDetails?.desserts);
+  const hasMenu = meals.length || cocktails.length || desserts.length;
+
+  const winner = monday.movieSelections.find((m) => m.isWinner);
+  const winnerGenres = winner ? normalizeList(winner.genres) : [];
+  const winnerDirector = winner ? directorOf(winner) : undefined;
+
+  const formattedDate = parseLocalDate(monday.date).toLocaleDateString(
+    "en-US",
+    { weekday: "long", year: "numeric", month: "long", day: "numeric" }
+  );
 
   return (
-    <div className="w-full">
-      {/* ── Header ── */}
-      <div className="border-b border-default-100 bg-content1">
-        <div className="container mx-auto px-6 py-8">
-          <Button
-            as={NextLink}
-            href="/"
-            variant="light"
-            size="sm"
-            startContent={<ArrowLeft className="h-4 w-4" />}
-            className="mb-4"
-          >
-            All groups
-          </Button>
+    <div className="container mx-auto max-w-5xl px-6 py-8">
+      {/* Back to the group's calendar */}
+      {monday.Group?.slug && (
+        <Button
+          as={NextLink}
+          href={`/browse/${monday.Group.slug}`}
+          variant="light"
+          size="sm"
+          startContent={<ArrowLeft className="h-4 w-4" />}
+          className="mb-4"
+        >
+          {monday.Group.name}
+        </Button>
+      )}
 
-          <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-            {header?.name || "Movie Monday"}
-          </h1>
-          <p className="mt-1 text-default-500">
-            by {header?.owner?.username}
-            {since ? ` · going since ${since}` : ""}
+      {/* ── Hero: winner-forward ── */}
+      <div className="mb-12 flex flex-col gap-6 sm:flex-row sm:items-end">
+        {winner && (
+          <NextLink
+            href={`/movie/${winner.tmdbMovieId}`}
+            className="group relative w-40 flex-shrink-0 self-center sm:self-auto"
+          >
+            <img
+              src={posterUrl(winner.posterPath)}
+              alt={winner.title}
+              className="aspect-[2/3] w-full rounded-2xl object-cover shadow-lg ring-1 ring-primary transition-transform duration-300 group-hover:scale-[1.02]"
+            />
+            <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground shadow">
+              <Trophy className="h-3 w-3 fill-current" />
+              Winner
+            </span>
+          </NextLink>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+            {formattedDate}
           </p>
-          {header?.description && (
-            <p className="mt-3 max-w-2xl text-default-600">
-              {header.description}
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+            {monday.weekTheme || (winner ? winner.title : "Movie Monday")}
+          </h1>
+
+          {recap.blurb && (
+            <p className="mt-3 max-w-2xl text-lg leading-relaxed text-default-600">
+              {recap.blurb}
             </p>
           )}
 
-          {stats && (
-            <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm">
-              <span className="flex items-center gap-2 text-default-600">
-                <CalendarDays className="h-4 w-4 text-primary" />
-                <strong className="text-foreground">
-                  {stats.totalWeeks}
-                </strong>{" "}
-                Mondays
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-default-500">
+            {monday.picker?.username && (
+              <span className="flex items-center gap-1.5">
+                <UserIcon className="h-4 w-4" />
+                Picked by {monday.picker.username}
               </span>
-              <span className="flex items-center gap-2 text-default-600">
-                <Film className="h-4 w-4 text-primary" />
-                <strong className="text-foreground">
-                  {stats.totalWinners || stats.totalMovies}
-                </strong>{" "}
-                movies watched
+            )}
+            {winnerDirector && (
+              <span className="flex items-center gap-1.5">
+                <Clapperboard className="h-4 w-4" />
+                Dir. {winnerDirector}
               </span>
-              <span className="flex items-center gap-2 text-default-600">
-                <UtensilsCrossed className="h-4 w-4 text-primary" />
-                <strong className="text-foreground">
-                  {stats.totalMeals}
-                </strong>{" "}
-                dinners eaten
-              </span>
-              <span className="flex items-center gap-2 text-default-600">
-                <Wine className="h-4 w-4 text-primary" />
-                <strong className="text-foreground">
-                  {stats.totalCocktails}
-                </strong>{" "}
-                cocktails poured
-              </span>
-              <span className="flex items-center gap-2 text-default-600">
-                <Users className="h-4 w-4 text-primary" />
-                <strong className="text-foreground">
-                  {stats.totalMembers}
-                </strong>{" "}
-                members
-              </span>
+            )}
+          </div>
+
+          {winnerGenres.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {winnerGenres.map((g) => (
+                <Chip key={g} size="sm" variant="flat" color="primary">
+                  {g}
+                </Chip>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Mondays, grouped by month ── */}
-      <div className="container mx-auto px-6 py-10">
-        {monthSections.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-            <Film className="h-10 w-10 text-default-300" />
-            <p className="text-default-500">
-              This group hasn&apos;t shared any Mondays yet.
-            </p>
-          </div>
-        ) : (
-          <>
-            {monthSections.map((section) => (
-              <section key={section.key} className="mb-12 last:mb-0">
-                <div className="mb-5 flex items-center gap-3">
-                  <h2 className="text-xl font-bold text-foreground">
-                    {section.label}
-                  </h2>
-                  <Chip size="sm" variant="flat">
-                    {section.mondays.length} Monday
-                    {section.mondays.length === 1 ? "" : "s"}
-                  </Chip>
-                </div>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {section.mondays.map((monday) => (
-                    <MondayCard key={monday.id} monday={monday} />
-                  ))}
-                </div>
-              </section>
-            ))}
+      {/* ── The lineup ── */}
+      <h2 className="mb-4 text-lg font-bold text-foreground">The lineup</h2>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3">
+        {monday.movieSelections.map((m) => {
+          const director = directorOf(m);
+          return (
+            <NextLink
+              key={m.id}
+              href={`/movie/${m.tmdbMovieId}`}
+              className={`group block overflow-hidden rounded-2xl border bg-content1 outline-none transition-all hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary ${
+                m.isWinner
+                  ? "border-primary ring-1 ring-primary"
+                  : "border-default-200"
+              }`}
+            >
+              <div className="relative">
+                <img
+                  src={posterUrl(m.posterPath)}
+                  alt={m.title}
+                  className="aspect-[2/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                />
+                {m.isWinner && (
+                  <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground shadow">
+                    <Star className="h-3 w-3 fill-current" />
+                    Winner
+                  </div>
+                )}
+              </div>
+              <div className="p-4">
+                <h3 className="font-semibold leading-tight text-foreground group-hover:text-primary">
+                  {m.title}
+                </h3>
+                {director && (
+                  <p className="mt-1 text-sm text-default-500">Dir. {director}</p>
+                )}
+                {(m.cast || []).length > 0 && (
+                  <p className="mt-2 line-clamp-2 text-xs text-default-400">
+                    {(m.cast || [])
+                      .slice(0, 3)
+                      .map((c) => c.name)
+                      .join(", ")}
+                  </p>
+                )}
+              </div>
+            </NextLink>
+          );
+        })}
+      </div>
 
-            {/* Legend */}
-            <div className="mt-10 flex items-center gap-2 text-xs text-default-500">
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <Star className="h-2.5 w-2.5 fill-current" />
-              </span>
-              marks the movie the group voted in that night
-            </div>
-          </>
-        )}
+      {/* ── Did you notice ── */}
+      {recap.facts.length > 0 && (
+        <div className="mt-8 rounded-2xl border border-default-200 bg-content1 p-6">
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-foreground">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Did you notice
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {recap.facts.map((fact, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-2 text-sm text-default-600"
+              >
+                <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary" />
+                {fact}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* ── Menu ── */}
+      {hasMenu ? (
+        <div className="mt-8 rounded-2xl border border-default-200 bg-content1 p-6">
+          <h2 className="mb-5 text-lg font-bold text-foreground">On the menu</h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+            <MenuBlock
+              icon={<UtensilsCrossed className="h-4 w-4" />}
+              label="Dinner"
+              items={meals}
+            />
+            <MenuBlock
+              icon={<Wine className="h-4 w-4" />}
+              label="Cocktails"
+              items={cocktails}
+            />
+            <MenuBlock
+              icon={<IceCream className="h-4 w-4" />}
+              label="Dessert"
+              items={desserts}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Comments ── */}
+      <div className="mt-12">
+        <CommentSection
+          contentType="moviemonday"
+          contentId={monday.id}
+          contentTitle={monday.weekTheme || winner?.title || "Movie Monday"}
+        />
       </div>
     </div>
   );
