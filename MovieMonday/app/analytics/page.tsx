@@ -6,7 +6,7 @@ import { BarChart2, Table2 } from "lucide-react";
 
 import { title } from "@/components/primitives";
 import ProtectedRoute from "@/components/protectedRoute";
-import AnalyticsOverview from "@/components/analytics/analyticsOverview";
+import AnalyticsOverview from "@/components/analytics/AnalyticsOverview";
 import AnalyticsTables from "@/components/analytics/AnalyticsTable";
 
 export default function AnalyticsPage() {
