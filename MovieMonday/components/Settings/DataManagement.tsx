@@ -300,8 +300,7 @@ export default function DataManagement() {
     importRunning.current = false;
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
-
-  // ── Chunked Import ──────────────────────────────────────────────────────────
+// ── Chunked Import ──────────────────────────────────────────────────────────
   const handleImport = async () => {
     if (!parsedExport || !token || isImporting) return;
 
@@ -313,21 +312,11 @@ export default function DataManagement() {
     // Chunks 1+: only movieMondays slices (no users/watchlists to save time)
 
     // Build per-group movieMonday slices
-    type GroupSlice = {
-      groupMeta: (typeof parsedExport.groups)[number];
-      slice: unknown[];
-    };
+    type GroupSlice = { groupMeta: typeof parsedExport.groups[number]; slice: unknown[]; };
     const groupSlices: GroupSlice[][] = parsedExport.groups.map((g) => {
       const slices: GroupSlice[] = [];
-      for (
-        let i = 0;
-        i < Math.max(g.movieMondays.length, 1);
-        i += IMPORT_CHUNK_SIZE
-      ) {
-        slices.push({
-          groupMeta: g,
-          slice: g.movieMondays.slice(i, i + IMPORT_CHUNK_SIZE),
-        });
+      for (let i = 0; i < Math.max(g.movieMondays.length, 1); i += IMPORT_CHUNK_SIZE) {
+        slices.push({ groupMeta: g, slice: g.movieMondays.slice(i, i + IMPORT_CHUNK_SIZE) });
       }
       // Edge case: group with no movieMondays still needs one chunk to create the group
       if (g.movieMondays.length === 0) slices.push({ groupMeta: g, slice: [] });
@@ -336,7 +325,7 @@ export default function DataManagement() {
 
     // Interleave group slices round-robin so we don't hammer one group at a time
     let chunkIndex = 0;
-    let maxSlices = Math.max(...groupSlices.map((s) => s.length));
+    let maxSlices  = Math.max(...groupSlices.map((s) => s.length));
     for (let i = 0; i < maxSlices; i++) {
       for (const slices of groupSlices) {
         if (i < slices.length) {
@@ -348,22 +337,15 @@ export default function DataManagement() {
               isChunk: chunkIndex > 0,
               chunkIndex,
               // Only send users + watchlists on the very first chunk
-              ...(chunkIndex === 0
-                ? {
-                    users: parsedExport.users,
-                    watchlists: parsedExport.watchlists,
-                  }
-                : {}),
-              groups: [
-                {
-                  name: groupMeta.name,
-                  description: groupMeta.description,
-                  isPublic: groupMeta.isPublic,
-                  slug: groupMeta.slug,
-                  members: groupMeta.members,
-                  movieMondays: slice,
-                },
-              ],
+              ...(chunkIndex === 0 ? { users: parsedExport.users, watchlists: parsedExport.watchlists } : {}),
+              groups: [{
+                name: groupMeta.name,
+                description: groupMeta.description,
+                isPublic: groupMeta.isPublic,
+                slug: groupMeta.slug,
+                members: groupMeta.members,
+                movieMondays: slice,
+              }],
             },
           });
           chunkIndex++;
@@ -387,9 +369,7 @@ export default function DataManagement() {
 
       // Breadcrumb: what's actually in this chunk
       const groupInChunk = (chunk.payload as any).groups?.[0];
-      const dates = (groupInChunk?.movieMondays ?? []).map(
-        (mm: any) => mm.date,
-      );
+      const dates = (groupInChunk?.movieMondays ?? []).map((mm: any) => mm.date);
       const label = `chunk ${chunk.chunkIndex} — group "${groupInChunk?.name}" — dates [${dates.join(", ")}]`;
       console.log(`[import] ${label} — sending`);
       const startedAt = performance.now();
@@ -400,10 +380,7 @@ export default function DataManagement() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/admin/import`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify(chunk.payload),
           signal: controller.signal,
         });
@@ -412,34 +389,21 @@ export default function DataManagement() {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          console.warn(
-            `[import] ${label} — FAILED after ${elapsed}ms (status ${res.status})`,
-          );
-          runningResults.errors.push(
-            `Chunk ${chunk.chunkIndex}: ${errData.message || res.status}`,
-          );
+          console.warn(`[import] ${label} — FAILED after ${elapsed}ms (status ${res.status})`);
+          runningResults.errors.push(`Chunk ${chunk.chunkIndex}: ${errData.message || res.status}`);
         } else {
           const data = await res.json();
           console.log(`[import] ${label} — done in ${elapsed}ms`);
-          if (data.results)
-            runningResults = mergeResults(runningResults, data.results);
+          if (data.results) runningResults = mergeResults(runningResults, data.results);
         }
       } catch (err: any) {
         const elapsed = Math.round(performance.now() - startedAt);
         if (err.name === "AbortError") {
-          console.error(
-            `[import] ${label} — TIMED OUT after ${elapsed}ms (client abort)`,
-          );
-          runningResults.errors.push(
-            `Chunk ${chunk.chunkIndex} (${label}): timed out client-side after 25s`,
-          );
+          console.error(`[import] ${label} — TIMED OUT after ${elapsed}ms (client abort)`);
+          runningResults.errors.push(`Chunk ${chunk.chunkIndex} (${label}): timed out client-side after 25s`);
         } else {
-          console.error(
-            `[import] ${label} — ERROR after ${elapsed}ms: ${err.message}`,
-          );
-          runningResults.errors.push(
-            `Chunk ${chunk.chunkIndex}: ${err.message}`,
-          );
+          console.error(`[import] ${label} — ERROR after ${elapsed}ms: ${err.message}`);
+          runningResults.errors.push(`Chunk ${chunk.chunkIndex}: ${err.message}`);
         }
       } finally {
         clearTimeout(timeoutId);
@@ -454,6 +418,19 @@ export default function DataManagement() {
     importRunning.current = false;
     setIsImporting(false);
     setImportDone(true);
+
+    // Recalculate stats once now that bulk writes are done — hooks were skipped
+    // per-record during import (see admin.js `hooks: false`), so this is the
+    // single place the Statistics table gets brought up to date.
+    try {
+      await fetch(`${API_BASE_URL}/api/admin/recalculate-stats`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      console.warn("Stats recalculation failed (non-fatal):", err);
+    }
+
     fetchEnrichStatus(); // refresh the enrich card
   };
 
