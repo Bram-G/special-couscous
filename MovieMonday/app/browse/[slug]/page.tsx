@@ -212,3 +212,163 @@ export default function GroupCalendarPage() {
   // first within each — no empty day cells, every card is an actual Monday
   const monthSections = useMemo(() => {
     const map = new Map<string, CalendarMonday[]>();
+    mondays.forEach((m) => {
+      const key = monthKeyOf(parseLocalDate(m.date));
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(m);
+    });
+
+    return Array.from(map.entries())
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([key, list]) => {
+        const [y, mo] = key.split("-").map(Number);
+        return {
+          key,
+          label: new Date(y, mo - 1, 1).toLocaleDateString("en-US", {
+            month: "long",
+            year: "numeric",
+          }),
+          mondays: list.sort(
+            (a, b) =>
+              parseLocalDate(b.date).getTime() -
+              parseLocalDate(a.date).getTime()
+          ),
+        };
+      });
+  }, [mondays]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] w-full items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div className="flex h-[60vh] w-full flex-col items-center justify-center gap-4 px-6 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Group not found</h1>
+        <p className="text-default-500">
+          This group may be private or the link may be incorrect.
+        </p>
+        <Button as={NextLink} href="/" variant="flat" color="primary">
+          Back home
+        </Button>
+      </div>
+    );
+  }
+
+  const stats = header?.stats;
+  const since = stats ? parseLocalDate(stats.activeSince).getFullYear() : null;
+
+  return (
+    <div className="w-full">
+      {/* ── Header ── */}
+      <div className="border-b border-default-100 bg-content1">
+        <div className="container mx-auto px-6 py-8">
+          <Button
+            as={NextLink}
+            href="/"
+            variant="light"
+            size="sm"
+            startContent={<ArrowLeft className="h-4 w-4" />}
+            className="mb-4"
+          >
+            All groups
+          </Button>
+
+          <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+            {header?.name || "Movie Monday"}
+          </h1>
+          <p className="mt-1 text-default-500">
+            by {header?.owner?.username}
+            {since ? ` · going since ${since}` : ""}
+          </p>
+          {header?.description && (
+            <p className="mt-3 max-w-2xl text-default-600">
+              {header.description}
+            </p>
+          )}
+
+          {stats && (
+            <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm">
+              <span className="flex items-center gap-2 text-default-600">
+                <CalendarDays className="h-4 w-4 text-primary" />
+                <strong className="text-foreground">{stats.totalWeeks}</strong>{" "}
+                Mondays
+              </span>
+              <span className="flex items-center gap-2 text-default-600">
+                <Film className="h-4 w-4 text-primary" />
+                <strong className="text-foreground">
+                  {stats.totalWinners || stats.totalMovies}
+                </strong>{" "}
+                movies watched
+              </span>
+              <span className="flex items-center gap-2 text-default-600">
+                <UtensilsCrossed className="h-4 w-4 text-primary" />
+                <strong className="text-foreground">{stats.totalMeals}</strong>{" "}
+                dinners eaten
+              </span>
+              <span className="flex items-center gap-2 text-default-600">
+                <Wine className="h-4 w-4 text-primary" />
+                <strong className="text-foreground">
+                  {stats.totalCocktails}
+                </strong>{" "}
+                cocktails poured
+              </span>
+              <span className="flex items-center gap-2 text-default-600">
+                <Users className="h-4 w-4 text-primary" />
+                <strong className="text-foreground">
+                  {stats.totalMembers}
+                </strong>{" "}
+                members
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Mondays, grouped by month ── */}
+      <div className="container mx-auto px-6 py-10">
+        {monthSections.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+            <Film className="h-10 w-10 text-default-300" />
+            <p className="text-default-500">
+              This group hasn&apos;t shared any Mondays yet.
+            </p>
+          </div>
+        ) : (
+          <>
+            {monthSections.map((section) => (
+              <section key={section.key} className="mb-12 last:mb-0">
+                <div className="mb-5 flex items-center gap-3">
+                  <h2 className="text-xl font-bold text-foreground">
+                    {section.label}
+                  </h2>
+                  <Chip size="sm" variant="flat">
+                    {section.mondays.length} Monday
+                    {section.mondays.length === 1 ? "" : "s"}
+                  </Chip>
+                </div>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {section.mondays.map((monday) => (
+                    <MondayCard key={monday.id} monday={monday} />
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            {/* Legend */}
+            <div className="mt-10 flex items-center gap-2 text-xs text-default-500">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <Star className="h-2.5 w-2.5 fill-current" />
+              </span>
+              marks the movie the group voted in that night
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
