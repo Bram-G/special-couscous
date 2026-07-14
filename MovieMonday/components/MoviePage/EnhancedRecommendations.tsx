@@ -67,7 +67,7 @@ const EnhancedRecommendations: React.FC<EnhancedRecommendationsProps> = ({
         } else {
           // If no recommendations, try similar movies
           const similarResponse = await fetch(
-            `https://api.themoviedb.org/3/movie/${movieId}/similar?api_key=${process.env.NEXT_PUBLIC_API_Key}&language=en-US&page=1`,
+            `https://api.themoviedb.org/3/movie/${movieId}/similar?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=en-US&page=1`,
           );
 
           if (!similarResponse.ok) {

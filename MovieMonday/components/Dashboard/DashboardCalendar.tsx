@@ -104,6 +104,16 @@ interface DateButtonStatus {
   color: ButtonColor;
 }
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CachedMonday {
+  data: any; // replace `any` with your actual MovieMonday type if you have one
+  cachedAt: number;
+}
+
+const isFresh = (entry: CachedMonday | undefined): entry is CachedMonday =>
+  !!entry && Date.now() - entry.cachedAt < CACHE_TTL_MS;
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
@@ -124,7 +134,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [movieMondayMap, setMovieMondayMap] = useState<
-    Map<string, MovieMonday>
+    Map<string, CachedMonday>
   >(new Map());
   const [savingDetails, setSavingDetails] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -219,7 +229,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
             mondayDates.forEach((date) => {
               const key = formatDateForAPI(date);
               if (data[key]) {
-                next.set(date.toISOString(), data[key]);
+                next.set(date.toISOString(), {
+                  data: data[key],
+                  cachedAt: Date.now(),
+                });
               }
             });
             return next;
@@ -388,8 +401,32 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   // Proceed with date selection after handling unsaved changes
   const proceedWithDateSelection = async (date: Date) => {
     setSelectedDate(date);
-    setLoading(true);
     setIsEditing(false);
+
+    const cached = movieMondayMap.get(date.toISOString());
+
+    if (isFresh(cached)) {
+      setSelectedMonday(cached.data);
+      if (cached.data.eventDetails) {
+        setEventDetails({
+          meals: Array.isArray(cached.data.eventDetails.meals)
+            ? [...cached.data.eventDetails.meals]
+            : cached.data.eventDetails.meals
+              ? [cached.data.eventDetails.meals]
+              : [],
+          cocktails: cached.data.eventDetails.cocktails || [],
+          desserts: Array.isArray(cached.data.eventDetails.desserts)
+            ? [...cached.data.eventDetails.desserts]
+            : cached.data.eventDetails.desserts
+              ? [cached.data.eventDetails.desserts]
+              : [],
+          notes: cached.data.eventDetails.notes || "",
+        });
+      }
+      return; // fresh cache hit — no network call
+    }
+
+    setLoading(true);
 
     try {
       const year = date.getFullYear();
@@ -399,17 +436,19 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
       const response = await fetch(
         `${API_BASE_URL}/api/movie-monday/${formattedDate}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (response.ok) {
         const data = await response.json();
-
         setSelectedMonday(data);
         setMovieMondayMap(
-          new Map(movieMondayMap.set(date.toISOString(), data)),
+          new Map(
+            movieMondayMap.set(date.toISOString(), {
+              data,
+              cachedAt: Date.now(),
+            }),
+          ),
         );
 
         if (data.eventDetails) {
@@ -451,43 +490,45 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   // Determine status and appearance of date buttons
-  const getDateButtonStatus = (date: Date): DateButtonStatus => {
-    const formattedDate = formatDateForAPI(date);
-    const movieMonday = Array.from(movieMondayMap.entries()).find(
-      ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate,
-    )?.[1];
+const getDateButtonStatus = (date: Date): DateButtonStatus => {
+  const formattedDate = formatDateForAPI(date);
+  const entry = Array.from(movieMondayMap.entries()).find(
+    ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate,
+  )?.[1];
 
-    const isSelected =
-      selectedDate && formatDateForAPI(selectedDate) === formattedDate;
+  const movieMonday = entry?.data; // <-- unwrap the cache wrapper here
 
-    if (!movieMonday || movieMonday.status === "not_created") {
-      return {
-        status: "empty",
-        variant: isSelected ? "solid" : "light",
-        color: isSelected ? "primary" : "default",
-      };
-    }
+  const isSelected =
+    selectedDate && formatDateForAPI(selectedDate) === formattedDate;
 
-    if (movieMonday.status === "completed") {
-      return {
-        status: "completed",
-        variant: isSelected ? "solid" : "light",
-        color: "success",
-      };
-    } else if (movieMonday.status === "in-progress") {
-      return {
-        status: "in-progress",
-        variant: isSelected ? "solid" : "light",
-        color: "primary",
-      };
-    } else {
-      return {
-        status: "pending",
-        variant: isSelected ? "solid" : "light",
-        color: "warning",
-      };
-    }
-  };
+  if (!movieMonday || movieMonday.status === "not_created") {
+    return {
+      status: "empty",
+      variant: isSelected ? "solid" : "light",
+      color: isSelected ? "primary" : "default",
+    };
+  }
+
+  if (movieMonday.status === "completed") {
+    return {
+      status: "completed",
+      variant: isSelected ? "solid" : "light",
+      color: "success",
+    };
+  } else if (movieMonday.status === "in-progress") {
+    return {
+      status: "in-progress",
+      variant: isSelected ? "solid" : "light",
+      color: "primary",
+    };
+  } else {
+    return {
+      status: "pending",
+      variant: isSelected ? "solid" : "light",
+      color: "warning",
+    };
+  }
+};
 
   // Check if a date is the start of a month
   const isMonthStart = (date: Date, index: number, dates: Date[]): boolean => {

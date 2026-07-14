@@ -28,11 +28,14 @@ import {
   Eye,
   Film,
   Globe,
+  GripVertical,
   Grid,
   Heart,
+  Info,
   List,
   Lock,
   MoreHorizontal,
+  Move,
   Plus,
   Search,
   Share2,
@@ -41,14 +44,26 @@ import {
   Star,
 } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
-import Link from 'next/link';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { restrictToParentElement } from '@dnd-kit/modifiers';
-import { CommentSection } from '@/components/Comments';
-import MoveToWatchlistModal from './MoveToWatchlistModal';
-import { useAuth } from '@/contexts/AuthContext';
+import Link from "next/link";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { restrictToParentElement } from "@dnd-kit/modifiers";
+import { CommentSection } from "@/components/Comments";
+import MoveToWatchlistModal from "./MoveToWatchlistModal";
+import { useAuth } from "@/contexts/AuthContext";
+import WatchlistVisibilityToggle from "./WatchlistVisibilityToggle";
 
 // Types
 interface WatchlistItem {
@@ -63,6 +78,13 @@ interface WatchlistItem {
   watched: boolean;
   watchedDate?: string;
   isWinner: boolean;
+}
+
+interface MovieMeta {
+  voteAverage?: number;
+  genres?: string[];
+  overview?: string;
+  releaseYear?: string;
 }
 
 interface WatchlistCategory {
@@ -80,20 +102,28 @@ interface WatchlistCategory {
     username: string;
   };
 }
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // Sortable Item Component
 const SortableItem = ({
   id,
   item,
   viewMode,
+  reorderMode,
+  isEditable,
+  movieMeta,
   onMovieClick,
   onDeleteClick,
+  onNavigate,
 }: {
   id: number;
   item: WatchlistItem;
   viewMode: "grid" | "list";
+  reorderMode: boolean;
+  isEditable: boolean;
+  movieMeta?: MovieMeta;
   onMovieClick: (item: WatchlistItem) => void;
   onDeleteClick: (id: number) => void;
+  onNavigate: (tmdbMovieId: number) => void;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id });
@@ -103,14 +133,25 @@ const SortableItem = ({
     transition,
   };
 
+  // Only wire up drag behavior while reorder mode is on — this is what
+  // makes the card clickable the rest of the time.
+  const dragProps = reorderMode ? { ...attributes, ...listeners } : {};
+
+  const handleCardClick = () => {
+    if (reorderMode) return;
+    onNavigate(item.tmdbMovieId);
+  };
+
   if (viewMode === "grid") {
     return (
       <div
         ref={setNodeRef}
-        className="relative aspect-[2/3] bg-default-100 rounded-md overflow-hidden cursor-move group"
+        className={`relative aspect-[2/3] bg-default-100 rounded-md overflow-hidden group ${
+          reorderMode ? "cursor-move" : "cursor-pointer"
+        }`}
         style={style}
-        {...attributes}
-        {...listeners}
+        {...dragProps}
+        onClick={handleCardClick}
       >
         {item.posterPath ? (
           <Image
@@ -125,9 +166,36 @@ const SortableItem = ({
           </div>
         )}
 
-        {/* Overlay */}
-        <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <h4 className="text-white font-medium truncate">{item.title}</h4>
+        {reorderMode && (
+          <div className="absolute top-2 left-2 z-10 bg-black/60 rounded-full p-1.5">
+            <GripVertical className="h-4 w-4 text-white" />
+          </div>
+        )}
+
+        {/* Info overlay */}
+        <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black via-black/80 to-transparent">
+          <h4 className="text-white font-medium truncate text-sm">
+            {item.title}
+          </h4>
+
+          {(movieMeta?.voteAverage != null || movieMeta?.releaseYear) && (
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-white/80">
+              {movieMeta?.voteAverage != null && (
+                <span className="flex items-center gap-0.5">
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  {movieMeta.voteAverage.toFixed(1)}
+                </span>
+              )}
+              {movieMeta?.releaseYear && <span>{movieMeta.releaseYear}</span>}
+            </div>
+          )}
+
+          {movieMeta?.genres && movieMeta.genres.length > 0 && (
+            <p className="text-[11px] text-white/70 truncate mt-0.5">
+              {movieMeta.genres.slice(0, 2).join(" • ")}
+            </p>
+          )}
+
           <div className="flex justify-between items-center mt-1">
             <div className="flex items-center gap-1">
               {item.watched && (
@@ -146,99 +214,177 @@ const SortableItem = ({
               )}
             </div>
 
-            <div className="flex gap-1">
-              <Button
-                isIconOnly
-                className="bg-white/20 backdrop-blur-sm"
-                size="sm"
-                variant="flat"
-                onPress={() => onMovieClick(item)}
-              >
-                <Eye className="h-3 w-3 text-white" />
-              </Button>
-              <Button
-                isIconOnly
-                className="bg-white/20 backdrop-blur-sm"
-                size="sm"
-                variant="flat"
-                onPress={() => onDeleteClick(item.id)}
-              >
-                <Trash2 className="h-3 w-3 text-white" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  } else {
-    // List view
-    return (
-      <div
-        ref={setNodeRef}
-        className="flex items-center p-3 bg-default-50 rounded-md mb-2 cursor-move border border-default-200 group hover:border-primary"
-        style={style}
-        {...attributes}
-        {...listeners}
-      >
-        <div className="h-16 w-12 mr-3 flex-shrink-0 overflow-hidden rounded">
-          {item.posterPath ? (
-            <Image
-              removeWrapper
-              alt={item.title}
-              className="h-full w-full object-cover"
-              src={`https://image.tmdb.org/t/p/w92${item.posterPath}`}
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center bg-default-200">
-              <Film className="w-6 h-6 text-default-400" />
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <h4 className="font-medium truncate">{item.title}</h4>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {item.watched && (
-              <Chip color="success" size="sm" variant="flat">
-                Watched
-              </Chip>
-            )}
-            {item.isWinner && (
-              <Chip color="warning" size="sm" variant="flat">
-                Winner
-              </Chip>
+            {!reorderMode && (
+              <div className="flex gap-1">
+                <Button
+                  isIconOnly
+                  className="bg-white/20 backdrop-blur-sm"
+                  size="sm"
+                  variant="flat"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMovieClick(item);
+                  }}
+                >
+                  <Info className="h-3 w-3 text-white" />
+                </Button>
+                {isEditable && (
+                  <Button
+                    isIconOnly
+                    className="bg-white/20 backdrop-blur-sm"
+                    size="sm"
+                    variant="flat"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteClick(item.id);
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3 text-white" />
+                  </Button>
+                )}
+              </div>
             )}
           </div>
-        </div>
-
-        <div className="flex ml-2">
-          <Button
-            isIconOnly
-            size="sm"
-            variant="light"
-            onPress={() => onMovieClick(item)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            isIconOnly
-            color="danger"
-            size="sm"
-            variant="light"
-            onPress={() => onDeleteClick(item.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
         </div>
       </div>
     );
   }
-};
 
+  // List view
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex items-center p-3 bg-default-50 rounded-md mb-2 border border-default-200 group hover:border-primary ${
+        reorderMode ? "cursor-move" : "cursor-pointer"
+      }`}
+      style={style}
+      {...dragProps}
+      onClick={handleCardClick}
+    >
+      {reorderMode && (
+        <GripVertical className="h-4 w-4 text-default-400 mr-2 flex-shrink-0" />
+      )}
+      <div className="h-16 w-12 mr-3 flex-shrink-0 overflow-hidden rounded">
+        {item.posterPath ? (
+          <Image
+            removeWrapper
+            alt={item.title}
+            className="h-full w-full object-cover"
+            src={`https://image.tmdb.org/t/p/w92${item.posterPath}`}
+          />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center bg-default-200">
+            <Film className="w-6 h-6 text-default-400" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <h4 className="font-medium truncate">{item.title}</h4>
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          {item.watched && (
+            <Chip color="success" size="sm" variant="flat">
+              Watched
+            </Chip>
+          )}
+          {item.isWinner && (
+            <Chip color="warning" size="sm" variant="flat">
+              Winner
+            </Chip>
+          )}
+          {movieMeta?.voteAverage != null && (
+            <span className="flex items-center gap-0.5 text-xs text-default-500">
+              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+              {movieMeta.voteAverage.toFixed(1)}
+            </span>
+          )}
+          {movieMeta?.genres && movieMeta.genres.length > 0 && (
+            <span className="text-xs text-default-500">
+              {movieMeta.genres.slice(0, 2).join(", ")}
+            </span>
+          )}
+        </div>
+        {movieMeta?.overview && (
+          <p className="text-xs text-default-500 line-clamp-1 mt-1">
+            {movieMeta.overview}
+          </p>
+        )}
+      </div>
+
+      {!reorderMode && (
+        <div className="flex ml-2 flex-shrink-0">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMovieClick(item);
+            }}
+          >
+            <Info className="h-4 w-4" />
+          </Button>
+          {isEditable && (
+            <Button
+              isIconOnly
+              color="danger"
+              size="sm"
+              variant="light"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteClick(item.id);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+const fetchMovieMeta = async (items: WatchlistItem[]) => {
+  const CHUNK_SIZE = 8;
+  const results: Record<number, MovieMeta> = {};
+
+  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+    const chunk = items.slice(i, i + CHUNK_SIZE);
+    const chunkResults = await Promise.all(
+      chunk.map(async (item) => {
+        try {
+          const res = await fetch(
+            `https://api.themoviedb.org/3/movie/${item.tmdbMovieId}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
+          );
+          if (!res.ok) return null;
+          const data = await res.json();
+          return {
+            tmdbMovieId: item.tmdbMovieId,
+            meta: {
+              voteAverage: data.vote_average,
+              genres: (data.genres || []).map((g: any) => g.name),
+              overview: data.overview,
+              releaseYear: data.release_date
+                ? data.release_date.split("-")[0]
+                : undefined,
+            } as MovieMeta,
+          };
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    chunkResults.forEach((r) => {
+      if (r) results[r.tmdbMovieId] = r.meta;
+    });
+  }
+  
+  setMovieMeta((prev) => ({ ...prev, ...results }));
+};
 const WatchlistDetail = () => {
   const router = useRouter();
   const params = useParams();
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, user } = useAuth();
 
   // State
   const [watchlist, setWatchlist] = useState<WatchlistCategory | null>(null);
@@ -247,6 +393,8 @@ const WatchlistDetail = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditable, setIsEditable] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [movieMeta, setMovieMeta] = useState<Record<number, MovieMeta>>({});
   const {
     isOpen: isMovieDetailOpen,
     onOpen: onMovieDetailOpen,
@@ -300,9 +448,8 @@ const WatchlistDetail = () => {
 
         setWatchlist(data);
         // Check if current user is the owner
-        setIsEditable(
-          isAuthenticated && data.owner.id === token ? data.owner.id : false,
-        );
+        setIsEditable(!!(isAuthenticated && user && data.owner.id === user.id));
+        fetchMovieMeta(data.items);
       } else if (response.status === 404) {
         router.push("/not-found");
       } else {
@@ -318,6 +465,7 @@ const WatchlistDetail = () => {
 
   // Handle DnD end
   const handleDragEnd = async (event) => {
+    if (!reorderMode) return;
     const { active, over } = event;
 
     if (!active || !over || active.id === over.id) {
@@ -555,25 +703,31 @@ const WatchlistDetail = () => {
                 <Film className="mr-1" size={14} />
                 <span>{watchlist.items.length} movies</span>
               </div>
-              <Chip
-                color={watchlist.isPublic ? "success" : "default"}
-                size="sm"
-                startContent={watchlist.isPublic ? <Globe size={12} /> : <Lock size={12} />}
-                variant="flat"
-              >
-                {watchlist.isPublic ? "Public" : "Private"}
-              </Chip>
+              <WatchlistVisibilityToggle
+                watchlistId={watchlist.id}
+                token={token || ""}
+                isOwner={isEditable}
+                initialIsPublic={watchlist.isPublic}
+                onChange={(next) =>
+                  setWatchlist((prev) =>
+                    prev ? { ...prev, isPublic: next } : prev,
+                  )
+                }
+              />
             </div>
           </div>
         </div>
-
-         
 
         <div className="flex gap-2">
           {isAuthenticated && (
             <Button
               color={watchlist.userHasLiked ? "danger" : "default"}
-              startContent={<Heart size={18} className={watchlist.userHasLiked ? "fill-current" : ""} />}
+              startContent={
+                <Heart
+                  size={18}
+                  className={watchlist.userHasLiked ? "fill-current" : ""}
+                />
+              }
               variant={watchlist.userHasLiked ? "solid" : "flat"}
               onPress={handleToggleLike}
             >
@@ -633,20 +787,30 @@ const WatchlistDetail = () => {
         <div className="flex gap-2">
           <Button
             isIconOnly
-            color={viewMode === 'grid' ? "primary" : "default"}
-            variant={viewMode === 'grid' ? "solid" : "flat"}
-            onPress={() => setViewMode('grid')}
+            color={viewMode === "grid" ? "primary" : "default"}
+            variant={viewMode === "grid" ? "solid" : "flat"}
+            onPress={() => setViewMode("grid")}
           >
             <Grid size={18} />
           </Button>
           <Button
             isIconOnly
-            color={viewMode === 'list' ? "primary" : "default"}
-            variant={viewMode === 'list' ? "solid" : "flat"}
-            onPress={() => setViewMode('list')}
+            color={viewMode === "list" ? "primary" : "default"}
+            variant={viewMode === "list" ? "solid" : "flat"}
+            onPress={() => setViewMode("list")}
           >
             <List size={18} />
           </Button>
+          {isEditable && (
+            <Button
+              color={reorderMode ? "warning" : "default"}
+              startContent={<Move size={16} />}
+              variant={reorderMode ? "solid" : "flat"}
+              onPress={() => setReorderMode((prev) => !prev)}
+            >
+              {reorderMode ? "Done Reordering" : "Edit Order"}
+            </Button>
+          )}
 
           <div className="flex-1 sm:max-w-md">
             <Input
@@ -679,7 +843,9 @@ const WatchlistDetail = () => {
               className="mt-4"
               color="primary"
               startContent={<Plus size={16} />}
-              onPress={() => router.push(`/discover?addToWatchlist=${watchlist.id}`)}
+              onPress={() =>
+                router.push(`/discover?addToWatchlist=${watchlist.id}`)
+              }
             >
               Add Movies
             </Button>
@@ -691,7 +857,7 @@ const WatchlistDetail = () => {
           <Button
             className="mt-4"
             variant="flat"
-            onPress={() => setSearchQuery('')}
+            onPress={() => setSearchQuery("")}
           >
             Clear Search
           </Button>
@@ -724,17 +890,21 @@ const WatchlistDetail = () => {
                   id={item.id}
                   item={item}
                   viewMode={viewMode}
+                  reorderMode={reorderMode && isEditable}
+                  isEditable={isEditable}
+                  movieMeta={movieMeta[item.tmdbMovieId]}
                   onDeleteClick={isEditable ? handleDeleteMovie : () => {}}
                   onMovieClick={handleMovieClick}
+                  onNavigate={(tmdbId) => router.push(`/movie/${tmdbId}`)}
                 />
               ))}
             </div>
           </SortableContext>
         </DndContext>
       )}
-       {watchlist && (
+      {watchlist && (
         <div className="mt-12">
-          <CommentSection 
+          <CommentSection
             contentType="watchlist"
             contentId={watchlist.id}
             contentTitle={watchlist.name}
@@ -803,7 +973,11 @@ const WatchlistDetail = () => {
                             {[...Array(5)].map((_, i) => (
                               <Star
                                 key={i}
-                                className={i < selectedMovie.userRating ? "text-warning fill-current" : "text-default-300"}
+                                className={
+                                  i < selectedMovie.userRating
+                                    ? "text-warning fill-current"
+                                    : "text-default-300"
+                                }
                                 size={20}
                               />
                             ))}
