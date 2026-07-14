@@ -53,7 +53,7 @@ const EnhancedRecommendations: React.FC<EnhancedRecommendationsProps> = ({
 
       try {
         const response = await fetch(
-          `https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_API_Key}&language=en-US&page=1`,
+          `https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&language=en-US&page=1`,
         );
 
         if (!response.ok) {

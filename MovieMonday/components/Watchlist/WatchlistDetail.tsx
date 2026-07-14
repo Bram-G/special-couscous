@@ -343,44 +343,7 @@ const SortableItem = ({
     </div>
   );
 };
-const fetchMovieMeta = async (items: WatchlistItem[]) => {
-  const CHUNK_SIZE = 8;
-  const results: Record<number, MovieMeta> = {};
 
-  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
-    const chunk = items.slice(i, i + CHUNK_SIZE);
-    const chunkResults = await Promise.all(
-      chunk.map(async (item) => {
-        try {
-          const res = await fetch(
-            `https://api.themoviedb.org/3/movie/${item.tmdbMovieId}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
-          );
-          if (!res.ok) return null;
-          const data = await res.json();
-          return {
-            tmdbMovieId: item.tmdbMovieId,
-            meta: {
-              voteAverage: data.vote_average,
-              genres: (data.genres || []).map((g: any) => g.name),
-              overview: data.overview,
-              releaseYear: data.release_date
-                ? data.release_date.split("-")[0]
-                : undefined,
-            } as MovieMeta,
-          };
-        } catch {
-          return null;
-        }
-      }),
-    );
-
-    chunkResults.forEach((r) => {
-      if (r) results[r.tmdbMovieId] = r.meta;
-    });
-  }
-  
-  setMovieMeta((prev) => ({ ...prev, ...results }));
-};
 const WatchlistDetail = () => {
   const router = useRouter();
   const params = useParams();
@@ -410,6 +373,44 @@ const WatchlistDetail = () => {
 
   const slug = params?.slug as string;
 
+  const fetchMovieMeta = async (items: WatchlistItem[]) => {
+    const CHUNK_SIZE = 8;
+    const results: Record<number, MovieMeta> = {};
+
+    for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+      const chunk = items.slice(i, i + CHUNK_SIZE);
+      const chunkResults = await Promise.all(
+        chunk.map(async (item) => {
+          try {
+            const res = await fetch(
+              `https://api.themoviedb.org/3/movie/${item.tmdbMovieId}?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
+            );
+            if (!res.ok) return null;
+            const data = await res.json();
+            return {
+              tmdbMovieId: item.tmdbMovieId,
+              meta: {
+                voteAverage: data.vote_average,
+                genres: (data.genres || []).map((g: any) => g.name),
+                overview: data.overview,
+                releaseYear: data.release_date
+                  ? data.release_date.split("-")[0]
+                  : undefined,
+              } as MovieMeta,
+            };
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      chunkResults.forEach((r) => {
+        if (r) results[r.tmdbMovieId] = r.meta;
+      });
+    }
+
+    setMovieMeta((prev) => ({ ...prev, ...results }));
+  };
   // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {

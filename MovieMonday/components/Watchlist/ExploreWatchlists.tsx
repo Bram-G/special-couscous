@@ -69,7 +69,7 @@ const ExploreWatchlists: React.FC = () => {
     }
 
     try {
-      let url = `${API_BASE_URL}/api/watchlists/public?sort=${selectedTab}&limit=${limit}&offset=${newOffset}`;
+      let url = `${API_BASE_URL}/api/watchlists/public?sort=${selectedTab}&limit=${limit}&offset=${newOffset}&include_items=true`;
 
       // Add search query if present
       if (searchQuery) {
