@@ -16,6 +16,7 @@ import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDisc
 import AddToWatchlistModal from "@/components/Watchlist/AddToWatchlistModal";
 import type { Movie } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { dedupedFetch } from "@/utils/apiClient";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -69,22 +70,16 @@ export default function TrendingPage() {
     if (!currentGroupId) return;
 
     try {
-      const response = await fetch(
+      const { ok, data } = await dedupedFetch(
         `${API_BASE_URL}/api/movie-monday/discovery-status`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            group_id: currentGroupId,
-            tmdb_ids: tmdbIds,
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ group_id: currentGroupId, tmdb_ids: tmdbIds }),
         },
       );
 
-      if (response.ok) {
-        const data = await response.json();
+      if (ok && data) {
         setWatchedMovies(new Set(data.watched || []));
         setVotedButNotPicked(
           new Set(data.votedButNotPicked?.map((m: any) => m.tmdbMovieId) || []),

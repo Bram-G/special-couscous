@@ -22,6 +22,7 @@ import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import EnhancedMovieCarousel from "@/components/Discovery/EnhancedMovieCarousel";
 import EnhancedWatchlistSection from "@/components/Discovery/EnhancedWatchlistSection";
 import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
+import { dedupedFetch } from "@/utils/apiClient";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
@@ -76,7 +77,7 @@ const DiscoveryPage = () => {
     if (!isAuthenticated || !currentGroupId || tmdbIds.length === 0) return;
 
     try {
-      const response = await fetch(
+      const { ok, data } = await dedupedFetch(
         `${API_BASE_URL}/api/movie-monday/discovery-status`,
         {
           method: "POST",
@@ -91,8 +92,7 @@ const DiscoveryPage = () => {
         },
       );
 
-      if (response.ok) {
-        const data = await response.json();
+      if (ok && data) {
         setWatchedMovies(new Set(data.watched));
         setVotedButNotPickedMovies(
           new Set(data.votedButNotPicked.map((m: VotedMovie) => m.tmdbMovieId)),

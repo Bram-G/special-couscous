@@ -106,7 +106,6 @@ interface DateButtonStatus {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-
 const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   slidesPerView = 5,
   onDateSelect,
@@ -199,29 +198,36 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   // Fetch cocktail suggestions and preload date data when dates change
   useEffect(() => {
     const fetchAllDates = async () => {
-      const promises = mondayDates.map(async (date) => {
-        try {
-          const formattedDate = formatDateForAPI(date);
-          const response = await fetch(
-            `${API_BASE_URL}/api/movie-monday/${formattedDate}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
+      if (!token || mondayDates.length === 0) return;
 
-          if (response.ok) {
-            const data = await response.json();
+      try {
+        const dateStrings = mondayDates.map(formatDateForAPI);
+        const response = await fetch(`${API_BASE_URL}/api/movie-monday/dates`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ dates: dateStrings }),
+        });
 
-            setMovieMondayMap(
-              (prev) => new Map(prev.set(date.toISOString(), data)),
-            );
-          }
-        } catch (error) {
-          console.error(`Error fetching data for ${date}:`, error);
+        if (response.ok) {
+          const data = await response.json();
+
+          setMovieMondayMap((prev) => {
+            const next = new Map(prev);
+            mondayDates.forEach((date) => {
+              const key = formatDateForAPI(date);
+              if (data[key]) {
+                next.set(date.toISOString(), data[key]);
+              }
+            });
+            return next;
+          });
         }
-      });
-
-      await Promise.all(promises);
+      } catch (error) {
+        console.error("Error batch fetching calendar data:", error);
+      }
     };
 
     fetchAllDates();
@@ -316,9 +322,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   const toTitleCase = (str: string): string => {
-  return str.toLowerCase().replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
-};
-
+    return str
+      .toLowerCase()
+      .replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
+  };
 
   // Initialize Mondays for the calendar
   const initializeMondays = (): Date[] => {
@@ -544,41 +551,41 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     handleInputWithSuggestions(e, "dessert", dessertSuggestions);
   };
 
-const addItemToCategory = (
-  type: "cocktail" | "meal" | "dessert",
-  value: string,
-) => {
-  if (!value.trim()) return;
+  const addItemToCategory = (
+    type: "cocktail" | "meal" | "dessert",
+    value: string,
+  ) => {
+    if (!value.trim()) return;
 
-  const normalized = toTitleCase(value.trim());
+    const normalized = toTitleCase(value.trim());
 
-  switch (type) {
-    case "cocktail":
-      setEditableDetails((prev) => ({
-        ...prev,
-        cocktails: [...prev.cocktails, normalized],
-      }));
-      setNewCocktail("");
-      break;
-    case "meal":
-      setEditableDetails((prev) => ({
-        ...prev,
-        meals: [...prev.meals, normalized],
-      }));
-      setNewMeal("");
-      break;
-    case "dessert":
-      setEditableDetails((prev) => ({
-        ...prev,
-        desserts: [...prev.desserts, normalized],
-      }));
-      setNewDessert("");
-      break;
-  }
+    switch (type) {
+      case "cocktail":
+        setEditableDetails((prev) => ({
+          ...prev,
+          cocktails: [...prev.cocktails, normalized],
+        }));
+        setNewCocktail("");
+        break;
+      case "meal":
+        setEditableDetails((prev) => ({
+          ...prev,
+          meals: [...prev.meals, normalized],
+        }));
+        setNewMeal("");
+        break;
+      case "dessert":
+        setEditableDetails((prev) => ({
+          ...prev,
+          desserts: [...prev.desserts, normalized],
+        }));
+        setNewDessert("");
+        break;
+    }
 
-  setFilteredSuggestions([]);
-  setActiveSuggestionType(null);
-};
+    setFilteredSuggestions([]);
+    setActiveSuggestionType(null);
+  };
 
   // Create a new MovieMonday
   const handleCreateMovieMonday = async (date: Date) => {
@@ -651,37 +658,37 @@ const addItemToCategory = (
 
   // Save all event details
   const handleSaveAll = async () => {
-  if (!selectedMonday || !token) return;
+    if (!selectedMonday || !token) return;
 
-  setSavingDetails(true);
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/movie-monday/${selectedMonday.id}/event-details`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+    setSavingDetails(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/movie-monday/${selectedMonday.id}/event-details`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editableDetails),
         },
-        body: JSON.stringify(editableDetails),
-      },
-    );
+      );
 
-    if (!response.ok) {
-      throw new Error("Failed to save event details");
-    }
+      if (!response.ok) {
+        throw new Error("Failed to save event details");
+      }
 
-    // Use proceedWithDateSelection instead of handleDateClick to bypass
-    // the unsaved changes check (which would fire since isEditing is still true)
-    if (selectedDate) {
-      await proceedWithDateSelection(selectedDate);
+      // Use proceedWithDateSelection instead of handleDateClick to bypass
+      // the unsaved changes check (which would fire since isEditing is still true)
+      if (selectedDate) {
+        await proceedWithDateSelection(selectedDate);
+      }
+    } catch (error) {
+      console.error("Error saving details:", error);
+    } finally {
+      setSavingDetails(false);
     }
-  } catch (error) {
-    console.error("Error saving details:", error);
-  } finally {
-    setSavingDetails(false);
-  }
-};
+  };
 
   // Update the picker for a MovieMonday
   const handlePickerChange = async (newPickerId: string) => {
@@ -903,14 +910,14 @@ const addItemToCategory = (
     <div className="space-y-4 w-full">
       {/* Calendar Header - Navigation */}
       <MonthlyMondaySelector
-  selectedDate={selectedDate}
-  token={token}
-  onSelectDate={handleDateClick}
-  onJumpToDate={() => {
-    setDatePickerMonth(new Date());
-    setShowDatePicker(true);
-  }}
-/>
+        selectedDate={selectedDate}
+        token={token}
+        onSelectDate={handleDateClick}
+        onJumpToDate={() => {
+          setDatePickerMonth(new Date());
+          setShowDatePicker(true);
+        }}
+      />
 
       {selectedDate && (
         <Card className="w-full">
@@ -971,7 +978,6 @@ const addItemToCategory = (
             </div>
           ) : (
             <div className="flex flex-col md:flex-row gap-4 p-4">
-
               {/* Movie Cards Section */}
               <div className="w-full md:w-3/5 grid grid-cols-3 gap-2 md:gap-4">
                 {[0, 1, 2].map((index) => {
@@ -996,11 +1002,12 @@ const addItemToCategory = (
                       >
                         {movie ? (
                           <div className="relative h-full">
-
                             {/* Poster — tapping navigates to movie page */}
                             <div
                               className="absolute inset-0 z-0 cursor-pointer"
-                              onClick={() => handleMovieClick(movie.tmdbMovieId)}
+                              onClick={() =>
+                                handleMovieClick(movie.tmdbMovieId)
+                              }
                             >
                               <Image
                                 alt={movie.title}
@@ -1080,7 +1087,6 @@ const addItemToCategory = (
                                 {movie.title}
                               </p>
                             </div>
-
                           </div>
                         ) : (
                           <div className="h-full flex items-center justify-center">
@@ -1287,9 +1293,7 @@ const addItemToCategory = (
                                   value={newDessert}
                                   onBlur={() => {
                                     setTimeout(() => {
-                                      if (
-                                        activeSuggestionType === "dessert"
-                                      ) {
+                                      if (activeSuggestionType === "dessert") {
                                         setActiveSuggestionType(null);
                                       }
                                     }, 200);
@@ -1358,9 +1362,7 @@ const addItemToCategory = (
                                       onClose={() => {
                                         setEditableDetails((prev) => ({
                                           ...prev,
-                                          desserts: Array.isArray(
-                                            prev.desserts,
-                                          )
+                                          desserts: Array.isArray(prev.desserts)
                                             ? prev.desserts.filter(
                                                 (_, i) => i !== index,
                                               )
@@ -1390,9 +1392,7 @@ const addItemToCategory = (
                                   value={newCocktail}
                                   onBlur={() => {
                                     setTimeout(() => {
-                                      if (
-                                        activeSuggestionType === "cocktail"
-                                      ) {
+                                      if (activeSuggestionType === "cocktail") {
                                         setActiveSuggestionType(null);
                                       }
                                     }, 200);
