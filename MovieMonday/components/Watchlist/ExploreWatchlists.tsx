@@ -16,7 +16,8 @@ import {
 import { Film, Heart, ListIcon, Search, UserCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import WatchlistHeroCarousel from "./WatchlistHeroCarousel";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 interface WatchlistCategory {
   id: number;
   name: string;
@@ -47,8 +48,27 @@ const ExploreWatchlists: React.FC = () => {
   const [hasMore, setHasMore] = useState(false);
   const [searching, setSearching] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [heroWatchlists, setHeroWatchlists] = useState<WatchlistCategory[]>([]);
 
   const limit = 12; // Number of watchlists per page
+
+  useEffect(() => {
+  const fetchHeroWatchlists = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/watchlists/public?sort=popular&limit=5&include_items=true`,
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setHeroWatchlists(data.categories || []);
+      }
+    } catch (error) {
+      console.error("Error fetching hero watchlists:", error);
+    }
+  };
+
+  fetchHeroWatchlists();
+}, []);
 
   // Fetch watchlists based on current tab and search
   useEffect(() => {
@@ -111,44 +131,10 @@ const ExploreWatchlists: React.FC = () => {
     setSelectedTab(key);
   };
 
-  const renderPosterGrid = (watchlist: WatchlistCategory) => {
-    const maxPosters = 4;
-    const posters = watchlist.items || [];
-    const placeholders = Array(Math.max(0, maxPosters - posters.length)).fill(
-      null,
-    );
-
-    return (
-      <div className="grid grid-cols-2 gap-1 h-40">
-        {posters.map((item, index) => (
-          <div
-            key={index}
-            className="aspect-[2/3] bg-default-100 overflow-hidden rounded"
-          >
-            {item?.posterPath ? (
-              <Image
-                removeWrapper
-                alt="Movie poster"
-                className="w-full h-full object-cover"
-                src={`https://image.tmdb.org/t/p/w200${item.posterPath}`}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-default-200">
-                <Film className="w-6 h-6 text-default-400" />
-              </div>
-            )}
-          </div>
-        ))}
-        {placeholders.map((_, index) => (
-          <div
-            key={`placeholder-${index}`}
-            className="aspect-[2/3] bg-default-100 rounded flex items-center justify-center"
-          >
-            <Film className="w-6 h-6 text-default-300" />
-          </div>
-        ))}
-      </div>
-    );
+  const posterUrl = (path?: string | null) => {
+    if (!path) return "/placeholder-poster.jpg";
+    if (path.startsWith("http")) return path;
+    return `https://image.tmdb.org/t/p/w342${path}`;
   };
 
   return (
@@ -159,6 +145,8 @@ const ExploreWatchlists: React.FC = () => {
           Discover curated watchlists from the Movie Monday community
         </p>
       </div>
+
+      <WatchlistHeroCarousel watchlists={heroWatchlists} />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <Tabs
@@ -244,64 +232,89 @@ const ExploreWatchlists: React.FC = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {watchlists.map((watchlist) => (
-              <Link
-                key={watchlist.id}
-                legacyBehavior
-                href={`/watchlist/${watchlist.slug}`}
-              >
-                <a className="block">
-                  <Card className="hover:shadow-md transition-shadow overflow-hidden">
-                    <CardBody className="p-0">
-                      {/* Posters grid or cover image */}
-                      {watchlist.coverImagePath ? (
-                        <div className="h-40 overflow-hidden">
-                          <Image
-                            removeWrapper
-                            alt={watchlist.name}
-                            className="w-full h-full object-cover"
-                            src={watchlist.coverImagePath}
-                          />
-                        </div>
-                      ) : (
-                        renderPosterGrid(watchlist)
-                      )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {watchlists.map((watchlist) => {
+                const posters = (watchlist.items || []).slice(0, 5);
 
-                      <div className="p-4">
-                        <div className="flex justify-between items-start mb-1">
-                          <h3 className="font-bold text-lg line-clamp-1">
-                            {watchlist.name}
-                          </h3>
-                          <div className="flex items-center">
-                            <Heart className="h-4 w-4 text-danger fill-current mr-1" />
-                            <span>{watchlist.likesCount}</span>
+                return (
+                  <Link
+                    key={watchlist.id}
+                    legacyBehavior
+                    href={`/watchlist/${watchlist.slug}`}
+                  >
+                    <a className="group block h-full rounded-2xl outline-none transition-transform duration-200 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-primary">
+                      <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-default-200 bg-content1 shadow-sm transition-shadow duration-200 group-hover:shadow-xl">
+                        {/* Poster collage header */}
+                        <div className="relative h-40 overflow-hidden bg-default-200">
+                          {watchlist.coverImagePath ? (
+                            <img
+                              src={watchlist.coverImagePath}
+                              alt=""
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                          ) : posters.length > 0 ? (
+                            <div className="absolute inset-0 flex items-center justify-center gap-2 px-3">
+                              {posters.map((item, i, arr) => (
+                                <img
+                                  key={`${watchlist.id}-poster-${i}`}
+                                  src={posterUrl(item?.posterPath)}
+                                  alt=""
+                                  className="h-32 w-auto flex-shrink-0 rounded-md object-cover shadow-md transition-transform duration-300 group-hover:scale-105"
+                                  style={{
+                                    transform: `rotate(${(i - (arr.length - 1) / 2) * 4}deg)`,
+                                    zIndex:
+                                      arr.length -
+                                      Math.abs(i - (arr.length - 1) / 2),
+                                  }}
+                                  loading="lazy"
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex h-full items-center justify-center">
+                              <Film className="h-10 w-10 text-default-400" />
+                            </div>
+                          )}
+                          {/* Fade into card body */}
+                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-content1 to-transparent" />
+                        </div>
+
+                        {/* Body */}
+                        <div className="flex flex-1 flex-col gap-3 p-5">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="text-lg font-bold leading-tight text-foreground line-clamp-1">
+                              {watchlist.name}
+                            </h3>
+                            <div className="flex flex-shrink-0 items-center gap-1">
+                              <Heart className="h-4 w-4 fill-current text-danger" />
+                              <span className="text-sm font-semibold text-foreground">
+                                {watchlist.likesCount}
+                              </span>
+                            </div>
                           </div>
-                        </div>
 
-                        {watchlist.description && (
-                          <p className="text-default-600 text-sm line-clamp-2 mb-2">
-                            {watchlist.description}
-                          </p>
-                        )}
+                          {watchlist.description && (
+                            <p className="text-sm text-default-500 line-clamp-2">
+                              {watchlist.description}
+                            </p>
+                          )}
 
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center">
-                            <UserCircle className="h-4 w-4 mr-1 text-default-500" />
-                            <span className="text-sm text-default-500">
+                          <div className="mt-auto flex items-center justify-between pt-2">
+                            <span className="flex items-center gap-1 text-sm text-default-500">
+                              <UserCircle className="h-4 w-4" />
                               {watchlist.User.username}
                             </span>
+                            <Chip color="primary" size="sm" variant="flat">
+                              {watchlist.moviesCount} movies
+                            </Chip>
                           </div>
-
-                          <Chip color="primary" size="sm" variant="flat">
-                            {watchlist.moviesCount} movies
-                          </Chip>
                         </div>
                       </div>
-                    </CardBody>
-                  </Card>
-                </a>
-              </Link>
-            ))}
+                    </a>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
           {hasMore && (
