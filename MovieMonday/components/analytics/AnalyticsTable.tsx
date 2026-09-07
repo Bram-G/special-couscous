@@ -400,7 +400,7 @@ function MovieFilters({
       >
         {[
           <SelectItem key="all">All pickers</SelectItem>,
-          ...pickerOptions.map((p: { id: number; name: string }) => (
+          ...pickerOptions.map((p: { id: string; name: string }) => (
             <SelectItem key={String(p.id)}>{p.name}</SelectItem>
           )),
         ]}
@@ -423,7 +423,7 @@ export default function AnalyticsTables() {
   // Filter option lists (pulled from the cached overview endpoint)
   const [genreOptions, setGenreOptions] = useState<string[]>([]);
   const [pickerOptions, setPickerOptions] = useState<
-    { id: number; name: string }[]
+    { id: string; name: string }[]
   >([]);
 
   useEffect(() => {

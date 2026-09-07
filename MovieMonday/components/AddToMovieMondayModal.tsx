@@ -32,7 +32,11 @@ interface MovieMonday {
   picker: {
     id: number;
     username: string;
-  };
+  } | null;
+  pickerGuest: {
+    id: number;
+    name: string;
+  } | null;
   movieSelections: Array<{
     id: number;
     title: string;
@@ -235,7 +239,12 @@ export default function AddToMovieMondayModal({
 
                       <div className="flex items-center gap-2 text-sm text-default-600">
                         <Users className="w-3 h-3" />
-                        <span>Picker: {monday.picker.username}</span>
+                        <span>
+                          Picker:{" "}
+                          {monday.picker?.username ||
+                            monday.pickerGuest?.name ||
+                            "Unassigned"}
+                        </span>
                       </div>
 
                       {monday.movieSelections.length > 0 && (

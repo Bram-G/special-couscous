@@ -27,6 +27,8 @@ interface MonthlyMondaySelectorProps {
   token: string | null;
   /** Optional: opens the parent's existing "Jump to Date" modal. Button is hidden if omitted. */
   onJumpToDate?: () => void;
+  /** Bump to force a refetch of Monday statuses (e.g. after creating/editing a Movie Monday). */
+  reloadNonce?: number;
 }
 
 // Local YYYY-MM-DD (matches the backend date matching used elsewhere; avoids
@@ -65,6 +67,7 @@ const MonthlyMondaySelector: React.FC<MonthlyMondaySelectorProps> = ({
   onSelectDate,
   token,
   onJumpToDate,
+  reloadNonce = 0,
 }) => {
   const [displayMonth, setDisplayMonth] = useState<Date>(() =>
     startOfMonth(selectedDate ?? new Date()),
@@ -148,7 +151,7 @@ const MonthlyMondaySelector: React.FC<MonthlyMondaySelectorProps> = ({
 
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayMonth, token]);
+  }, [displayMonth, token, reloadNonce]);
 
   const goPrevMonth = () => {
     const prev = new Date(displayMonth);

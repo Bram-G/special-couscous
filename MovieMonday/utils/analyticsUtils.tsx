@@ -52,8 +52,9 @@ export function getGenreAnalytics(movieMondayData: MovieMonday[]) {
   // Process all movies
   movieMondayData.forEach((mm) => {
     mm.movieSelections.forEach((movie) => {
-      if (movie.genres && Array.isArray(movie.genres)) {
-        movie.genres.forEach((genre) => {
+      const genres = normalizeGenres(movie.genres);
+      if (genres.length) {
+        genres.forEach((genre) => {
           // Count each genre
           if (!genreCounts[genre]) {
             genreCounts[genre] = { count: 0, wins: 0 };
@@ -201,7 +202,7 @@ export function getDirectorAnalytics(movieMondayData: MovieMonday[]) {
       if (movie.crew && Array.isArray(movie.crew)) {
         // Filter for directors
         const directors = movie.crew.filter(
-          (person) => person.job === "Director",
+          (person) => person.job === "Director"
         );
 
         directors.forEach((director) => {
@@ -370,10 +371,22 @@ export function getTimeBasedAnalytics(movieMondayData: MovieMonday[]) {
     monthlyMovies,
     totalMoviesWatched: Object.values(monthlyData).reduce(
       (sum, data) => sum + data.count,
-      0,
+      0
     ),
     totalMovieMondayCount: movieMondayData.length,
   };
+}
+function normalizeGenres(g: unknown): string[] {
+  if (Array.isArray(g)) return g as string[];
+  if (typeof g === "string") {
+    try {
+      const parsed = JSON.parse(g);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 // Gets picker analytics
@@ -405,7 +418,7 @@ export function getPickerAnalytics(movieMondayData: MovieMonday[]) {
 
     // Count decided selections for this picker
     const decidedSelections = mm.movieSelections.filter(
-      (m) => m.isWinner !== null,
+      (m) => m.isWinner !== null
     );
 
     if (decidedSelections.length > 0) {
@@ -425,7 +438,7 @@ export function getPickerAnalytics(movieMondayData: MovieMonday[]) {
       id: data.id,
       selections: data.selections,
       wins: data.wins,
-    }),
+    })
   );
 
   // Find most successful picker
@@ -461,7 +474,7 @@ export function getPickerAnalytics(movieMondayData: MovieMonday[]) {
 export function getMoviesByDirector(
   data: MovieMonday[],
   directorName: string,
-  winStatus?: boolean,
+  winStatus?: boolean
 ) {
   const movies: any[] = [];
 
@@ -473,8 +486,7 @@ export function getMoviesByDirector(
       }
 
       const directorFound = movie.directors?.some(
-        (director) =>
-          director.name.toLowerCase() === directorName.toLowerCase(),
+        (director) => director.name.toLowerCase() === directorName.toLowerCase()
       );
 
       if (
@@ -501,7 +513,7 @@ export function getMoviesByDirector(
 export function getMoviesByGenre(
   data: MovieMonday[],
   genreName: string,
-  winStatus?: boolean,
+  winStatus?: boolean
 ) {
   const movies: any[] = [];
 
@@ -514,7 +526,7 @@ export function getMoviesByGenre(
 
       if (movie.genres && Array.isArray(movie.genres)) {
         const genreFound = movie.genres.some(
-          (genre) => genre.toLowerCase() === genreName.toLowerCase(),
+          (genre) => genre.toLowerCase() === genreName.toLowerCase()
         );
 
         if (
@@ -542,7 +554,7 @@ export function getMoviesByGenre(
 export function getMoviesByActor(
   data: MovieMonday[],
   actorName: string,
-  winStatus?: boolean,
+  winStatus?: boolean
 ) {
   const movies: any[] = [];
 
@@ -554,7 +566,7 @@ export function getMoviesByActor(
       }
 
       const actorFound = movie.actors?.some(
-        (actor) => actor.name.toLowerCase() === actorName.toLowerCase(),
+        (actor) => actor.name.toLowerCase() === actorName.toLowerCase()
       );
 
       if (
@@ -603,7 +615,7 @@ export function getMoviesByCocktail(data: MovieMonday[], cocktailName: string) {
     const cocktailFound = eventCocktails.some(
       (c) =>
         typeof c === "string" &&
-        c.toLowerCase().trim() === normalizedCocktailName,
+        c.toLowerCase().trim() === normalizedCocktailName
     );
 
     if (cocktailFound) {
@@ -698,7 +710,7 @@ export function getMoviesByMeal(data: MovieMonday[], mealName: string) {
     const normalizedMealName = mealName.toLowerCase().trim();
     const mealFound = eventMeals.some(
       (m) =>
-        typeof m === "string" && m.toLowerCase().trim() === normalizedMealName,
+        typeof m === "string" && m.toLowerCase().trim() === normalizedMealName
     );
 
     if (mealFound) {
@@ -824,7 +836,7 @@ export function getFoodDrinkAnalytics(movieMondayData: MovieMonday[]) {
 export async function getSimilarMovies(tmdbId: number) {
   try {
     const response = await fetch(
-      `https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
+      `https://api.themoviedb.org/3/movie/${tmdbId}/similar?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
     );
 
     const data = await response.json();
@@ -845,7 +857,7 @@ export async function getSimilarMovies(tmdbId: number) {
 export async function getRecommendedMovies(tmdbId: number) {
   try {
     const response = await fetch(
-      `https://api.themoviedb.org/3/movie/${tmdbId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
+      `https://api.themoviedb.org/3/movie/${tmdbId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
     );
 
     const data = await response.json();
@@ -901,7 +913,7 @@ export function extractWatchlistGenres(watchlist: any[]) {
 export async function getMoviesByGenreTMDB(genreId: number, page = 1) {
   try {
     const response = await fetch(
-      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&page=${page}`,
+      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&page=${page}`
     );
 
     const data = await response.json();
@@ -936,7 +948,7 @@ export async function getMoviesByDecade(decade: string, page = 1) {
     }
 
     const response = await fetch(
-      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&primary_release_date.gte=${fromYear}-01-01&primary_release_date.lte=${toYear}-12-31&sort_by=vote_average.desc&vote_count.gte=100&page=${page}`,
+      `https://api.themoviedb.org/3/discover/movie?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}&primary_release_date.gte=${fromYear}-01-01&primary_release_date.lte=${toYear}-12-31&sort_by=vote_average.desc&vote_count.gte=100&page=${page}`
     );
 
     const data = await response.json();

@@ -17,11 +17,17 @@ interface GroupMember {
   email: string;
 }
 
+interface GroupGuest {
+  id: number;
+  name: string;
+}
+
 interface Group {
   id: string;
   name: string;
   createdById: string;
   members: GroupMember[];
+  guests?: GroupGuest[];
 }
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const DashboardPage = () => {
@@ -91,6 +97,7 @@ const DashboardPage = () => {
         <Card className="w-full">
           <DashboardCalendar
             key={groupData?.id} // Add key to force re-render when group changes
+            groupGuests={groupData?.guests || []}
             groupId={groupData?.id}
             groupMembers={groupData?.members || []}
           />

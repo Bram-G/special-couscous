@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "moviemonday-web",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["--cwd", "MovieMonday", "dev"],
+      "port": 3000
+    }
+  ]
+}

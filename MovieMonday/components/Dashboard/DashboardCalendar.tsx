@@ -9,6 +9,7 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
+  DropdownSection,
   Tooltip,
   Chip,
   Modal,
@@ -40,6 +41,7 @@ import { CrownIcon } from "lucide-react";
 import confetti from "canvas-confetti";
 import MonthlyMondaySelector from "./MonthlyMondaySelector";
 
+import AddMovieSearchModal from "@/components/MovieMonday/AddMovieSearchModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 type ButtonVariant =
@@ -62,6 +64,7 @@ interface DashboardCalendarProps {
   slidesPerView?: number;
   onDateSelect?: (date: Date) => void;
   groupMembers?: { id: string; username: string; email: string }[];
+  groupGuests?: { id: number; name: string }[];
   groupId?: string;
 }
 
@@ -75,7 +78,8 @@ interface EventDetails {
 interface MovieMonday {
   id: number;
   date: string;
-  pickerUserId: string;
+  pickerUserId: string | null;
+  pickerGuestId: number | null;
   status: "not_created" | "pending" | "in-progress" | "completed";
   movieSelections: MovieSelection[];
   eventDetails?: {
@@ -88,13 +92,17 @@ interface MovieMonday {
     id: string;
     username: string;
   } | null;
+  pickerGuest: {
+    id: number;
+    name: string;
+  } | null;
 }
 
 interface MovieSelection {
   id: number;
   tmdbMovieId: number;
   title: string;
-  posterPath: string;
+  posterPath: string | null;
   isWinner: boolean;
 }
 
@@ -111,6 +119,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   slidesPerView = 5,
   onDateSelect,
   groupMembers = [],
+  groupGuests = [],
   groupId,
 }) => {
   const { token } = useAuth();
@@ -130,6 +139,13 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   const [savingDetails, setSavingDetails] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [newCocktail, setNewCocktail] = useState<string>("");
+
+  // Bump to force the calendar strip to refetch Monday statuses after a mutation.
+  const [calendarNonce, setCalendarNonce] = useState(0);
+  const bumpCalendar = () => setCalendarNonce((n) => n + 1);
+
+  // Movie search widget (opened from an empty movie slot)
+  const [addMovieOpen, setAddMovieOpen] = useState(false);
 
   // Event details state
   const [eventDetails, setEventDetails] = useState<EventDetails>({
@@ -346,9 +362,14 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     });
   };
 
-  // Format date for API requests (YYYY-MM-DD)
+  // Format date for API requests (LOCAL YYYY-MM-DD — must match how Mondays are
+  // stored/queried elsewhere; toISOString() would shift the day in some zones).
   const formatDateForAPI = (date: Date): string => {
-    return date.toISOString().split("T")[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+
+    return `${y}-${m}-${d}`;
   };
 
   // Check for unsaved changes
@@ -385,10 +406,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     setIsEditing(false);
 
     try {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const formattedDate = `${year}-${month}-${day}`;
+      const formattedDate = formatDateForAPI(date);
 
       const response = await fetch(
         `${API_BASE_URL}/api/movie-monday/${formattedDate}`,
@@ -589,7 +607,7 @@ const addItemToCategory = (
     setLoading(true);
 
     try {
-      const dateString = date.toISOString().split("T")[0];
+      const dateString = formatDateForAPI(date);
 
       const response = await fetch(`${API_BASE_URL}/api/movie-monday/create`, {
         method: "POST",
@@ -612,7 +630,15 @@ const addItemToCategory = (
         return;
       }
 
-      await handleDateClick(date);
+      // Use the created record directly so the panel updates immediately
+      // (no dependency on a follow-up refetch).
+      const created = await response.json();
+
+      setSelectedMonday(created);
+      setEventDetails({ meals: [], cocktails: [], desserts: [], notes: "" });
+      setEditableDetails({ meals: [], cocktails: [], desserts: [], notes: "" });
+      setIsEditing(false);
+      bumpCalendar();
     } catch (error) {
       console.error("Error creating MovieMonday:", error);
     } finally {
@@ -676,6 +702,7 @@ const addItemToCategory = (
     if (selectedDate) {
       await proceedWithDateSelection(selectedDate);
     }
+    bumpCalendar();
   } catch (error) {
     console.error("Error saving details:", error);
   } finally {
@@ -683,8 +710,10 @@ const addItemToCategory = (
   }
 };
 
-  // Update the picker for a MovieMonday
-  const handlePickerChange = async (newPickerId: string) => {
+  // Update the picker for a MovieMonday. pickerKey is "user:<id>" or "guest:<id>".
+  // Updates local state in place so it works mid-edit without a reload and
+  // without dropping unsaved event-detail changes.
+  const handlePickerChange = async (pickerKey: string) => {
     if (!selectedMonday || !token) return;
 
     try {
@@ -698,14 +727,33 @@ const addItemToCategory = (
           },
           body: JSON.stringify({
             movieMondayId: selectedMonday.id,
-            pickerUserId: newPickerId,
+            pickerKey,
           }),
         },
       );
 
-      if (response.ok && selectedDate) {
-        await handleDateClick(selectedDate);
+      if (!response.ok) {
+        console.error(
+          "Failed to update picker:",
+          await response.json().catch(() => ({})),
+        );
+
+        return;
       }
+
+      const updated = await response.json();
+
+      setSelectedMonday((prev) =>
+        prev
+          ? {
+              ...prev,
+              pickerUserId: updated.pickerUserId ?? null,
+              pickerGuestId: updated.pickerGuestId ?? null,
+              picker: updated.picker ?? null,
+              pickerGuest: updated.pickerGuest ?? null,
+            }
+          : prev,
+      );
     } catch (error) {
       console.error("Error updating picker:", error);
     }
@@ -729,6 +777,7 @@ const addItemToCategory = (
 
       if (response.ok && selectedDate) {
         handleDateClick(selectedDate);
+        bumpCalendar();
       }
     } catch (error) {
       console.error("Error removing movie:", error);
@@ -765,6 +814,7 @@ const addItemToCategory = (
 
         if (selectedDate) {
           handleDateClick(selectedDate);
+          bumpCalendar();
         }
       }
     } catch (error) {
@@ -898,11 +948,23 @@ const addItemToCategory = (
 
   const monthOptions = generateMonthOptions();
 
+  // Current picker as a composite key / display label (user or placeholder guest)
+  const currentPickerKey = selectedMonday?.pickerGuestId
+    ? `guest:${selectedMonday.pickerGuestId}`
+    : selectedMonday?.pickerUserId
+      ? `user:${selectedMonday.pickerUserId}`
+      : "";
+  const currentPickerLabel =
+    selectedMonday?.picker?.username ||
+    selectedMonday?.pickerGuest?.name ||
+    "";
+
   // Render the component
   return (
     <div className="space-y-4 w-full">
       {/* Calendar Header - Navigation */}
       <MonthlyMondaySelector
+  reloadNonce={calendarNonce}
   selectedDate={selectedDate}
   token={token}
   onSelectDate={handleDateClick}
@@ -1082,6 +1144,16 @@ const addItemToCategory = (
                             </div>
 
                           </div>
+                        ) : selectedMonday?.id ? (
+                          <button
+                            aria-label="Add a movie to this Movie Monday"
+                            className="h-full w-full flex flex-col items-center justify-center gap-1 text-default-400 hover:text-primary hover:bg-default-100 transition-colors"
+                            type="button"
+                            onClick={() => setAddMovieOpen(true)}
+                          >
+                            <Plus className="h-6 w-6" />
+                            <span className="text-xs">Add movie</span>
+                          </button>
                         ) : (
                           <div className="h-full flex items-center justify-center">
                             <p className="text-default-400 text-xs">Empty</p>
@@ -1141,37 +1213,46 @@ const addItemToCategory = (
                           <Dropdown>
                             <DropdownTrigger>
                               <Button className="capitalize" variant="flat">
-                                {selectedMonday?.picker?.username ||
-                                  "Select Picker"}
+                                {currentPickerLabel || "Select Picker"}
                               </Button>
                             </DropdownTrigger>
                             <DropdownMenu
                               disallowEmptySelection
                               aria-label="Select picker"
                               selectedKeys={
-                                new Set([selectedMonday?.pickerUserId || ""])
+                                currentPickerKey
+                                  ? new Set([currentPickerKey])
+                                  : new Set()
                               }
                               selectionMode="single"
                               onSelectionChange={(keys) => {
                                 if (keys instanceof Set && keys.size > 0) {
-                                  const selected =
-                                    Array.from(keys)[0].toString();
-
-                                  handlePickerChange(selected);
+                                  handlePickerChange(
+                                    Array.from(keys)[0].toString(),
+                                  );
                                 }
                               }}
                             >
-                              {groupMembers?.map((member) => (
-                                <DropdownItem key={member.id}>
-                                  {member.username}
-                                </DropdownItem>
-                              ))}
+                              <DropdownSection title="Members">
+                                {(groupMembers || []).map((member) => (
+                                  <DropdownItem key={`user:${member.id}`}>
+                                    {member.username}
+                                  </DropdownItem>
+                                ))}
+                              </DropdownSection>
+                              {groupGuests && groupGuests.length > 0 ? (
+                                <DropdownSection title="Placeholders">
+                                  {groupGuests.map((guest) => (
+                                    <DropdownItem key={`guest:${guest.id}`}>
+                                      {guest.name}
+                                    </DropdownItem>
+                                  ))}
+                                </DropdownSection>
+                              ) : null}
                             </DropdownMenu>
                           </Dropdown>
                         ) : (
-                          <span>
-                            {selectedMonday?.picker?.username || "Not assigned"}
-                          </span>
+                          <span>{currentPickerLabel || "Not assigned"}</span>
                         )}
                       </div>
 
@@ -1626,6 +1707,30 @@ const addItemToCategory = (
           )}
         </Card>
       )}
+
+      {/* Movie search — add a movie to the selected Movie Monday */}
+      {selectedMonday?.id ? (
+        <AddMovieSearchModal
+          isOpen={addMovieOpen}
+          movieMondayId={selectedMonday.id}
+          onAdded={(ms) => {
+            setSelectedMonday((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    movieSelections: [...prev.movieSelections, ms],
+                    status:
+                      prev.movieSelections.length + 1 >= 3
+                        ? "in-progress"
+                        : prev.status,
+                  }
+                : prev,
+            );
+            bumpCalendar();
+          }}
+          onClose={() => setAddMovieOpen(false)}
+        />
+      ) : null}
 
       {/* Unsaved Changes Confirmation Modal */}
       <Modal isOpen={showUnsavedChangesModal} onClose={cancelDiscardChanges}>

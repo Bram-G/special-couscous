@@ -38,11 +38,17 @@ interface GroupManagementProps {
   onGroupUpdate?: () => void;
 }
 
+interface GroupGuest {
+  id: number;
+  name: string;
+}
+
 interface Group {
   id: string;
   name: string;
   createdById: string;
   members: GroupMember[];
+  guests?: GroupGuest[];
   createdAt: string;
   isPublic?: boolean;
   slug?: string | null;
@@ -60,6 +66,11 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
   const [confirmAction, setConfirmAction] = useState<ConfirmActionType>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+
+  // Placeholder ("guest") pickers
+  const [newGuestName, setNewGuestName] = useState<string>("");
+  const [addingGuest, setAddingGuest] = useState<boolean>(false);
+  const [guestError, setGuestError] = useState<string>("");
 
   // Invite link modal state
   const [showInviteLinkModal, setShowInviteLinkModal] = useState(false);
@@ -263,6 +274,66 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
     }
   };
 
+  const addGuest = async () => {
+    if (!group || !newGuestName.trim()) return;
+
+    setAddingGuest(true);
+    setGuestError("");
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE_URL}/api/groups/${group.id}/guests`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ name: newGuestName.trim() }),
+        },
+      );
+
+      if (response.ok) {
+        setNewGuestName("");
+        await fetchUserGroup();
+        props.onGroupUpdate?.();
+      } else {
+        const data = await response.json().catch(() => ({}));
+
+        setGuestError(data.error || "Failed to add placeholder");
+      }
+    } catch (error) {
+      console.error("Error adding guest:", error);
+      setGuestError("Failed to add placeholder");
+    } finally {
+      setAddingGuest(false);
+    }
+  };
+
+  const removeGuest = async (guestId: number) => {
+    if (!group) return;
+
+    try {
+      const token = localStorage.getItem("token");
+
+      await fetch(`${API_BASE_URL}/api/groups/${group.id}/guests/${guestId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      await fetchUserGroup();
+      props.onGroupUpdate?.();
+    } catch (error) {
+      console.error("Error removing guest:", error);
+    }
+  };
+
   const handleConfirmAction = () => {
     if (confirmAction === "leave") {
       leaveGroup();
@@ -424,6 +495,74 @@ const GroupManagement: React.FC<GroupManagementProps> = (props) => {
                 )}
             </div>
           ))}
+        </div>
+
+        {/* Placeholder pickers — people without an account who can be pickers */}
+        <Divider className="my-3" />
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-default-700">
+            Placeholder pickers
+          </p>
+          <p className="text-xs text-default-500">
+            Add names for people who don&apos;t have an account so they can be
+            picked for a Movie Monday.
+          </p>
+
+          {group.guests && group.guests.length > 0 && (
+            <div className="space-y-1">
+              {group.guests.map((guest) => (
+                <div
+                  key={guest.id}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-default-50"
+                >
+                  <Avatar name={guest.name} size="sm" />
+                  <p className="flex-1 font-medium text-sm">{guest.name}</p>
+                  <Button
+                    isIconOnly
+                    color="danger"
+                    size="sm"
+                    variant="light"
+                    onPress={() => removeGuest(guest.id)}
+                  >
+                    <UserMinus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Input
+              className="flex-1"
+              errorMessage={guestError}
+              isInvalid={!!guestError}
+              placeholder="e.g. Grandma"
+              size="sm"
+              value={newGuestName}
+              onChange={(e) => {
+                setNewGuestName(e.target.value);
+                setGuestError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newGuestName.trim()) {
+                  e.preventDefault();
+                  addGuest();
+                }
+              }}
+            />
+            <Button
+              color="primary"
+              isDisabled={!newGuestName.trim()}
+              isLoading={addingGuest}
+              size="sm"
+              startContent={
+                !addingGuest ? <UserPlus className="h-4 w-4" /> : undefined
+              }
+              onPress={addGuest}
+            >
+              Add
+            </Button>
+          </div>
         </div>
 
         {/* Leave group button for non-owners */}

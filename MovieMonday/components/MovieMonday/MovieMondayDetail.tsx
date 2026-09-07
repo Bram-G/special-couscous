@@ -227,7 +227,11 @@ interface MovieMondayDetailData {
     picker: {
       id: string;
       username: string;
-    };
+    } | null;
+    pickerGuest: {
+      id: number;
+      name: string;
+    } | null;
     movieSelections: Array<{
       id: number;
       tmdbMovieId: number;
@@ -1394,9 +1398,7 @@ const MovieMondayDetail: React.FC = () => {
                 </h4>
                 <div className="p-3 bg-default-50 rounded-lg">
                   <div className="flex justify-between mb-2">
-                    <span className="font-medium">
-                      {movieMonday.picker.username}
-                    </span>
+                    <span className="font-medium">{pickerName}</span>
                     <div className="flex items-center gap-2">
                       <span>
                         {Math.round(history.pickerStats.winRate * 100)}% win
@@ -1575,6 +1577,10 @@ const MovieMondayDetail: React.FC = () => {
   const { movieMonday, stats } = data;
   const interestingFacts = generateInterestingFacts();
   const connections = findConnections();
+  const pickerName =
+    movieMonday.picker?.username ||
+    movieMonday.pickerGuest?.name ||
+    "Unassigned";
 
   // Find the winning movie if there is one
   const winningMovie = movieMonday.movieSelections.find(
@@ -1605,8 +1611,7 @@ const MovieMondayDetail: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <div className="text-sm text-default-500">
-            Selected by{" "}
-            <span className="font-medium">{movieMonday.picker.username}</span>
+            Selected by <span className="font-medium">{pickerName}</span>
           </div>
 
           <Chip
@@ -2365,12 +2370,10 @@ const MovieMondayDetail: React.FC = () => {
             <CardBody>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white text-xl font-bold">
-                  {movieMonday.picker.username.charAt(0).toUpperCase()}
+                  {pickerName.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold">
-                    {movieMonday.picker.username}
-                  </h3>
+                  <h3 className="text-lg font-bold">{pickerName}</h3>
                   <p className="text-sm text-default-500">
                     Selected this week's movie options
                   </p>
