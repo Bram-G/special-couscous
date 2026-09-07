@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import { useAuth } from "@/contexts/AuthContext";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface WatchedStatusBannerProps {
   tmdbMovieId: number;

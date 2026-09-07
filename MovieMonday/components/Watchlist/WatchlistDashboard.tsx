@@ -54,7 +54,8 @@ const WatchlistDashboard: React.FC = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   // Fetch watchlists
   useEffect(() => {
     fetchWatchlists();
@@ -66,7 +67,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_BASE_URL}/api/watchlists/categories`,
+        `${API_BASE_URL}/api/watchlists/categories?include_items=true`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

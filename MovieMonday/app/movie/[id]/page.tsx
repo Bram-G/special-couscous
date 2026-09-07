@@ -287,7 +287,7 @@ export default function MoviePage() {
       setLoadingActorStats(true);
       const actorNames = castList.map((actor) => actor.name);
 
-      const response = await fetch(`${API_BASE_URL}/api/movie-monday/all`, {
+      const response = await fetch(`${API_BASE_URL}/api/movie-monday/all?full=true`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",

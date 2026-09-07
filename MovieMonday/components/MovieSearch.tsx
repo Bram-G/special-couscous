@@ -6,6 +6,7 @@ import debounce from "lodash/debounce";
 
 import AddToWatchlistButton from "./Watchlist/AddToWatchlistButton";
 import { useAuth } from "@/contexts/AuthContext";
+import { dedupedFetch } from "@/utils/apiClient";
 
 interface Movie {
   id: number;
@@ -24,7 +25,8 @@ export const MovieSearch = () => {
   const searchRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { isAuthenticated, currentGroupId } = useAuth();
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   // Store currentGroupId in a ref so debounced function can access the latest value
   const currentGroupIdRef = useRef(currentGroupId);
@@ -42,7 +44,7 @@ export const MovieSearch = () => {
     try {
       const tmdbIds = movies.map((m) => m.id);
 
-      const response = await fetch(
+      const { ok, data } = await dedupedFetch(
         `${API_BASE_URL}/api/movie-monday/discovery-status`,
         {
           method: "POST",
@@ -51,16 +53,14 @@ export const MovieSearch = () => {
             group_id: groupId,
             tmdb_ids: tmdbIds,
           }),
-        }
+        },
       );
 
-      if (response.ok) {
-        const data = await response.json();
-
+      if (ok && data) {
         // Build sets for fast lookup
         const watchedSet = new Set<number>(data.watched || []);
         const votedSet = new Set<number>(
-          (data.votedButNotPicked || []).map((m: any) => m.tmdbMovieId)
+          (data.votedButNotPicked || []).map((m: any) => m.tmdbMovieId),
         );
 
         // Update suggestions with accurate status
@@ -70,7 +70,7 @@ export const MovieSearch = () => {
             isWatched: watchedSet.has(movie.id),
             // Only mark as voted if it has NOT also been watched
             isVotedOn: !watchedSet.has(movie.id) && votedSet.has(movie.id),
-          }))
+          })),
         );
       }
     } catch (error) {
@@ -84,7 +84,7 @@ export const MovieSearch = () => {
     debounce(
       async (
         term: string,
-        performCheck: (movies: Movie[]) => Promise<void>
+        performCheck: (movies: Movie[]) => Promise<void>,
       ) => {
         if (!term) {
           setSuggestions([]);
@@ -94,10 +94,11 @@ export const MovieSearch = () => {
         setIsLoading(true);
         try {
           const response = await fetch(
-            `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(term)}&include_adult=false&language=en-US&page=1&api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`
+            `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(term)}&include_adult=false&language=en-US&page=1&api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
           );
 
-          if (!response.ok) throw new Error(`TMDB API error: ${response.status}`);
+          if (!response.ok)
+            throw new Error(`TMDB API error: ${response.status}`);
 
           const data = await response.json();
           const results = data.results.slice(0, 5);
@@ -113,8 +114,8 @@ export const MovieSearch = () => {
           setIsLoading(false);
         }
       },
-      300
-    )
+      300,
+    ),
   ).current;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,7 +140,10 @@ export const MovieSearch = () => {
   // Close suggestions on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
         setShowSuggestions(false);
       }
     };

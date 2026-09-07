@@ -106,7 +106,7 @@ const EnhancedMovieDiscoveryCard: React.FC<EnhancedMovieDiscoveryCardProps> = ({
 
   return (
     <>
-      <Card className="group relative h-full overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-xl">
+      <Card className="group relative overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-xl">
         {/* Status Pills - Top Left */}
         <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
           {isWatched && (

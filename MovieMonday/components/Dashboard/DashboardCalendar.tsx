@@ -112,8 +112,17 @@ interface DateButtonStatus {
   color: ButtonColor;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+interface CachedMonday {
+  data: any; // replace `any` with your actual MovieMonday type if you have one
+  cachedAt: number;
+}
+
+const isFresh = (entry: CachedMonday | undefined): entry is CachedMonday =>
+  !!entry && Date.now() - entry.cachedAt < CACHE_TTL_MS;
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   slidesPerView = 5,
@@ -134,7 +143,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [movieMondayMap, setMovieMondayMap] = useState<
-    Map<string, MovieMonday>
+    Map<string, CachedMonday>
   >(new Map());
   const [savingDetails, setSavingDetails] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -215,29 +224,39 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   // Fetch cocktail suggestions and preload date data when dates change
   useEffect(() => {
     const fetchAllDates = async () => {
-      const promises = mondayDates.map(async (date) => {
-        try {
-          const formattedDate = formatDateForAPI(date);
-          const response = await fetch(
-            `${API_BASE_URL}/api/movie-monday/${formattedDate}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
+      if (!token || mondayDates.length === 0) return;
 
-          if (response.ok) {
-            const data = await response.json();
+      try {
+        const dateStrings = mondayDates.map(formatDateForAPI);
+        const response = await fetch(`${API_BASE_URL}/api/movie-monday/dates`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ dates: dateStrings }),
+        });
 
-            setMovieMondayMap(
-              (prev) => new Map(prev.set(date.toISOString(), data)),
-            );
-          }
-        } catch (error) {
-          console.error(`Error fetching data for ${date}:`, error);
+        if (response.ok) {
+          const data = await response.json();
+
+          setMovieMondayMap((prev) => {
+            const next = new Map(prev);
+            mondayDates.forEach((date) => {
+              const key = formatDateForAPI(date);
+              if (data[key]) {
+                next.set(date.toISOString(), {
+                  data: data[key],
+                  cachedAt: Date.now(),
+                });
+              }
+            });
+            return next;
+          });
         }
-      });
-
-      await Promise.all(promises);
+      } catch (error) {
+        console.error("Error batch fetching calendar data:", error);
+      }
     };
 
     fetchAllDates();
@@ -332,9 +351,10 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   const toTitleCase = (str: string): string => {
-  return str.toLowerCase().replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
-};
-
+    return str
+      .toLowerCase()
+      .replace(/(?:^|\s)\S/g, (char) => char.toUpperCase());
+  };
 
   // Initialize Mondays for the calendar
   const initializeMondays = (): Date[] => {
@@ -402,25 +422,51 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   // Proceed with date selection after handling unsaved changes
   const proceedWithDateSelection = async (date: Date) => {
     setSelectedDate(date);
-    setLoading(true);
     setIsEditing(false);
+
+    const cached = movieMondayMap.get(date.toISOString());
+
+    if (isFresh(cached)) {
+      setSelectedMonday(cached.data);
+      if (cached.data.eventDetails) {
+        setEventDetails({
+          meals: Array.isArray(cached.data.eventDetails.meals)
+            ? [...cached.data.eventDetails.meals]
+            : cached.data.eventDetails.meals
+              ? [cached.data.eventDetails.meals]
+              : [],
+          cocktails: cached.data.eventDetails.cocktails || [],
+          desserts: Array.isArray(cached.data.eventDetails.desserts)
+            ? [...cached.data.eventDetails.desserts]
+            : cached.data.eventDetails.desserts
+              ? [cached.data.eventDetails.desserts]
+              : [],
+          notes: cached.data.eventDetails.notes || "",
+        });
+      }
+      return; // fresh cache hit — no network call
+    }
+
+    setLoading(true);
 
     try {
       const formattedDate = formatDateForAPI(date);
 
       const response = await fetch(
         `${API_BASE_URL}/api/movie-monday/${formattedDate}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (response.ok) {
         const data = await response.json();
-
         setSelectedMonday(data);
         setMovieMondayMap(
-          new Map(movieMondayMap.set(date.toISOString(), data)),
+          new Map(
+            movieMondayMap.set(date.toISOString(), {
+              data,
+              cachedAt: Date.now(),
+            }),
+          ),
         );
 
         if (data.eventDetails) {
@@ -462,43 +508,45 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   // Determine status and appearance of date buttons
-  const getDateButtonStatus = (date: Date): DateButtonStatus => {
-    const formattedDate = formatDateForAPI(date);
-    const movieMonday = Array.from(movieMondayMap.entries()).find(
-      ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate,
-    )?.[1];
+const getDateButtonStatus = (date: Date): DateButtonStatus => {
+  const formattedDate = formatDateForAPI(date);
+  const entry = Array.from(movieMondayMap.entries()).find(
+    ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate,
+  )?.[1];
 
-    const isSelected =
-      selectedDate && formatDateForAPI(selectedDate) === formattedDate;
+  const movieMonday = entry?.data; // <-- unwrap the cache wrapper here
 
-    if (!movieMonday || movieMonday.status === "not_created") {
-      return {
-        status: "empty",
-        variant: isSelected ? "solid" : "light",
-        color: isSelected ? "primary" : "default",
-      };
-    }
+  const isSelected =
+    selectedDate && formatDateForAPI(selectedDate) === formattedDate;
 
-    if (movieMonday.status === "completed") {
-      return {
-        status: "completed",
-        variant: isSelected ? "solid" : "light",
-        color: "success",
-      };
-    } else if (movieMonday.status === "in-progress") {
-      return {
-        status: "in-progress",
-        variant: isSelected ? "solid" : "light",
-        color: "primary",
-      };
-    } else {
-      return {
-        status: "pending",
-        variant: isSelected ? "solid" : "light",
-        color: "warning",
-      };
-    }
-  };
+  if (!movieMonday || movieMonday.status === "not_created") {
+    return {
+      status: "empty",
+      variant: isSelected ? "solid" : "light",
+      color: isSelected ? "primary" : "default",
+    };
+  }
+
+  if (movieMonday.status === "completed") {
+    return {
+      status: "completed",
+      variant: isSelected ? "solid" : "light",
+      color: "success",
+    };
+  } else if (movieMonday.status === "in-progress") {
+    return {
+      status: "in-progress",
+      variant: isSelected ? "solid" : "light",
+      color: "primary",
+    };
+  } else {
+    return {
+      status: "pending",
+      variant: isSelected ? "solid" : "light",
+      color: "warning",
+    };
+  }
+};
 
   // Check if a date is the start of a month
   const isMonthStart = (date: Date, index: number, dates: Date[]): boolean => {
@@ -562,41 +610,41 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
     handleInputWithSuggestions(e, "dessert", dessertSuggestions);
   };
 
-const addItemToCategory = (
-  type: "cocktail" | "meal" | "dessert",
-  value: string,
-) => {
-  if (!value.trim()) return;
+  const addItemToCategory = (
+    type: "cocktail" | "meal" | "dessert",
+    value: string,
+  ) => {
+    if (!value.trim()) return;
 
-  const normalized = toTitleCase(value.trim());
+    const normalized = toTitleCase(value.trim());
 
-  switch (type) {
-    case "cocktail":
-      setEditableDetails((prev) => ({
-        ...prev,
-        cocktails: [...prev.cocktails, normalized],
-      }));
-      setNewCocktail("");
-      break;
-    case "meal":
-      setEditableDetails((prev) => ({
-        ...prev,
-        meals: [...prev.meals, normalized],
-      }));
-      setNewMeal("");
-      break;
-    case "dessert":
-      setEditableDetails((prev) => ({
-        ...prev,
-        desserts: [...prev.desserts, normalized],
-      }));
-      setNewDessert("");
-      break;
-  }
+    switch (type) {
+      case "cocktail":
+        setEditableDetails((prev) => ({
+          ...prev,
+          cocktails: [...prev.cocktails, normalized],
+        }));
+        setNewCocktail("");
+        break;
+      case "meal":
+        setEditableDetails((prev) => ({
+          ...prev,
+          meals: [...prev.meals, normalized],
+        }));
+        setNewMeal("");
+        break;
+      case "dessert":
+        setEditableDetails((prev) => ({
+          ...prev,
+          desserts: [...prev.desserts, normalized],
+        }));
+        setNewDessert("");
+        break;
+    }
 
-  setFilteredSuggestions([]);
-  setActiveSuggestionType(null);
-};
+    setFilteredSuggestions([]);
+    setActiveSuggestionType(null);
+  };
 
   // Create a new MovieMonday
   const handleCreateMovieMonday = async (date: Date) => {
@@ -677,38 +725,38 @@ const addItemToCategory = (
 
   // Save all event details
   const handleSaveAll = async () => {
-  if (!selectedMonday || !token) return;
+    if (!selectedMonday || !token) return;
 
-  setSavingDetails(true);
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/movie-monday/${selectedMonday.id}/event-details`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+    setSavingDetails(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/movie-monday/${selectedMonday.id}/event-details`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editableDetails),
         },
-        body: JSON.stringify(editableDetails),
-      },
-    );
+      );
 
-    if (!response.ok) {
-      throw new Error("Failed to save event details");
-    }
+      if (!response.ok) {
+        throw new Error("Failed to save event details");
+      }
 
-    // Use proceedWithDateSelection instead of handleDateClick to bypass
-    // the unsaved changes check (which would fire since isEditing is still true)
-    if (selectedDate) {
-      await proceedWithDateSelection(selectedDate);
-    }
-    bumpCalendar();
+      // Use proceedWithDateSelection instead of handleDateClick to bypass
+      // the unsaved changes check (which would fire since isEditing is still true)
+      if (selectedDate) {
+        await proceedWithDateSelection(selectedDate);
+      }
+      bumpCalendar();
   } catch (error) {
-    console.error("Error saving details:", error);
-  } finally {
-    setSavingDetails(false);
-  }
-};
+      console.error("Error saving details:", error);
+    } finally {
+      setSavingDetails(false);
+    }
+  };
 
   // Update the picker for a MovieMonday. pickerKey is "user:<id>" or "guest:<id>".
   // Updates local state in place so it works mid-edit without a reload and
@@ -964,7 +1012,6 @@ const addItemToCategory = (
     <div className="space-y-4 w-full">
       {/* Calendar Header - Navigation */}
       <MonthlyMondaySelector
-  reloadNonce={calendarNonce}
   selectedDate={selectedDate}
   token={token}
   onSelectDate={handleDateClick}
@@ -1033,7 +1080,6 @@ const addItemToCategory = (
             </div>
           ) : (
             <div className="flex flex-col md:flex-row gap-4 p-4">
-
               {/* Movie Cards Section */}
               <div className="w-full md:w-3/5 grid grid-cols-3 gap-2 md:gap-4">
                 {[0, 1, 2].map((index) => {
@@ -1058,11 +1104,12 @@ const addItemToCategory = (
                       >
                         {movie ? (
                           <div className="relative h-full">
-
                             {/* Poster — tapping navigates to movie page */}
                             <div
                               className="absolute inset-0 z-0 cursor-pointer"
-                              onClick={() => handleMovieClick(movie.tmdbMovieId)}
+                              onClick={() =>
+                                handleMovieClick(movie.tmdbMovieId)
+                              }
                             >
                               <Image
                                 alt={movie.title}
@@ -1142,7 +1189,6 @@ const addItemToCategory = (
                                 {movie.title}
                               </p>
                             </div>
-
                           </div>
                         ) : selectedMonday?.id ? (
                           <button
@@ -1368,9 +1414,7 @@ const addItemToCategory = (
                                   value={newDessert}
                                   onBlur={() => {
                                     setTimeout(() => {
-                                      if (
-                                        activeSuggestionType === "dessert"
-                                      ) {
+                                      if (activeSuggestionType === "dessert") {
                                         setActiveSuggestionType(null);
                                       }
                                     }, 200);
@@ -1439,9 +1483,7 @@ const addItemToCategory = (
                                       onClose={() => {
                                         setEditableDetails((prev) => ({
                                           ...prev,
-                                          desserts: Array.isArray(
-                                            prev.desserts,
-                                          )
+                                          desserts: Array.isArray(prev.desserts)
                                             ? prev.desserts.filter(
                                                 (_, i) => i !== index,
                                               )
@@ -1471,9 +1513,7 @@ const addItemToCategory = (
                                   value={newCocktail}
                                   onBlur={() => {
                                     setTimeout(() => {
-                                      if (
-                                        activeSuggestionType === "cocktail"
-                                      ) {
+                                      if (activeSuggestionType === "cocktail") {
                                         setActiveSuggestionType(null);
                                       }
                                     }, 200);

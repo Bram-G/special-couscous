@@ -22,6 +22,7 @@ import useWatchlistStatus from "@/hooks/useWatchlistStatus";
 import EnhancedMovieCarousel from "@/components/Discovery/EnhancedMovieCarousel";
 import EnhancedWatchlistSection from "@/components/Discovery/EnhancedWatchlistSection";
 import EnhancedMovieDiscoveryCard from "@/components/Discovery/EnhancedMovieDiscoveryCard";
+import { dedupedFetch } from "@/utils/apiClient";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
@@ -59,6 +60,8 @@ const DiscoveryPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Movie[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [publicWatchlists, setPublicWatchlists] = useState<any[]>([]);
+  const [watchlistsLoading, setWatchlistsLoading] = useState(true);
 
   const [watchedMovies, setWatchedMovies] = useState<Set<number>>(new Set());
   const [votedButNotPickedMovies, setVotedButNotPickedMovies] = useState<
@@ -71,12 +74,40 @@ const DiscoveryPage = () => {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const { checkStatus, addToWatchlist } = useWatchlistStatus();
 
+  useEffect(() => {
+    const fetchPublicWatchlists = async () => {
+      try {
+        setWatchlistsLoading(true);
+        const response = await fetch(
+          `${API_BASE_URL}/api/watchlists/public?sort=popular&limit=5&include_items=true`,
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const mapped = (data.categories || []).map((w: any) => ({
+            ...w,
+            owner: w.User
+              ? { id: w.User.id, username: w.User.username }
+              : { id: 0, username: "User" },
+          }));
+          setPublicWatchlists(mapped);
+        }
+      } catch (error) {
+        console.error("Error fetching public watchlists:", error);
+      } finally {
+        setWatchlistsLoading(false);
+      }
+    };
+
+    fetchPublicWatchlists();
+  }, []);
+
   // Check discovery status for movies
   const checkDiscoveryStatus = async (tmdbIds: number[]) => {
     if (!isAuthenticated || !currentGroupId || tmdbIds.length === 0) return;
 
     try {
-      const response = await fetch(
+      const { ok, data } = await dedupedFetch(
         `${API_BASE_URL}/api/movie-monday/discovery-status`,
         {
           method: "POST",
@@ -91,8 +122,7 @@ const DiscoveryPage = () => {
         },
       );
 
-      if (response.ok) {
-        const data = await response.json();
+      if (ok && data) {
         setWatchedMovies(new Set(data.watched));
         setVotedButNotPickedMovies(
           new Set(data.votedButNotPicked.map((m: VotedMovie) => m.tmdbMovieId)),
@@ -462,7 +492,11 @@ const DiscoveryPage = () => {
           )}
 
           {/* Public Watchlists */}
-          <EnhancedWatchlistSection />
+
+          <EnhancedWatchlistSection
+            watchlists={publicWatchlists}
+            loading={watchlistsLoading}
+          />
         </>
       )}
 

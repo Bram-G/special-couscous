@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { dedupedFetch } from "@/utils/apiClient";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -53,8 +54,8 @@ export default function useWatchlistStatus(
     setError(null);
 
     try {
-      // Use the status endpoint to check all watchlists at once
-      const response = await fetch(
+           // Use the status endpoint to check all watchlists at once
+      const { ok, status, data } = await dedupedFetch(
         `${API_BASE_URL}/api/watchlists/status/${movieId}`,
         {
           headers: {
@@ -65,12 +66,9 @@ export default function useWatchlistStatus(
         },
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to check watchlist status: ${response.status}`);
+      if (!ok) {
+        throw new Error(`Failed to check watchlist status: ${status}`);
       }
-
-      const data = await response.json();
-
       // Update state based on response
       setInWatchlist(data.inWatchlist || false);
       setInDefaultWatchlist(data.inDefaultWatchlist || false);
