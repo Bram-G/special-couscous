@@ -1,3 +1,5 @@
+// app/vote/[token]/page.tsx — public ballot reached by scanning the host's QR
+// code. No login: each browser gets a random anonymous voter key.
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -5,6 +7,7 @@ import { useParams } from "next/navigation";
 import { Button, Card, Spinner } from "@heroui/react";
 import { CheckCircle2, Clapperboard, Lock, RotateCcw, Trophy } from "lucide-react";
 
+import RankedBallotList from "@/components/Voting/RankedBallotList";
 import VoteResults from "@/components/Voting/VoteResults";
 import { useVoteStream } from "@/hooks/useVoteStream";
 import { VoteCandidate, VoteMode, VoteStatus } from "@/types/voting";
@@ -124,6 +127,19 @@ export default function VotePage() {
     })();
   }, [token]);
 
+  // Ranked ballots always hold every movie in some order. Start from the
+  // ballot this browser already cast (if any) and append anything missing.
+  useEffect(() => {
+    if (!data || data.session.mode !== "ranked") return;
+    const ids = data.candidates.map((c) => c.id);
+
+    setSelection((prev) => {
+      const kept = prev.filter((id) => ids.indexOf(id) !== -1);
+
+      return kept.concat(ids.filter((id) => kept.indexOf(id) === -1));
+    });
+  }, [data]);
+
   // Live status wins over the initial fetch (host may close mid-vote)
   const status: VoteStatus | undefined = results?.status || data?.session.status;
   const mode: VoteMode | undefined = data?.session.mode;
@@ -132,16 +148,15 @@ export default function VotePage() {
 
   const showBallot = !isClosed && (!submitted || editing);
 
-  const toggle = (id: number) => {
+  // Single vote: tap one poster
+  const pickSingle = (id: number) => {
     setSubmitError("");
-    if (mode === "single") {
-      setSelection([id]);
+    setSelection([id]);
+  };
 
-      return;
-    }
-    setSelection((prev) =>
-      prev.indexOf(id) !== -1 ? prev.filter((x) => x !== id) : prev.concat(id),
-    );
+  const reorder = (order: number[]) => {
+    setSubmitError("");
+    setSelection(order);
   };
 
   const submit = async () => {
@@ -227,68 +242,60 @@ export default function VotePage() {
         <>
           <p className="text-center text-sm text-default-500">
             {mode === "ranked"
-              ? "Tap movies in order of preference — 1st, 2nd, 3rd. Tap again to remove. Rank as many as you like."
+              ? "Drag the handles to put your favorite on top. Top spot = 1st choice."
               : "Tap the one movie you want to watch."}
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
-            {candidates.map((c) => {
-              const rank = selection.indexOf(c.id);
-              const isSelected = rank !== -1;
+          {mode === "ranked" ? (
+            <RankedBallotList
+              candidates={candidates}
+              order={selection}
+              onChange={reorder}
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {candidates.map((c) => {
+                const isSelected = selection.indexOf(c.id) !== -1;
 
-              return (
-                <button
-                  key={c.id}
-                  aria-pressed={isSelected}
-                  className={`relative rounded-2xl overflow-hidden text-left transition-all active:scale-[0.97] ${
-                    isSelected
-                      ? "ring-4 ring-primary shadow-lg shadow-primary/30"
-                      : "ring-1 ring-default-200"
-                  }`}
-                  type="button"
-                  onClick={() => toggle(c.id)}
-                >
-                  <img
-                    alt={c.title}
-                    className="w-full aspect-[2/3] object-cover"
-                    src={posterUrl(c.posterPath)}
-                  />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 pt-8">
-                    <p className="text-white text-sm font-semibold leading-tight line-clamp-2">
-                      {c.title}
-                    </p>
-                    {c.releaseYear && (
-                      <p className="text-white/60 text-xs">{c.releaseYear}</p>
-                    )}
-                  </div>
-                  {isSelected && (
-                    <div className="pointer-events-none absolute top-2 right-2 h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow-md">
-                      {mode === "ranked" ? rank + 1 : <CheckCircle2 className="h-5 w-5" />}
+                return (
+                  <button
+                    key={c.id}
+                    aria-pressed={isSelected}
+                    className={`relative rounded-2xl overflow-hidden text-left transition-all active:scale-[0.97] ${
+                      isSelected
+                        ? "ring-4 ring-primary shadow-lg shadow-primary/30"
+                        : "ring-1 ring-default-200"
+                    }`}
+                    type="button"
+                    onClick={() => pickSingle(c.id)}
+                  >
+                    <img
+                      alt={c.title}
+                      className="w-full aspect-[2/3] object-cover"
+                      src={posterUrl(c.posterPath)}
+                    />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 pt-8">
+                      <p className="text-white text-sm font-semibold leading-tight line-clamp-2">
+                        {c.title}
+                      </p>
+                      {c.releaseYear && (
+                        <p className="text-white/60 text-xs">{c.releaseYear}</p>
+                      )}
                     </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {mode === "ranked" && selection.length > 0 && (
-            <ol className="text-sm text-default-600 flex flex-col gap-1 px-1">
-              {selectedTitles.map((t, i) => (
-                <li key={t}>
-                  <span className="font-semibold">{i + 1}.</span> {t}
-                </li>
-              ))}
-            </ol>
+                    {isSelected && (
+                      <div className="pointer-events-none absolute top-2 right-2 h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center shadow-md">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           )}
 
           {submitError && <p className="text-sm text-danger text-center">{submitError}</p>}
 
           <div className="flex gap-2 sticky bottom-4">
-            {mode === "ranked" && selection.length > 0 && (
-              <Button variant="flat" onPress={() => setSelection([])}>
-                Clear
-              </Button>
-            )}
             <Button
               fullWidth
               color="primary"
