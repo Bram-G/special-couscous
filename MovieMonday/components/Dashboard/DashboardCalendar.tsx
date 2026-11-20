@@ -35,6 +35,7 @@ import {
   AlertTriangle,
   ExternalLink,
   MoreVertical,
+  QrCode,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { CrownIcon } from "lucide-react";
@@ -42,6 +43,7 @@ import confetti from "canvas-confetti";
 import MonthlyMondaySelector from "./MonthlyMondaySelector";
 
 import AddMovieSearchModal from "@/components/MovieMonday/AddMovieSearchModal";
+import VoteHostModal from "@/components/Voting/VoteHostModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 type ButtonVariant =
@@ -155,7 +157,7 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
 
   // Movie search widget (opened from an empty movie slot)
   const [addMovieOpen, setAddMovieOpen] = useState(false);
-
+  const [voteOpen, setVoteOpen] = useState(false);
   // Event details state
   const [eventDetails, setEventDetails] = useState<EventDetails>({
     meals: [],
@@ -406,7 +408,22 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
       editableDetails.notes !== eventDetails.notes
     );
   };
+  // Keep the 5-minute Monday cache in sync with local edits (picker changes,
+  // added/removed movies…). Without this, clicking away and back served the
+  // stale cached copy, which made saved changes look like they hadn't saved.
+  useEffect(() => {
+    if (!selectedDate || !selectedMonday?.id) return;
+    if (selectedMonday.date !== formatDateForAPI(selectedDate)) return;
+    const key = selectedDate.toISOString();
+    const cached = movieMondayMap.get(key);
 
+    if (cached && cached.data !== selectedMonday) {
+      movieMondayMap.set(key, {
+        data: selectedMonday,
+        cachedAt: cached.cachedAt,
+      });
+    }
+  }, [selectedMonday]);
   // Handle clicking on a date in the calendar with unsaved changes check
   const handleDateClick = async (date: Date) => {
     if (isEditing && hasUnsavedChanges()) {
@@ -508,45 +525,45 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
   };
 
   // Determine status and appearance of date buttons
-const getDateButtonStatus = (date: Date): DateButtonStatus => {
-  const formattedDate = formatDateForAPI(date);
-  const entry = Array.from(movieMondayMap.entries()).find(
-    ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate,
-  )?.[1];
+  const getDateButtonStatus = (date: Date): DateButtonStatus => {
+    const formattedDate = formatDateForAPI(date);
+    const entry = Array.from(movieMondayMap.entries()).find(
+      ([key, _]) => formatDateForAPI(new Date(key)) === formattedDate,
+    )?.[1];
 
-  const movieMonday = entry?.data; // <-- unwrap the cache wrapper here
+    const movieMonday = entry?.data; // <-- unwrap the cache wrapper here
 
-  const isSelected =
-    selectedDate && formatDateForAPI(selectedDate) === formattedDate;
+    const isSelected =
+      selectedDate && formatDateForAPI(selectedDate) === formattedDate;
 
-  if (!movieMonday || movieMonday.status === "not_created") {
-    return {
-      status: "empty",
-      variant: isSelected ? "solid" : "light",
-      color: isSelected ? "primary" : "default",
-    };
-  }
+    if (!movieMonday || movieMonday.status === "not_created") {
+      return {
+        status: "empty",
+        variant: isSelected ? "solid" : "light",
+        color: isSelected ? "primary" : "default",
+      };
+    }
 
-  if (movieMonday.status === "completed") {
-    return {
-      status: "completed",
-      variant: isSelected ? "solid" : "light",
-      color: "success",
-    };
-  } else if (movieMonday.status === "in-progress") {
-    return {
-      status: "in-progress",
-      variant: isSelected ? "solid" : "light",
-      color: "primary",
-    };
-  } else {
-    return {
-      status: "pending",
-      variant: isSelected ? "solid" : "light",
-      color: "warning",
-    };
-  }
-};
+    if (movieMonday.status === "completed") {
+      return {
+        status: "completed",
+        variant: isSelected ? "solid" : "light",
+        color: "success",
+      };
+    } else if (movieMonday.status === "in-progress") {
+      return {
+        status: "in-progress",
+        variant: isSelected ? "solid" : "light",
+        color: "primary",
+      };
+    } else {
+      return {
+        status: "pending",
+        variant: isSelected ? "solid" : "light",
+        color: "warning",
+      };
+    }
+  };
 
   // Check if a date is the start of a month
   const isMonthStart = (date: Date, index: number, dates: Date[]): boolean => {
@@ -751,7 +768,7 @@ const getDateButtonStatus = (date: Date): DateButtonStatus => {
         await proceedWithDateSelection(selectedDate);
       }
       bumpCalendar();
-  } catch (error) {
+    } catch (error) {
       console.error("Error saving details:", error);
     } finally {
       setSavingDetails(false);
@@ -861,6 +878,7 @@ const getDateButtonStatus = (date: Date): DateButtonStatus => {
         }
 
         if (selectedDate) {
+          movieMondayMap.delete(selectedDate.toISOString());
           handleDateClick(selectedDate);
           bumpCalendar();
         }
@@ -1003,23 +1021,21 @@ const getDateButtonStatus = (date: Date): DateButtonStatus => {
       ? `user:${selectedMonday.pickerUserId}`
       : "";
   const currentPickerLabel =
-    selectedMonday?.picker?.username ||
-    selectedMonday?.pickerGuest?.name ||
-    "";
+    selectedMonday?.picker?.username || selectedMonday?.pickerGuest?.name || "";
 
   // Render the component
   return (
     <div className="space-y-4 w-full">
       {/* Calendar Header - Navigation */}
       <MonthlyMondaySelector
-  selectedDate={selectedDate}
-  token={token}
-  onSelectDate={handleDateClick}
-  onJumpToDate={() => {
-    setDatePickerMonth(new Date());
-    setShowDatePicker(true);
-  }}
-/>
+        selectedDate={selectedDate}
+        token={token}
+        onSelectDate={handleDateClick}
+        onJumpToDate={() => {
+          setDatePickerMonth(new Date());
+          setShowDatePicker(true);
+        }}
+      />
 
       {selectedDate && (
         <Card className="w-full">
@@ -1035,20 +1051,44 @@ const getDateButtonStatus = (date: Date): DateButtonStatus => {
                 })}
               </h3>
 
-              <Button
-                color="primary"
-                endContent={<ExternalLink className="h-4 w-4" />}
-                isDisabled={
-                  !selectedMonday || selectedMonday.status === "not_created"
-                }
-                variant="light"
-                onPress={() =>
-                  selectedMonday?.id &&
-                  router.push(`/movie-monday/${selectedMonday.id}`)
-                }
-              >
-                Full Analytics
-              </Button>
+              <div className="flex items-center gap-2">
+                <Tooltip
+                  content="Add at least two movies to start a vote"
+                  isDisabled={
+                    (selectedMonday?.movieSelections?.length || 0) >= 2
+                  }
+                >
+                  {/* span keeps the tooltip working while the button is disabled */}
+                  <span>
+                    <Button
+                      color="secondary"
+                      isDisabled={
+                        !selectedMonday?.id ||
+                        (selectedMonday?.movieSelections?.length || 0) < 2
+                      }
+                      startContent={<QrCode className="h-4 w-4" />}
+                      variant="flat"
+                      onPress={() => setVoteOpen(true)}
+                    >
+                      Vote
+                    </Button>
+                  </span>
+                </Tooltip>
+                <Button
+                  color="primary"
+                  endContent={<ExternalLink className="h-4 w-4" />}
+                  isDisabled={
+                    !selectedMonday || selectedMonday.status === "not_created"
+                  }
+                  variant="light"
+                  onPress={() =>
+                    selectedMonday?.id &&
+                    router.push(`/movie-monday/${selectedMonday.id}`)
+                  }
+                >
+                  Full Analytics
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -1771,7 +1811,34 @@ const getDateButtonStatus = (date: Date): DateButtonStatus => {
           onClose={() => setAddMovieOpen(false)}
         />
       ) : null}
+      {/* Live QR voting for the selected Movie Monday */}
+      {selectedMonday?.id ? (
+        <VoteHostModal
+          currentWinnerId={
+            selectedMonday.movieSelections?.find((m) => m.isWinner)?.id ?? null
+          }
+          isOpen={voteOpen}
+          movieMondayId={selectedMonday.id}
+          token={token}
+          onApplyWinner={async (movieSelectionId) => {
+            // set-winner toggles, so only call it if this movie isn't already
+            // the winner. Clear any other winner first so there's just one.
+            const selections = selectedMonday.movieSelections || [];
+            const target = selections.find((m) => m.id === movieSelectionId);
 
+            if (!target || target.isWinner) return;
+            const others = selections.filter(
+              (m) => m.isWinner && m.id !== movieSelectionId,
+            );
+
+            for (const other of others) {
+              await handleSetWinner(other.id);
+            }
+            await handleSetWinner(movieSelectionId);
+          }}
+          onClose={() => setVoteOpen(false)}
+        />
+      ) : null}
       {/* Unsaved Changes Confirmation Modal */}
       <Modal isOpen={showUnsavedChangesModal} onClose={cancelDiscardChanges}>
         <ModalContent>
