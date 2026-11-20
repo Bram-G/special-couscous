@@ -26,7 +26,7 @@ interface PieChartComponentProps {
   maxSlices?: number;
   hideLegend?: boolean;
   showPercent?: boolean;
-  onSliceClick?: (name: string) => void;
+  onSliceClick?: (name: string, item: PieChartData) => void;
 }
 
 const renderActiveShape = (props: any) => {
@@ -71,14 +71,14 @@ const renderActiveShape = (props: any) => {
       />
       <circle cx={ex} cy={ey} fill={fill} r={2} stroke="none" />
       <text
-        fill="#333"
+        fill="hsl(var(--heroui-foreground))"
         textAnchor={textAnchor}
         x={ex + (cos >= 0 ? 1 : -1) * 12}
         y={ey}
       >{`${name}`}</text>
       <text
         dy={18}
-        fill="#999"
+        fill="hsl(var(--heroui-default-500))"
         textAnchor={textAnchor}
         x={ex + (cos >= 0 ? 1 : -1) * 12}
         y={ey}
@@ -146,9 +146,12 @@ export const PieChartComponent: React.FC<PieChartComponentProps> = ({
   };
 
   // Function to handle click on pie slice
-  const handleClick = (data, index) => {
-    if (onSliceClick && data.name) {
-      onSliceClick(data.name);
+  const handleClick = (data: any) => {
+    const item = data?.payload ?? data;
+
+    // "Other" is a rollup of the tail, not a real item to drill into.
+    if (onSliceClick && item?.name && item.name !== "Other") {
+      onSliceClick(item.name, item);
     }
   };
 
@@ -232,10 +235,10 @@ export const PieChartComponent: React.FC<PieChartComponentProps> = ({
               verticalAlign="bottom"
               onClick={(entry) => {
                 // Handle legend click if callback is provided
-                if (onSliceClick && entry.value) {
-                  const itemName = entry.value.split(" (")[0]; // Extract name from "Name (10)" format
+                const item = processedData.find((d) => d.name === entry.id);
 
-                  onSliceClick(itemName);
+                if (onSliceClick && item && item.name !== "Other") {
+                  onSliceClick(item.name, item);
                 }
               }}
             />

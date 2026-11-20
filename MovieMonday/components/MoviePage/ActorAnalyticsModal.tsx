@@ -189,7 +189,7 @@ const ActorAnalyticsModal: React.FC<ActorAnalyticsModalProps> = ({
                                     }
                                   />
                                   {movie.isWinner && (
-                                    <div className="absolute top-2 right-2 bg-warning text-white p-1 rounded-full">
+                                    <div className="absolute top-2 right-2 z-20 bg-warning text-white p-1 rounded-full">
                                       <Trophy className="h-4 w-4" />
                                     </div>
                                   )}

@@ -29,7 +29,7 @@ interface BarChartComponentProps {
   customTooltip?: React.FC<TooltipProps<any, any>>;
   maxBars?: number;
   scrollable?: boolean;
-  onBarClick?: (name: string) => void;
+  onBarClick?: (name: string, item: BarChartData) => void;
 }
 
 const CustomBarTooltip = ({ active, payload, label }: any) => {
@@ -130,10 +130,11 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
     );
   };
 
-  // Handle bar click
-  const handleClick = (data: any) => {
-    if (onBarClick && data.name) {
-      onBarClick(data.name);
+   const handleClick = (state: any) => {
+    const item = state?.activePayload?.[0]?.payload;
+
+    if (onBarClick && item?.name) {
+      onBarClick(item.name, item);
     }
   };
 
@@ -142,6 +143,7 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
       <div style={{ width: scrollable ? chartWidth : "100%", height }}>
         <ResponsiveContainer height="100%" width="100%">
           <BarChart
+            className={onBarClick ? "cursor-pointer" : ""}
             data={processedData}
             margin={{
               top: 30, // Increased top margin to balance the chart
@@ -197,7 +199,6 @@ export const BarChartComponent: React.FC<BarChartComponentProps> = ({
               fill={barColor}
               maxBarSize={50}
               radius={[4, 4, 0, 0]}
-              onClick={handleClick}
             />
           </BarChart>
         </ResponsiveContainer>

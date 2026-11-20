@@ -1,45 +1,34 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Card, Spinner } from "@heroui/react";
-import { Film } from "lucide-react";
+import { Film, MousePointerClick } from "lucide-react";
 
-import { useAuth } from "@/contexts/AuthContext";
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { BarChartComponent } from "@/components/analytics/BarChartComponent";
 import { PieChartComponent } from "@/components/analytics/PieChartComponent";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import MovieDetailsModal from "@/components/analytics/MovieDetailsModal";
+import {
+  toChart,
+  useAnalyticsOverview,
+} from "@/hooks/useAnalyticsOverview";
+import { useAnalyticsDrilldown } from "@/hooks/useAnalyticsDrilldown";
 
 const CHART_HEIGHT = 320;
 const TOP_N = 12;
 
-type Overview = {
-  totals: {
-    movieMondays: number;
-    movies: number;
-    winners: number;
-    uniqueGenres: number;
-    uniqueActors: number;
-    uniqueDirectors: number;
-  };
-  genres: { name: string; count: number }[];
-  topActors: { name: string; count: number }[];
-  rejectedActors: { name: string; losses: number }[];
-  topDirectors: { name: string; count: number }[];
-  rejectedMovies: { name: string; losses: number }[];
-  pickers: { name: string; winningPicks: number }[];
-  meals: { name: string; count: number }[];
-  cocktails: { name: string; count: number }[];
-  desserts: { name: string; count: number }[];
+// One palette for the whole page: amber = wins, orange/red = rejections,
+// cool tones = neutral, purple/pink = food & drink.
+const COLORS = {
+  win: "#f5a524",
+  winAlt: "#0ea5e9",
+  loss: "#f97316",
+  lossAlt: "#ef4444",
+  picker: "#22c55e",
+  meal: "#8b5cf6",
+  cocktail: "#ec4899",
+  dessert: "#f43f5e",
 };
-
-const toChart = (
-  arr: any[] | undefined,
-  valueKey: string,
-): { name: string; value: number }[] =>
-  (arr || []).slice(0, TOP_N).map((d) => ({ name: d.name, value: d[valueKey] }));
 
 function StatCard({ value, label }: { value: number; label: string }) {
   return (
@@ -47,6 +36,26 @@ function StatCard({ value, label }: { value: number; label: string }) {
       <h3 className="text-2xl font-bold text-primary">{value}</h3>
       <p className="text-default-600">{label}</p>
     </Card>
+  );
+}
+
+function Section({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-xl font-semibold">{title}</h2>
+        <p className="text-sm text-default-500">{subtitle}</p>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -75,26 +84,8 @@ function ChartOrEmpty({
 }
 
 export default function AnalyticsOverview() {
-  const { token } = useAuth();
-  const [data, setData] = useState<Overview | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!token) return;
-    const controller = new AbortController();
-
-    setLoading(true);
-    fetch(`${API_BASE_URL}/api/analytics/overview?limit=${TOP_N}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setData(d))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-
-    return () => controller.abort();
-  }, [token]);
+  const { data, loading } = useAnalyticsOverview(TOP_N);
+  const drilldown = useAnalyticsDrilldown();
 
   if (loading) {
     return (
@@ -120,142 +111,213 @@ export default function AnalyticsOverview() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       {/* Headline stats */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Movie Mondays" value={data.totals.movieMondays} />
-        <StatCard label="Movies watched" value={data.totals.movies} />
-        <StatCard label="Winners" value={data.totals.winners} />
-        <StatCard label="Unique genres" value={data.totals.uniqueGenres} />
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <StatCard label="Movie Mondays" value={data.totals.movieMondays} />
+          <StatCard label="Movies watched" value={data.totals.moviesWatched} />
+          <StatCard label="Rejected picks" value={data.totals.rejectedPicks} />
+          <StatCard label="Genres watched" value={data.totals.uniqueGenres} />
+        </div>
+        <p className="flex items-center gap-1.5 text-xs text-default-400">
+          <MousePointerClick className="h-3.5 w-3.5" />
+          Click any bar or slice to see the movies behind it
+        </p>
       </div>
 
-      {/* Genres + frequent actors */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ChartOrEmpty
-          data={data.genres}
-          subtitle="What you watch most"
-          title="Genre breakdown"
-        >
-          <PieChartComponent
-            data={toChart(data.genres, "count")}
-            height={CHART_HEIGHT}
-            maxSlices={8}
-          />
-        </ChartOrEmpty>
+      <Section
+        subtitle="Only the movies that won the vote"
+        title="What you watched"
+      >
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <ChartOrEmpty
+            data={data.genres}
+            subtitle="Genres of winning movies"
+            title="Genre breakdown"
+          >
+            <PieChartComponent
+              data={toChart(data.genres, "count")}
+              height={CHART_HEIGHT}
+              maxSlices={8}
+              onSliceClick={(name) =>
+                drilldown.open({ type: "genre", key: name, label: name })
+              }
+            />
+          </ChartOrEmpty>
 
-        <ChartOrEmpty
-          data={data.topActors}
-          subtitle="Faces that show up most often"
-          title="Most frequent actors"
-        >
-          <BarChartComponent
-            barColor="#4f46e5"
-            data={toChart(data.topActors, "count")}
-            height={CHART_HEIGHT}
-            maxBars={TOP_N}
-          />
-        </ChartOrEmpty>
-      </div>
+          <ChartOrEmpty
+            data={data.pickers}
+            subtitle="Decided nights hosted per picker"
+            title="Movies chosen by"
+          >
+            <BarChartComponent
+              barColor={COLORS.picker}
+              data={toChart(data.pickers, "winningPicks")}
+              height={CHART_HEIGHT}
+              maxBars={TOP_N}
+              onBarClick={(name) =>
+                drilldown.open({ type: "picker", key: name, label: name })
+              }
+            />
+          </ChartOrEmpty>
+        </div>
+      </Section>
 
-      {/* Directors + movies chosen by */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ChartOrEmpty
-          data={data.topDirectors}
-          subtitle="Directors you return to"
-          title="Most watched directors"
-        >
-          <BarChartComponent
-            barColor="#0ea5e9"
-            data={toChart(data.topDirectors, "count")}
-            height={CHART_HEIGHT}
-            maxBars={TOP_N}
-          />
-        </ChartOrEmpty>
+      <Section
+        subtitle="People behind the movies that won"
+        title="Winners"
+      >
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <ChartOrEmpty
+            data={data.winningActors}
+            subtitle="Appearances in winning movies"
+            title="Most winning actors"
+          >
+            <BarChartComponent
+              barColor={COLORS.win}
+              data={toChart(data.winningActors, "wins")}
+              height={CHART_HEIGHT}
+              maxBars={TOP_N}
+              onBarClick={(name, item) =>
+                drilldown.open({
+                  type: "actor",
+                  key: item.id,
+                  label: name,
+                  outcome: "won",
+                })
+              }
+            />
+          </ChartOrEmpty>
 
-        <ChartOrEmpty
-          data={data.pickers}
-          subtitle="Winning nights per picker"
-          title="Movies chosen by"
-        >
-          <BarChartComponent
-            barColor="#22c55e"
-            data={toChart(data.pickers, "winningPicks")}
-            height={CHART_HEIGHT}
-            maxBars={TOP_N}
-          />
-        </ChartOrEmpty>
-      </div>
+          <ChartOrEmpty
+            data={data.winningDirectors}
+            subtitle="Directors of winning movies"
+            title="Most winning directors"
+          >
+            <BarChartComponent
+              barColor={COLORS.winAlt}
+              data={toChart(data.winningDirectors, "wins")}
+              height={CHART_HEIGHT}
+              maxBars={TOP_N}
+              onBarClick={(name, item) =>
+                drilldown.open({
+                  type: "director",
+                  key: item.id,
+                  label: name,
+                  outcome: "won",
+                })
+              }
+            />
+          </ChartOrEmpty>
+        </div>
+      </Section>
 
-      {/* Rejections */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ChartOrEmpty
-          data={data.rejectedMovies}
-          subtitle="On the ballot, never the winner"
-          title="Most rejected movies"
-        >
-          <BarChartComponent
-            barColor="#f97316"
-            data={toChart(data.rejectedMovies, "losses")}
-            height={CHART_HEIGHT}
-            maxBars={TOP_N}
-          />
-        </ChartOrEmpty>
+      <Section
+        subtitle="On the ballot, outvoted on decided nights"
+        title="Rejected"
+      >
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <ChartOrEmpty
+            data={data.rejectedActors}
+            subtitle="Appearances in losing picks"
+            title="Most rejected actors"
+          >
+            <BarChartComponent
+              barColor={COLORS.lossAlt}
+              data={toChart(data.rejectedActors, "losses")}
+              height={CHART_HEIGHT}
+              maxBars={TOP_N}
+              onBarClick={(name, item) =>
+                drilldown.open({
+                  type: "actor",
+                  key: item.id,
+                  label: name,
+                  outcome: "lost",
+                })
+              }
+            />
+          </ChartOrEmpty>
 
-        <ChartOrEmpty
-          data={data.rejectedActors}
-          subtitle="Most appearances in losing picks"
-          title="Most rejected actors"
-        >
-          <BarChartComponent
-            barColor="#ef4444"
-            data={toChart(data.rejectedActors, "losses")}
-            height={CHART_HEIGHT}
-            maxBars={TOP_N}
-          />
-        </ChartOrEmpty>
-      </div>
+          <ChartOrEmpty
+            data={data.rejectedMovies}
+            subtitle="Times each movie lost the vote"
+            title="Most rejected movies"
+          >
+            <BarChartComponent
+              barColor={COLORS.loss}
+              data={toChart(data.rejectedMovies, "losses")}
+              height={CHART_HEIGHT}
+              maxBars={TOP_N}
+              onBarClick={(name, item) =>
+                drilldown.open({
+                  type: "movie",
+                  key: item.id,
+                  label: name,
+                  outcome: "lost",
+                })
+              }
+            />
+          </ChartOrEmpty>
+        </div>
+      </Section>
 
-      {/* Food & drink */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <ChartOrEmpty
-          data={data.meals}
-          subtitle="Kitchen favourites"
-          title="Most eaten meals"
-        >
-          <BarChartComponent
-            barColor="#8b5cf6"
-            data={toChart(data.meals, "count")}
-            height={CHART_HEIGHT}
-            maxBars={TOP_N}
-          />
-        </ChartOrEmpty>
+      <Section
+        subtitle="Click to see what won on those nights"
+        title="Food & drink"
+      >
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <ChartOrEmpty
+            data={data.meals}
+            subtitle="Kitchen favourites"
+            title="Most eaten meals"
+          >
+            <BarChartComponent
+              barColor={COLORS.meal}
+              data={toChart(data.meals, "count")}
+              height={CHART_HEIGHT}
+              maxBars={TOP_N}
+              onBarClick={(name) =>
+                drilldown.open({ type: "meal", key: name, label: name })
+              }
+            />
+          </ChartOrEmpty>
 
-        <ChartOrEmpty
-          data={data.cocktails}
-          subtitle="House pours"
-          title="Most drank cocktails"
-        >
-          <BarChartComponent
-            barColor="#ec4899"
-            data={toChart(data.cocktails, "count")}
-            height={CHART_HEIGHT}
-            maxBars={TOP_N}
-          />
-        </ChartOrEmpty>
+          <ChartOrEmpty
+            data={data.cocktails}
+            subtitle="House pours"
+            title="Most drank cocktails"
+          >
+            <BarChartComponent
+              barColor={COLORS.cocktail}
+              data={toChart(data.cocktails, "count")}
+              height={CHART_HEIGHT}
+              maxBars={TOP_N}
+              onBarClick={(name) =>
+                drilldown.open({ type: "cocktail", key: name, label: name })
+              }
+            />
+          </ChartOrEmpty>
 
-        <ChartOrEmpty
-          data={data.desserts}
-          subtitle="Sweet endings"
-          title="Most eaten desserts"
-        >
-          <BarChartComponent
-            barColor="#f43f5e"
-            data={toChart(data.desserts, "count")}
-            height={CHART_HEIGHT}
-            maxBars={TOP_N}
-          />
-        </ChartOrEmpty>
-      </div>
+          <ChartOrEmpty
+            data={data.desserts}
+            subtitle="Sweet endings"
+            title="Most eaten desserts"
+          >
+            <BarChartComponent
+              barColor={COLORS.dessert}
+              data={toChart(data.desserts, "count")}
+              height={CHART_HEIGHT}
+              maxBars={TOP_N}
+              onBarClick={(name) =>
+                drilldown.open({ type: "dessert", key: name, label: name })
+              }
+            />
+          </ChartOrEmpty>
+        </div>
+      </Section>
+
+      <MovieDetailsModal {...drilldown.modalProps} />
     </div>
   );
 }

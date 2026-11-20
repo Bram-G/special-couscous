@@ -1135,13 +1135,18 @@ const DashboardCalendar: React.FC<DashboardCalendarProps> = ({
                       className="relative w-full"
                       style={{ aspectRatio: "2/3" }}
                     >
-                      <Card
+                                            <Card
                         className={`absolute inset-0 overflow-hidden ${
                           movie?.isWinner
-                            ? "ring-2 ring-yellow-400 shadow-lg shadow-yellow-400/50"
+                            ? "shadow-lg shadow-yellow-400/50"
                             : ""
                         }`}
                       >
+                        {/* Winner border drawn as an inset overlay above the
+                            poster so the HeroUI <Image> (z-10) can't cover it. */}
+                        {movie?.isWinner && (
+                          <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] ring-2 ring-inset ring-yellow-400" />
+                        )}
                         {movie ? (
                           <div className="relative h-full">
                             {/* Poster — tapping navigates to movie page */}

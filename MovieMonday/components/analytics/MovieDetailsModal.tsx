@@ -1,4 +1,3 @@
-// MovieMonday/components/analytics/MovieDetailsModal.tsx
 import React from "react";
 import {
   Modal,
@@ -9,22 +8,34 @@ import {
   Button,
   Image,
   Chip,
+  Spinner,
+  Tooltip,
 } from "@heroui/react";
 import { Trophy } from "lucide-react";
+
+import type {
+  DrilldownMovie,
+  DrilldownOutcome,
+} from "@/hooks/useAnalyticsDrilldown";
 
 interface MovieDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  movies: Array<{
-    id: number;
-    title: string;
-    posterPath: string | null;
-    releaseYear?: number | null;
-    isWinner?: boolean;
-  }>;
-  filterType: "actor" | "director" | "genre" | "cocktail" | "meal";
-  filterValue: string;
+  movies: DrilldownMovie[];
+  outcome?: DrilldownOutcome;
+  loading?: boolean;
+}
+
+function countLabel(movie: DrilldownMovie, outcome: DrilldownOutcome) {
+  if (outcome === "lost") {
+    return `Picked and lost ${movie.count} times`;
+  }
+  if (outcome === "won") {
+    return `Won ${movie.count} times`;
+  }
+
+  return `Picked ${movie.count} times · won ${movie.wins}`;
 }
 
 const MovieDetailsModal: React.FC<MovieDetailsModalProps> = ({
@@ -32,55 +43,64 @@ const MovieDetailsModal: React.FC<MovieDetailsModalProps> = ({
   onClose,
   title,
   movies,
-  filterType,
+  outcome = "won",
+  loading = false,
 }) => {
-  // Function to handle clicking on a movie poster
-  const handleMovieClick = (movieId: number) => {
-    window.open(`/movie/${movieId}`, "_blank");
-  };
+  const totalPicks = movies.reduce((sum, m) => sum + m.count, 0);
 
-  // Function to handle keyboard events for accessibility
-  const handleKeyDown = (event: React.KeyboardEvent, movieId: number) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      handleMovieClick(movieId);
-    }
+  const openMovie = (tmdbMovieId: number) => {
+    window.open(`/movie/${tmdbMovieId}`, "_blank");
   };
 
   return (
     <Modal isOpen={isOpen} scrollBehavior="inside" size="5xl" onClose={onClose}>
       <ModalContent>
-        {(onClose) => (
+        {(close) => (
           <>
             <ModalHeader className="flex flex-col gap-1">
               {title}
-              <p className="text-sm text-default-500">
-                {movies.length} movie{movies.length !== 1 ? "s" : ""} found
-              </p>
+              {!loading && (
+                <p className="text-sm font-normal text-default-500">
+                  {movies.length} movie{movies.length !== 1 ? "s" : ""}
+                  {totalPicks > movies.length &&
+                    ` · ${totalPicks} ${outcome === "lost" ? "losses" : "picks"} total`}
+                </p>
+              )}
             </ModalHeader>
             <ModalBody>
-              {movies.length === 0 ? (
-                <div className="text-center text-default-500 py-8">
-                  No movies found for this {filterType}
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <Spinner size="lg" />
+                </div>
+              ) : movies.length === 0 ? (
+                <div className="py-8 text-center text-default-500">
+                  No movies found
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {movies.map((movie) => (
-                    <div
-                      key={movie.id}
-                      aria-label={`View details for ${movie.title}`}
-                      className="flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleMovieClick(movie.id)}
-                      onKeyDown={(e) => handleKeyDown(e, movie.id)}
-                    >
-                      <div className="relative w-full aspect-[2/3] overflow-hidden rounded-lg mb-2 group">
-                        {/* Container with fixed aspect ratio */}
-                        <div className="absolute inset-0 bg-default-200">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {movies.map((movie) => {
+                    const isWinner = movie.wins > 0;
+
+                    return (
+                      <div
+                        key={movie.tmdbMovieId}
+                        aria-label={`View details for ${movie.title}`}
+                        className="flex cursor-pointer flex-col rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openMovie(movie.tmdbMovieId)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openMovie(movie.tmdbMovieId);
+                          }
+                        }}
+                      >
+                        <div className="group relative mb-2 aspect-[2/3] w-full overflow-hidden rounded-lg bg-default-200">
                           <Image
+                            removeWrapper
                             alt={movie.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                             fallbackSrc="/placeholder-poster.jpg"
                             src={
                               movie.posterPath
@@ -89,13 +109,20 @@ const MovieDetailsModal: React.FC<MovieDetailsModalProps> = ({
                             }
                           />
 
-                          {/* Winner badge overlay */}
-                          {movie.isWinner && (
-                            <div className="absolute top-2 left-2">
+                          {/* HeroUI <Image> sets `relative z-10` on the <img>,
+                              so every overlay must sit at z-20+ to paint above it. */}
+
+                          {/* Winner ring — inset so it's never clipped or hidden */}
+                          {isWinner && outcome !== "lost" && (
+                            <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-2 ring-inset ring-warning" />
+                          )}
+
+                          {isWinner && outcome !== "lost" && (
+                            <div className="absolute left-2 top-2 z-30">
                               <Chip
                                 color="warning"
                                 size="sm"
-                                startContent={<Trophy className="w-3 h-3" />}
+                                startContent={<Trophy className="h-3 w-3" />}
                                 variant="solid"
                               >
                                 Winner
@@ -103,33 +130,40 @@ const MovieDetailsModal: React.FC<MovieDetailsModalProps> = ({
                             </div>
                           )}
 
+                          {movie.count > 1 && (
+                            <Tooltip content={countLabel(movie, outcome)}>
+                              <div className="absolute right-2 top-2 z-30 rounded-full bg-black/75 px-2 py-0.5 text-xs font-bold text-white shadow-md backdrop-blur-sm">
+                                ×{movie.count}
+                              </div>
+                            </Tooltip>
+                          )}
+
                           {/* Hover overlay */}
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                            <Button color="primary" size="sm" variant="solid">
+                          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                            <span className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
                               View Details
-                            </Button>
+                            </span>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Movie title and year */}
-                      <div className="text-center">
-                        <h3 className="text-sm font-medium line-clamp-2 mb-1">
-                          {movie.title}
-                        </h3>
-                        {movie.releaseYear && (
-                          <p className="text-xs text-default-500">
-                            {movie.releaseYear}
-                          </p>
-                        )}
+                        <div className="text-center">
+                          <h3 className="mb-1 line-clamp-2 text-sm font-medium">
+                            {movie.title}
+                          </h3>
+                          {movie.releaseYear && (
+                            <p className="text-xs text-default-500">
+                              {movie.releaseYear}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </ModalBody>
             <ModalFooter>
-              <Button color="danger" variant="light" onPress={onClose}>
+              <Button color="danger" variant="light" onPress={close}>
                 Close
               </Button>
             </ModalFooter>
