@@ -64,9 +64,9 @@ export default function RecommendedPage() {
         .sort(() => 0.5 - Math.random())
         .slice(0, sampleSize);
 
-      const recommendationPromises = sampleMovies.map((movie) =>
+      const recommendationPromises = sampleMovies.map((movie: any) =>
         fetch(
-          `https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
+          `https://api.themoviedb.org/3/movie/${movie.tmdbMovieId}/recommendations?api_key=${process.env.NEXT_PUBLIC_TMDB_API_KEY}`,
         )
           .then((res) => (res.ok ? res.json() : { results: [] }))
           .catch(() => ({ results: [] })),
@@ -175,18 +175,26 @@ export default function RecommendedPage() {
         (movie: Movie) => !alreadyWatched.has(movie.id),
       );
 
-      // Sort by quality and genre match
-      const topGenres = new Set(historyData.recommendations.topGenres || []);
+            // Sort by quality and genre match (topGenres may be names or IDs)
+      const GENRE_NAME_TO_ID: Record<string, number> = {
+        Action: 28, Adventure: 12, Animation: 16, Comedy: 35, Crime: 80,
+        Documentary: 99, Drama: 18, Family: 10751, Fantasy: 14, History: 36,
+        Horror: 27, Music: 10402, Mystery: 9648, Romance: 10749,
+        "Science Fiction": 878, "TV Movie": 10770, Thriller: 53, War: 10752,
+        Western: 37,
+      };
+      const topGenreIds = new Set<number>(
+        (historyData.recommendations.topGenres || [])
+          .map((g: string | number) =>
+            typeof g === "number" ? g : GENRE_NAME_TO_ID[g] ?? Number(g),
+          )
+          .filter((id: number) => !Number.isNaN(id)),
+      );
       const sorted = filtered.sort((a: Movie, b: Movie) => {
-        // Boost movies matching top genres
-        const aGenreMatch = a.genre_ids?.some((id: number) =>
-          topGenres.has(id.toString()),
-        )
+        const aGenreMatch = a.genre_ids?.some((id) => topGenreIds.has(id))
           ? 1
           : 0;
-        const bGenreMatch = b.genre_ids?.some((id: number) =>
-          topGenres.has(id.toString()),
-        )
+        const bGenreMatch = b.genre_ids?.some((id) => topGenreIds.has(id))
           ? 1
           : 0;
 
