@@ -1,22 +1,35 @@
+// app/vote/[token]/page.tsx — public ballot reached by scanning the host's QR
+// code. No login: each browser gets a random anonymous voter key.
 "use client";
 
-import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import NextLink from "next/link";
 import { useParams } from "next/navigation";
-import { Button, Card, Spinner } from "@heroui/react";
+import { Button, Chip, Skeleton, Spinner } from "@heroui/react";
 import {
+  ArrowRight,
+  BarChart3,
+  CalendarDays,
+  Check,
   CheckCircle2,
-  ChevronUp,
+  ChevronDown,
   Clapperboard,
-  Info,
+  Clock,
   Lock,
   RotateCcw,
+  Sparkles,
+  Star,
   Trophy,
+  UtensilsCrossed,
+  Vote,
 } from "lucide-react";
 
 import MovieDetailsPanel, { Collapse } from "@/components/Voting/MovieDetailsPanel";
 import RankedBallotList from "@/components/Voting/RankedBallotList";
 import VoteResults from "@/components/Voting/VoteResults";
+import { useAuth } from "@/contexts/AuthContext";
 import { useVoteStream } from "@/hooks/useVoteStream";
+import { loginHref } from "@/utils/authRedirect";
 import {
   VoteCandidate,
   VoteCandidateDetails,
@@ -30,6 +43,8 @@ const ballotStorageKey = (token: string) => `mm-ballot-${token}`;
 
 const posterUrl = (path: string | null) =>
   path ? `https://image.tmdb.org/t/p/w342${path}` : "/placeholder-poster.jpg";
+const backdropUrl = (path: string | null) =>
+  path ? `https://image.tmdb.org/t/p/w780${path}` : null;
 
 // localStorage can throw (private mode, embedded browsers) — never let it
 // break voting.
@@ -58,6 +73,17 @@ const makeVoterKey = () => {
   ).join("");
 };
 
+// A tiny buzz on phones that support it, so picking feels physical
+const buzz = () => {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try {
+      navigator.vibrate(10);
+    } catch {
+      // ignore
+    }
+  }
+};
+
 interface PublicVoteData {
   session: { mode: VoteMode; status: VoteStatus };
   movieMonday: {
@@ -80,9 +106,364 @@ const formatDate = (dateStr: string) => {
   });
 };
 
+const formatRuntime = (mins: number) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+
+  return h ? `${h}h ${m}m` : `${m}m`;
+};
+
+// ---------------------------------------------------------------------------
+// Hero — fanned posters over a backdrop that follows the voter's pick
+// ---------------------------------------------------------------------------
+
+interface VoteHeroProps {
+  data: PublicVoteData;
+  candidates: VoteCandidate[];
+  details: Record<number, VoteCandidateDetails>;
+  focusId: number | null;
+  totalBallots: number | null;
+  isClosed: boolean;
+}
+
+function VoteHero({
+  data,
+  candidates,
+  details,
+  focusId,
+  totalBallots,
+  isClosed,
+}: VoteHeroProps) {
+  const mm = data.movieMonday;
+  // Before a pick, the first movie sets the mood
+  const bgId = focusId ?? candidates[0]?.id ?? null;
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl border border-default-200 bg-content1">
+      {/* Every backdrop stays mounted so switching picks crossfades */}
+      <div className="absolute inset-0">
+        {candidates.map((c) => {
+          const bg = backdropUrl(details[c.id]?.backdropPath ?? null);
+
+          return (
+            <img
+              key={c.id}
+              alt=""
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+                bg ? "" : "scale-125 blur-2xl"
+              } ${bgId === c.id ? "opacity-60" : "opacity-0"}`}
+              src={bg || posterUrl(c.posterPath)}
+            />
+          );
+        })}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-content1/70 to-content1" />
+      </div>
+
+      <div className="relative flex flex-col items-center px-5 pt-5 pb-6 text-center">
+        {/* Top row: group + live pill */}
+        <div className="flex w-full items-center justify-between gap-2">
+          <p className="truncate text-xs font-medium uppercase tracking-widest text-white/70">
+            {mm?.groupName || "Movie Monday"}
+          </p>
+          {isClosed ? (
+            <span className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-xs font-medium text-white/80 backdrop-blur-md">
+              <Lock className="h-3 w-3" /> Closed
+            </span>
+          ) : (
+            <span className="flex flex-shrink-0 items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-md">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+              </span>
+              Live
+              {totalBallots !== null && (
+                <span className="text-white/70">
+                  · {totalBallots} {totalBallots === 1 ? "vote" : "votes"}
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+
+        {/* Fanned poster trio — same visual language as PublicGroupCard */}
+        <div className="mt-5 mb-4 flex h-36 items-end justify-center">
+          {candidates.map((c, i) => {
+            const offset = i - (candidates.length - 1) / 2;
+            const isFocus = focusId === c.id;
+
+            return (
+              <img
+                key={c.id}
+                alt=""
+                className="-mx-2 h-32 w-auto rounded-lg object-cover shadow-2xl ring-1 ring-white/10 transition-transform duration-500 ease-out"
+                src={posterUrl(c.posterPath)}
+                style={{
+                  transform: isFocus
+                    ? "rotate(0deg) translateY(-10px) scale(1.12)"
+                    : `rotate(${offset * 8}deg) translateY(${Math.abs(offset) * 8}px)`,
+                  zIndex: isFocus ? 10 : candidates.length - Math.abs(offset),
+                }}
+              />
+            );
+          })}
+        </div>
+
+        <h1 className="text-3xl font-extrabold tracking-tight">
+          {isClosed ? "The votes are in" : "What are we watching?"}
+        </h1>
+
+        {mm && (
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-default-500">
+            <span className="flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5" />
+              {formatDate(mm.date)}
+            </span>
+            {mm.pickerName && (
+              <span>
+                picked by{" "}
+                <span className="font-semibold text-foreground">{mm.pickerName}</span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {mm?.weekTheme && (
+          <Chip
+            className="mt-3"
+            color="primary"
+            startContent={<Sparkles className="h-3.5 w-3.5" />}
+            variant="flat"
+          >
+            {mm.weekTheme}
+          </Chip>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ballot card — one per movie (single-vote mode)
+// ---------------------------------------------------------------------------
+
+interface BallotCardProps {
+  candidate: VoteCandidate;
+  index: number;
+  details: VoteCandidateDetails | undefined;
+  detailsLoading: boolean;
+  isSelected: boolean;
+  isDimmed: boolean;
+  isExpanded: boolean;
+  onPick: () => void;
+  onToggleDetails: () => void;
+}
+
+function BallotCard({
+  candidate: c,
+  index,
+  details,
+  detailsLoading,
+  isSelected,
+  isDimmed,
+  isExpanded,
+  onPick,
+  onToggleDetails,
+}: BallotCardProps) {
+  const bg = backdropUrl(details?.backdropPath ?? null);
+  const panelId = `ballot-card-details-${c.id}`;
+
+  return (
+    <div
+      className={`overflow-hidden rounded-2xl border bg-content1 transition-all duration-300 ${
+        isSelected
+          ? "border-primary shadow-[0_0_40px_-10px] shadow-primary/60"
+          : "border-default-200 shadow-sm"
+      } ${isDimmed ? "opacity-60 scale-[0.98]" : "opacity-100"}`}
+    >
+      {/* Main tap target: backdrop + poster + title → picks this movie */}
+      <button
+        aria-pressed={isSelected}
+        className="block w-full text-left transition-transform active:scale-[0.99]"
+        type="button"
+        onClick={onPick}
+      >
+        <div className="relative h-28 overflow-hidden bg-default-200">
+          <img
+            alt=""
+            className={`h-full w-full object-cover transition-all duration-500 ${
+              bg ? "" : "scale-125 blur-xl"
+            } ${isSelected ? "saturate-150" : "saturate-[0.85]"}`}
+            src={bg || posterUrl(c.posterPath)}
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-content1 via-content1/40 to-transparent" />
+          <span className="pointer-events-none absolute top-3 left-3 rounded-full bg-black/50 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-widest text-white backdrop-blur-md">
+            Option {index + 1}
+          </span>
+          {details?.voteAverage ? (
+            <span className="pointer-events-none absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-md">
+              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+              {details.voteAverage.toFixed(1)}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="relative -mt-14 flex items-end gap-4 px-4">
+          <div className="relative flex-shrink-0">
+            <img
+              alt={c.title}
+              className={`w-24 aspect-[2/3] rounded-xl object-cover shadow-xl transition-all duration-300 ${
+                isSelected ? "ring-4 ring-primary" : "ring-1 ring-white/10"
+              }`}
+              src={posterUrl(c.posterPath)}
+            />
+            <span
+              className={`pointer-events-none absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white shadow-lg transition-all duration-300 ${
+                isSelected ? "scale-100 opacity-100" : "scale-50 opacity-0"
+              }`}
+            >
+              <Check className="h-5 w-5" strokeWidth={3} />
+            </span>
+          </div>
+
+          <div className="min-w-0 flex-1 pb-1">
+            <h2 className="text-lg font-bold leading-tight line-clamp-2">{c.title}</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-default-500">
+              {c.releaseYear && <span>{c.releaseYear}</span>}
+              {details?.runtime ? (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatRuntime(details.runtime)}
+                </span>
+              ) : null}
+              {!details && detailsLoading && <Skeleton className="h-3 w-12 rounded-md" />}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 pt-3">
+          {details ? (
+            <>
+              {details.genres.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {details.genres.slice(0, 3).map((g) => (
+                    <Chip key={g} size="sm" variant="flat">
+                      {g}
+                    </Chip>
+                  ))}
+                </div>
+              )}
+              {details.tagline && (
+                <p className="mt-2 text-sm italic text-default-500 line-clamp-2">
+                  &ldquo;{details.tagline}&rdquo;
+                </p>
+              )}
+            </>
+          ) : detailsLoading ? (
+            <div className="flex gap-1">
+              <Skeleton className="h-6 w-16 rounded-full" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+          ) : null}
+        </div>
+      </button>
+
+      <Collapse isOpen={isExpanded}>
+        <div className="px-4 pt-4" id={panelId}>
+          <MovieDetailsPanel details={details} loading={detailsLoading} variant="extras" />
+        </div>
+      </Collapse>
+
+      {/* Footer actions — siblings of the main button (buttons can't nest) */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3">
+        <button
+          aria-controls={panelId}
+          aria-expanded={isExpanded}
+          className="-ml-2 flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium text-default-500 hover:text-foreground"
+          type="button"
+          onClick={onToggleDetails}
+        >
+          {isExpanded ? "Less" : "More about this one"}
+          <ChevronDown
+            className={`h-4 w-4 transition-transform duration-300 ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+        <Button
+          className="font-semibold"
+          color="primary"
+          radius="full"
+          size="sm"
+          startContent={isSelected ? <CheckCircle2 className="h-4 w-4" /> : undefined}
+          variant={isSelected ? "solid" : "flat"}
+          onPress={onPick}
+        >
+          {isSelected ? "Your pick" : "Pick"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sign-up nudge for voters without accounts
+// ---------------------------------------------------------------------------
+
+function JoinCta({ returnPath }: { returnPath: string }) {
+  const perks = [
+    { icon: <Vote className="h-4 w-4" />, text: "Run votes like this one for your crew" },
+    { icon: <UtensilsCrossed className="h-4 w-4" />, text: "Log the dinners & cocktails" },
+    { icon: <BarChart3 className="h-4 w-4" />, text: "Watch your group's stats pile up" },
+  ];
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 via-content1 to-content1 p-5">
+      <Clapperboard className="pointer-events-none absolute -right-4 -top-4 h-28 w-28 rotate-12 text-primary/10" />
+      <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+        Like this?
+      </p>
+      <h3 className="mt-1 text-xl font-bold leading-tight">Start your own Movie Monday</h3>
+      <ul className="mt-3 flex flex-col gap-2">
+        {perks.map((p) => (
+          <li key={p.text} className="flex items-center gap-2 text-sm text-default-600">
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+              {p.icon}
+            </span>
+            {p.text}
+          </li>
+        ))}
+      </ul>
+      <Button
+        fullWidth
+        as={NextLink}
+        className="mt-4 font-semibold"
+        color="primary"
+        endContent={<ArrowRight className="h-4 w-4" />}
+        href={loginHref(returnPath, { signup: true })}
+      >
+        Create a free account
+      </Button>
+      <p className="mt-3 text-center text-sm text-default-500">
+        Already have one?{" "}
+        <NextLink
+          className="font-semibold text-primary hover:underline"
+          href={loginHref(returnPath)}
+        >
+          Sign in
+        </NextLink>
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 export default function VotePage() {
   const params = useParams();
   const token = String(params?.token || "");
+  const { isAuthenticated } = useAuth();
 
   const [data, setData] = useState<PublicVoteData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,9 +477,7 @@ export default function VotePage() {
   const [details, setDetails] = useState<Record<number, VoteCandidateDetails>>({});
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  // Last movie opened — keeps drawer content on screen while it animates shut
-  const [lastExpandedId, setLastExpandedId] = useState<number | null>(null);
-  const drawerRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const [entered, setEntered] = useState(false);
 
   const { results, setResults } = useVoteStream(token || null);
 
@@ -145,8 +524,8 @@ export default function VotePage() {
     })();
   }, [token]);
 
-  // Movie details for the expandable cards. Loaded separately so the ballot
-  // itself shows instantly; if this fails, voting still works.
+  // Movie details for the cards. Loaded separately so the ballot itself
+  // shows instantly; if this fails, voting still works.
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -164,6 +543,14 @@ export default function VotePage() {
       }
     })();
   }, [token]);
+
+  // Staggered entrance once the ballot is on screen
+  useEffect(() => {
+    if (!data) return;
+    const t = window.setTimeout(() => setEntered(true), 30);
+
+    return () => window.clearTimeout(t);
+  }, [data]);
 
   // Ranked ballots always hold every movie in some order. Start from the
   // ballot this browser already cast (if any) and append anything missing.
@@ -186,27 +573,15 @@ export default function VotePage() {
 
   const showBallot = !isClosed && (!submitted || editing);
 
-  // Single vote: tap one poster
+  // Single vote: tap a card
   const pickSingle = (id: number) => {
     setSubmitError("");
+    if (selection[0] !== id) buzz();
     setSelection([id]);
   };
 
-  // Single vote: open/close the details drawer under a poster's row
-  const toggleDetails = (id: number, rowIndex: number) => {
-    const opening = expandedId !== id;
-
-    setExpandedId(opening ? id : null);
-    if (opening) {
-      setLastExpandedId(id);
-      // Wait for the drawer to start opening, then make sure it's on screen
-      window.setTimeout(() => {
-        drawerRefs.current[rowIndex]?.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
-      }, 320);
-    }
+  const toggleDetails = (id: number) => {
+    setExpandedId((prev) => (prev === id ? null : id));
   };
 
   const reorder = (order: number[]) => {
@@ -230,7 +605,9 @@ export default function VotePage() {
       safeSet(ballotStorageKey(token), JSON.stringify(selection));
       setSubmitted(true);
       setEditing(false);
+      setExpandedId(null);
       if (json.results) setResults(json.results);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e: any) {
       setSubmitError(e.message);
     } finally {
@@ -245,6 +622,11 @@ export default function VotePage() {
         .filter(Boolean) as string[],
     [selection, candidates],
   );
+
+  // Hero + sticky bar follow the voter's pick (ranked: their current #1)
+  const topPick = selection.length
+    ? candidates.find((c) => c.id === selection[0])
+    : undefined;
 
   if (loading) {
     return (
@@ -268,37 +650,21 @@ export default function VotePage() {
 
   return (
     <div className="max-w-md mx-auto pb-16 flex flex-col gap-5">
-      {/* Header */}
-      <div className="text-center pt-2">
-        <p className="text-xs uppercase tracking-widest text-default-400">
-          {data.movieMonday?.groupName || "Movie Monday"}
-        </p>
-        <h1 className="text-2xl font-bold mt-1">What are we watching?</h1>
-        {data.movieMonday && (
-          <p className="text-default-500 text-sm mt-1">
-            {formatDate(data.movieMonday.date)}
-            {data.movieMonday.pickerName &&
-              ` · picked by ${data.movieMonday.pickerName}`}
-          </p>
-        )}
-        {data.movieMonday?.weekTheme && (
-          <p className="text-sm mt-1 italic">&ldquo;{data.movieMonday.weekTheme}&rdquo;</p>
-        )}
-      </div>
-
-      {isClosed && (
-        <Card className="p-4 flex flex-row items-center gap-3 border border-default-200">
-          <Lock className="h-5 w-5 text-default-500" />
-          <p className="text-sm">Voting is closed. Here&apos;s how it turned out.</p>
-        </Card>
-      )}
+      <VoteHero
+        candidates={candidates}
+        data={data}
+        details={details}
+        focusId={topPick ? topPick.id : null}
+        isClosed={isClosed}
+        totalBallots={results ? results.totalBallots : null}
+      />
 
       {showBallot ? (
         <>
           <p className="text-center text-sm text-default-500">
             {mode === "ranked"
               ? "Drag the handles to put your favorite on top. Tap a movie for details."
-              : "Tap the one movie you want to watch. Tap ⓘ for details."}
+              : "Pick the one you want to watch tonight."}
           </p>
 
           {mode === "ranked" ? (
@@ -310,156 +676,32 @@ export default function VotePage() {
               onChange={reorder}
             />
           ) : (
-            // gap-y lives on each drawer (mb-3) so closed drawers don't
-            // double the space between rows
-            <div className="grid grid-cols-2 gap-x-3">
+            <div className="flex flex-col gap-4">
               {candidates.map((c, i) => {
                 const isSelected = selection.indexOf(c.id) !== -1;
-                const isExpanded = expandedId === c.id;
-                const rowIndex = Math.floor(i / 2);
-                // A drawer follows the last poster in each row of two
-                const isRowEnd = i % 2 === 1 || i === candidates.length - 1;
-                const rowIds = candidates
-                  .slice(rowIndex * 2, rowIndex * 2 + 2)
-                  .map((rc) => rc.id);
-                const rowOpenId =
-                  expandedId !== null && rowIds.indexOf(expandedId) !== -1
-                    ? expandedId
-                    : null;
-                // While closing, keep showing the last movie opened in this row
-                const rowShownId =
-                  rowOpenId ??
-                  (lastExpandedId !== null && rowIds.indexOf(lastExpandedId) !== -1
-                    ? lastExpandedId
-                    : null);
-                const rowOpenMovie = rowShownId
-                  ? candidates.find((rc) => rc.id === rowShownId)
-                  : undefined;
-                const rowOpenSelected =
-                  rowShownId !== null && selection.indexOf(rowShownId) !== -1;
-                // Notch points at the left or right poster
-                const notchLeft =
-                  rowShownId !== null && rowIds.indexOf(rowShownId) === 0;
 
                 return (
-                  <Fragment key={c.id}>
-                    <div className="relative">
-                      <button
-                        aria-pressed={isSelected}
-                        className={`relative w-full block rounded-2xl overflow-hidden text-left transition-all active:scale-[0.97] ${
-                          isSelected
-                            ? "ring-4 ring-primary shadow-lg shadow-primary/30"
-                            : isExpanded
-                              ? "ring-2 ring-default-400"
-                              : "ring-1 ring-default-200"
-                        }`}
-                        type="button"
-                        onClick={() => pickSingle(c.id)}
-                      >
-                        <img
-                          alt={c.title}
-                          className="w-full aspect-[2/3] object-cover"
-                          src={posterUrl(c.posterPath)}
-                        />
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 pt-8">
-                          <p className="text-white text-sm font-semibold leading-tight line-clamp-2">
-                            {c.title}
-                          </p>
-                          {c.releaseYear && (
-                            <p className="text-white/60 text-xs">{c.releaseYear}</p>
-                          )}
-                        </div>
-                        {isSelected && (
-                          <div className="pointer-events-none absolute top-2 right-2 h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center shadow-md">
-                            <CheckCircle2 className="h-5 w-5" />
-                          </div>
-                        )}
-                      </button>
-
-                      {/* Sibling of the poster button (buttons can't nest) */}
-                      <button
-                        aria-controls={`vote-drawer-${rowIndex}`}
-                        aria-expanded={isExpanded}
-                        aria-label={`${isExpanded ? "Hide" : "Show"} details for ${c.title}`}
-                        className={`absolute top-2 left-2 h-9 w-9 rounded-full flex items-center justify-center backdrop-blur-md shadow-md transition-colors ${
-                          isExpanded
-                            ? "bg-white text-black"
-                            : "bg-black/55 text-white hover:bg-black/75"
-                        }`}
-                        type="button"
-                        onClick={() => toggleDetails(c.id, rowIndex)}
-                      >
-                        <Info className="h-5 w-5" />
-                      </button>
-                    </div>
-
-                    {isRowEnd && (
-                      <div
-                        ref={(el) => {
-                          drawerRefs.current[rowIndex] = el;
-                        }}
-                        className="col-span-2 mb-3 scroll-mb-28"
-                        id={`vote-drawer-${rowIndex}`}
-                      >
-                        <Collapse isOpen={rowOpenId !== null}>
-                          <div className="relative pt-3">
-                            {/* Notch pointing up at the tapped poster */}
-                            <span
-                              className={`absolute top-1 z-10 h-4 w-4 rotate-45 border-l border-t border-default-200 bg-content1 transition-[left] duration-300 ${
-                                notchLeft ? "left-[calc(25%-8px)]" : "left-[calc(75%-8px)]"
-                              }`}
-                            />
-                            <div className="rounded-2xl border border-default-200 bg-content1 p-4">
-                              {rowOpenMovie && (
-                                <>
-                                  <div className="flex items-start justify-between gap-3 mb-3">
-                                    <div className="min-w-0">
-                                      <h3 className="font-bold leading-tight">
-                                        {rowOpenMovie.title}
-                                      </h3>
-                                      {rowOpenMovie.releaseYear && (
-                                        <p className="text-xs text-default-400">
-                                          {rowOpenMovie.releaseYear}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <button
-                                      aria-label="Hide details"
-                                      className="h-8 w-8 flex-shrink-0 rounded-full bg-default-100 flex items-center justify-center text-default-500"
-                                      type="button"
-                                      onClick={() => setExpandedId(null)}
-                                    >
-                                      <ChevronUp className="h-4 w-4" />
-                                    </button>
-                                  </div>
-
-                                  <MovieDetailsPanel
-                                    details={details[rowOpenMovie.id]}
-                                    loading={detailsLoading}
-                                  />
-
-                                  <Button
-                                    fullWidth
-                                    className="mt-4"
-                                    color={rowOpenSelected ? "success" : "primary"}
-                                    startContent={
-                                      rowOpenSelected ? (
-                                        <CheckCircle2 className="h-4 w-4" />
-                                      ) : undefined
-                                    }
-                                    variant={rowOpenSelected ? "flat" : "solid"}
-                                    onPress={() => pickSingle(rowOpenMovie.id)}
-                                  >
-                                    {rowOpenSelected ? "Your pick" : "Pick this one"}
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </Collapse>
-                      </div>
-                    )}
-                  </Fragment>
+                  // Outer wrapper handles the one-time entrance only, so its
+                  // delay never slows down selection transitions on the card
+                  <div
+                    key={c.id}
+                    className={`transition-all duration-500 ease-out ${
+                      entered ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+                    }`}
+                    style={{ transitionDelay: `${i * 110}ms` }}
+                  >
+                    <BallotCard
+                      candidate={c}
+                      details={details[c.id]}
+                      detailsLoading={detailsLoading}
+                      index={i}
+                      isDimmed={selection.length > 0 && !isSelected}
+                      isExpanded={expandedId === c.id}
+                      isSelected={isSelected}
+                      onPick={() => pickSingle(c.id)}
+                      onToggleDetails={() => toggleDetails(c.id)}
+                    />
+                  </div>
                 );
               })}
             </div>
@@ -467,52 +709,91 @@ export default function VotePage() {
 
           {submitError && <p className="text-sm text-danger text-center">{submitError}</p>}
 
-          <div className="flex gap-2 sticky bottom-4">
-            <Button
-              fullWidth
-              color="primary"
-              isDisabled={!selection.length}
-              isLoading={submitting}
-              size="lg"
-              onPress={submit}
-            >
-              {editing ? "Update my vote" : "Submit vote"}
-            </Button>
+          {/* Sticky submit bar — shows what you're about to vote for */}
+          <div className="sticky bottom-4 z-20">
+            <div className="flex items-center gap-3 rounded-2xl border border-default-200 bg-content1/85 p-2 pl-3 shadow-2xl backdrop-blur-xl">
+              {topPick ? (
+                <img
+                  alt=""
+                  className="h-12 w-8 flex-shrink-0 rounded-md object-cover"
+                  src={posterUrl(topPick.posterPath)}
+                />
+              ) : (
+                <div className="flex h-12 w-8 flex-shrink-0 items-center justify-center rounded-md border border-dashed border-default-300">
+                  <Vote className="h-4 w-4 text-default-400" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] uppercase tracking-wider text-default-400">
+                  {mode === "ranked" ? "Your #1" : topPick ? "Your pick" : "No pick yet"}
+                </p>
+                <p className="truncate text-sm font-semibold">
+                  {topPick ? topPick.title : "Tap a movie above"}
+                </p>
+              </div>
+              <Button
+                className="flex-shrink-0 font-semibold"
+                color="primary"
+                isDisabled={!selection.length}
+                isLoading={submitting}
+                onPress={submit}
+              >
+                {editing ? "Update" : "Submit vote"}
+              </Button>
+            </div>
+            {editing && (
+              <Button
+                fullWidth
+                className="mt-2"
+                size="sm"
+                variant="light"
+                onPress={() => setEditing(false)}
+              >
+                Cancel
+              </Button>
+            )}
           </div>
-          {editing && (
-            <Button variant="light" onPress={() => setEditing(false)}>
-              Cancel
-            </Button>
-          )}
         </>
       ) : (
         <>
           {submitted && !isClosed && (
-            <Card className="p-4 border border-success/40 bg-success/10">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-semibold">Vote recorded</p>
+            <div className="relative overflow-hidden rounded-2xl border border-success/40 bg-gradient-to-br from-success/15 via-content1 to-content1 p-4">
+              <div className="flex items-center gap-4">
+                {topPick && (
+                  <div className="relative flex-shrink-0">
+                    <img
+                      alt=""
+                      className="h-24 w-16 rounded-lg object-cover shadow-lg"
+                      src={posterUrl(topPick.posterPath)}
+                    />
+                    <span className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-success text-white shadow-md">
+                      <Check className="h-4 w-4" strokeWidth={3} />
+                    </span>
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg font-bold">You&apos;re in! 🍿</p>
                   <p className="text-sm text-default-500">
                     {mode === "ranked"
                       ? selectedTitles.map((t, i) => `${i + 1}. ${t}`).join("  ")
-                      : selectedTitles[0]}
+                      : `You voted for ${selectedTitles[0]}`}
                   </p>
+                  <Button
+                    className="mt-2 -ml-1"
+                    size="sm"
+                    startContent={<RotateCcw className="h-3.5 w-3.5" />}
+                    variant="light"
+                    onPress={() => setEditing(true)}
+                  >
+                    Change my vote
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  startContent={<RotateCcw className="h-3.5 w-3.5" />}
-                  variant="flat"
-                  onPress={() => setEditing(true)}
-                >
-                  Change
-                </Button>
               </div>
-            </Card>
+            </div>
           )}
 
           {results ? (
-            <Card className="p-4">
+            <div className="rounded-2xl border border-default-200 bg-content1 p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Trophy className="h-4 w-4 text-yellow-400" />
                 <h2 className="font-semibold">
@@ -520,12 +801,14 @@ export default function VotePage() {
                 </h2>
               </div>
               <VoteResults compact results={results} />
-            </Card>
+            </div>
           ) : (
             <div className="flex justify-center py-6">
               <Spinner size="sm" />
             </div>
           )}
+
+          {!isAuthenticated && <JoinCta returnPath={`/vote/${token}`} />}
         </>
       )}
     </div>

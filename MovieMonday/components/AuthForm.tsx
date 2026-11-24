@@ -1,4 +1,4 @@
-import React, { useState, FormEvent, ChangeEvent } from "react";
+import React, { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import {
   Input,
   Button,
@@ -18,9 +18,14 @@ import {
   LockClosedIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  consumeRedirect,
+  rememberRedirect,
+  safeNextPath,
+} from "@/utils/authRedirect";
 
 interface FormData {
   username: string;
@@ -31,7 +36,13 @@ interface FormData {
 const AuthForm: React.FC = () => {
   const { login } = useAuth();
   const router = useRouter();
-  const [isLogin, setIsLogin] = useState<boolean>(true);
+  const searchParams = useSearchParams();
+  // ?next=/vote/abc → return there after login. ?mode=signup opens Sign Up.
+  const nextPath = safeNextPath(searchParams.get("next"));
+  const fromVote = !!nextPath && nextPath.startsWith("/vote/");
+  const [isLogin, setIsLogin] = useState<boolean>(
+    searchParams.get("mode") !== "signup",
+  );
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [formData, setFormData] = useState<FormData>({
@@ -40,6 +51,12 @@ const AuthForm: React.FC = () => {
     password: "",
   });
   const [verificationModalOpen, setVerificationModalOpen] = useState(false);
+
+  // Sign-up leaves through a verification email, which loses the URL — so
+  // also park the return path in localStorage for the login that follows.
+  useEffect(() => {
+    if (nextPath) rememberRedirect(nextPath);
+  }, [nextPath]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -103,15 +120,12 @@ const AuthForm: React.FC = () => {
         // Wait a brief moment to ensure context is updated
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // Check for redirect after login
-        const redirectPath = localStorage.getItem("redirectAfterLogin");
+        // Where to go: ?next= first, then a remembered path (set by this
+        // form before an email-verification trip, or by other pages), then
+        // the dashboard. consumeRedirect() always clears the stored path.
+        const storedPath = consumeRedirect();
 
-        if (redirectPath) {
-          localStorage.removeItem("redirectAfterLogin"); // Clean up
-          router.push(redirectPath);
-        } else {
-          router.push("/dashboard"); // Default redirect
-        }
+        router.push(nextPath || storedPath || "/dashboard");
       } else {
         throw new Error("No token received from server");
       }
@@ -158,6 +172,16 @@ const AuthForm: React.FC = () => {
         <Divider />
 
         <CardBody>
+          {nextPath && (
+            <div className="mb-4 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm">
+              {fromVote
+                ? isLogin
+                  ? "Your vote is saved. Sign in and you'll land right back on the results."
+                  : "Your vote is saved. After you verify your email and sign in, we'll bring you right back to the results."
+                : "After you sign in, you'll head right back to where you were."}
+            </div>
+          )}
+
           {error && (
             <div
               className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded relative mb-4"
@@ -260,6 +284,12 @@ const AuthForm: React.FC = () => {
                 ? "Your email address has not been verified yet. Please check your inbox for the verification email."
                 : "Thank you for registering! We've sent a verification email to your email address. Please check your inbox and click the verification link to activate your account."}
             </p>
+            {!isLogin && fromVote && (
+              <p className="mt-2">
+                Once you&apos;re verified and signed in, we&apos;ll take you back to
+                this week&apos;s vote.
+              </p>
+            )}
             <p className="mt-2">
               If you don't see the email, please check your spam folder.
             </p>

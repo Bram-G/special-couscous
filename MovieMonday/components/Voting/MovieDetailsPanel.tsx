@@ -54,15 +54,23 @@ export function Collapse({ isOpen, children, className = "" }: CollapseProps) {
 interface MovieDetailsPanelProps {
   details: VoteCandidateDetails | undefined;
   loading: boolean;
-  /** Hide the year/title row when the parent card already shows them */
+  /** Hide the rating/runtime row when the parent card already shows it */
   showMetaRow?: boolean;
+  /**
+   * "full" shows everything. "extras" skips genres + tagline too, for cards
+   * that already show those up top.
+   */
+  variant?: "full" | "extras";
 }
 
 export default function MovieDetailsPanel({
   details,
   loading,
   showMetaRow = true,
+  variant = "full",
 }: MovieDetailsPanelProps) {
+  const isFull = variant === "full";
+
   if (!details) {
     if (loading) {
       return (
@@ -87,7 +95,7 @@ export default function MovieDetailsPanel({
 
   return (
     <div className="flex flex-col gap-3 text-left">
-      {showMetaRow && hasMeta && (
+      {isFull && showMetaRow && hasMeta && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-default-500">
           {details.voteAverage !== null && details.voteAverage > 0 && (
             <span className="flex items-center gap-1">
@@ -106,7 +114,7 @@ export default function MovieDetailsPanel({
         </div>
       )}
 
-      {details.genres.length > 0 && (
+      {isFull && details.genres.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {details.genres.slice(0, 4).map((g) => (
             <Chip key={g} size="sm" variant="flat">
@@ -116,7 +124,7 @@ export default function MovieDetailsPanel({
         </div>
       )}
 
-      {details.tagline && (
+      {isFull && details.tagline && (
         <p className="text-sm italic text-default-500">&ldquo;{details.tagline}&rdquo;</p>
       )}
 

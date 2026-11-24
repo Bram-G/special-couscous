@@ -229,7 +229,7 @@ export default function VerifyEmailPage() {
             <Button
               color="primary"
               endContent={<ArrowRight className="w-4 h-4" />}
-              onClick={() => router.push("/auth")}
+              onClick={() => router.push("/login")}
             >
               Go to Login
             </Button>
@@ -247,7 +247,7 @@ export default function VerifyEmailPage() {
             <Button
               color="primary"
               endContent={<ArrowRight className="w-4 h-4" />}
-              onClick={() => router.push("/auth")}
+              onClick={() => router.push("/login")}
             >
               Go to Login
             </Button>
@@ -274,7 +274,7 @@ export default function VerifyEmailPage() {
               <Button
                 color="secondary"
                 variant="light"
-                onClick={() => router.push("/auth")}
+                onClick={() => router.push("/login")}
               >
                 Back to Login
               </Button>
@@ -302,7 +302,7 @@ export default function VerifyEmailPage() {
               <Button
                 color="secondary"
                 variant="light"
-                onClick={() => router.push("/auth")}
+                onClick={() => router.push("/login")}
               >
                 Back to Login
               </Button>
