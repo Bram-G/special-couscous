@@ -41,3 +41,21 @@ export interface VoteSessionInfo {
   createdAt: string;
   closedAt: string | null;
 }
+export interface VoteCastMember {
+  name: string;
+  character: string | null;
+  profilePath: string | null;
+}
+
+/** Expanded info for a ballot card — GET /api/votes/s/:token/details */
+export interface VoteCandidateDetails {
+  id: number; // MovieSelection id
+  overview: string | null;
+  tagline: string | null;
+  runtime: number | null; // minutes
+  voteAverage: number | null; // TMDB 0–10
+  backdropPath: string | null;
+  genres: string[];
+  directors: string[];
+  cast: VoteCastMember[];
+}
