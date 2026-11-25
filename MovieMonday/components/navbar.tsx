@@ -197,6 +197,9 @@ export const Navbar = () => {
                       <DropdownItem key="watchlists" href="/watchlist">
                         My Watchlists
                       </DropdownItem>
+                      <DropdownItem key="my-votes" href="/my-votes">
+                        My Votes
+                      </DropdownItem>
                       <DropdownItem key="analytics" href="/analytics">
                         Analytics
                       </DropdownItem>
@@ -290,6 +293,21 @@ export const Navbar = () => {
                   >
                     <span>My Watchlists</span>
                     {navigatingTo === "/watchlist" && (
+                      <Spinner size="sm" color="current" />
+                    )}
+                  </button>
+                </NavbarMenuItem>
+
+                <NavbarMenuItem className="py-1.5">
+                  <button
+                    className={clsx(
+                      linkStyles({ color: "foreground" }),
+                      "data-[active=true]:text-primary text-sm w-full text-left flex items-center justify-between",
+                    )}
+                    onClick={() => handleMenuNavigation("/my-votes")}
+                  >
+                    <span>My Votes</span>
+                    {navigatingTo === "/my-votes" && (
                       <Spinner size="sm" color="current" />
                     )}
                   </button>

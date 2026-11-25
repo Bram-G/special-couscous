@@ -59,3 +59,46 @@ export interface VoteCandidateDetails {
   directors: string[];
   cast: VoteCastMember[];
 }
+/** One entry in GET /api/votes/me/history — only the user's own ballot */
+export interface MyVoteHistoryEntry {
+  ballotId: number;
+  votedAt: string;
+  session: {
+    id: number;
+    token: string;
+    mode: VoteMode;
+    status: VoteStatus;
+    closedAt: string | null;
+  };
+  movieMonday: {
+    id: number;
+    date: string;
+    weekTheme: string | null;
+    slug: string | null;
+    groupId: number;
+    groupName: string | null;
+  } | null;
+  candidates: VoteCandidate[];
+  /** This user's ballot, most-preferred first */
+  myRankings: number[];
+  results: {
+    totalBallots: number;
+    counts: Record<string, number>;
+    firstChoiceCounts: Record<string, number>;
+    winnerIds: number[];
+    isTie: boolean;
+  };
+  /** Movie the group actually watched (host-applied), if set */
+  watchedId: number | null;
+  /** Did this user's #1 win? null while undecided */
+  myPickWon: boolean | null;
+}
+
+export interface MyVoteSummary {
+  totalVotes: number;
+  decided: number;
+  wins: number;
+  winRate: number | null;
+  rankedVotes: number;
+  groups: number;
+}

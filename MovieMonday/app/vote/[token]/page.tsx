@@ -2,17 +2,17 @@
 // code. No login: each browser gets a random anonymous voter key.
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import NextLink from "next/link";
 import { useParams } from "next/navigation";
 import { Button, Chip, Skeleton, Spinner } from "@heroui/react";
 import {
   ArrowRight,
-  BarChart3,
   CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
+  History,
   Clapperboard,
   Clock,
   Lock,
@@ -406,6 +406,30 @@ function BallotCard({
 }
 
 // ---------------------------------------------------------------------------
+// Tiny error boundary: if an optional extra (like the sign-up card) ever
+// throws, it disappears instead of taking down the whole ballot page.
+// ---------------------------------------------------------------------------
+
+class SafeBoundary extends React.Component<
+  { children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error("Vote page section failed to render:", error);
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Sign-up nudge for voters without accounts
 // ---------------------------------------------------------------------------
 
@@ -413,7 +437,7 @@ function JoinCta({ returnPath }: { returnPath: string }) {
   const perks = [
     { icon: <Vote className="h-4 w-4" />, text: "Run votes like this one for your crew" },
     { icon: <UtensilsCrossed className="h-4 w-4" />, text: "Log the dinners & cocktails" },
-    { icon: <BarChart3 className="h-4 w-4" />, text: "Watch your group's stats pile up" },
+    { icon: <Trophy className="h-4 w-4" />, text: "Watch your group's stats pile up" },
   ];
 
   return (
@@ -463,7 +487,8 @@ function JoinCta({ returnPath }: { returnPath: string }) {
 export default function VotePage() {
   const params = useParams();
   const token = String(params?.token || "");
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, token: authToken, user } = useAuth();
+  const claimAttempted = useRef(false);
 
   const [data, setData] = useState<PublicVoteData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -544,6 +569,24 @@ export default function VotePage() {
     })();
   }, [token]);
 
+  // Voted as a guest, then signed in (e.g. via the sign-up card)? Link that
+  // ballot to the account so it shows in their vote history. Runs once.
+  useEffect(() => {
+    if (!isAuthenticated || !authToken || !voterKey || !submitted) return;
+    if (claimAttempted.current) return;
+    claimAttempted.current = true;
+    fetch(`${API_BASE_URL}/api/votes/s/${token}/claim`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ voterKey }),
+    }).catch(() => {
+      // Not critical — the vote itself already counted
+    });
+  }, [isAuthenticated, authToken, voterKey, submitted, token]);
+
   // Staggered entrance once the ballot is on screen
   useEffect(() => {
     if (!data) return;
@@ -596,7 +639,12 @@ export default function VotePage() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/votes/s/${token}/ballot`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // Signed in? The ballot gets linked to the account for vote history.
+          // Results stay anonymous either way.
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({ voterKey, rankings: selection }),
       });
       const json = await res.json();
@@ -666,6 +714,16 @@ export default function VotePage() {
               ? "Drag the handles to put your favorite on top. Tap a movie for details."
               : "Pick the one you want to watch tonight."}
           </p>
+          {isAuthenticated && (
+            <p className="-mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-default-400">
+              <History className="h-3.5 w-3.5" />
+              Voting as{" "}
+              <span className="font-semibold text-default-500">
+                {user?.username || "you"}
+              </span>
+              · saved to your vote history
+            </p>
+          )}
 
           {mode === "ranked" ? (
             <RankedBallotList
@@ -778,15 +836,27 @@ export default function VotePage() {
                       ? selectedTitles.map((t, i) => `${i + 1}. ${t}`).join("  ")
                       : `You voted for ${selectedTitles[0]}`}
                   </p>
-                  <Button
-                    className="mt-2 -ml-1"
-                    size="sm"
-                    startContent={<RotateCcw className="h-3.5 w-3.5" />}
-                    variant="light"
-                    onPress={() => setEditing(true)}
-                  >
-                    Change my vote
-                  </Button>
+                  <div className="mt-2 -ml-1 flex flex-wrap gap-1">
+                    <Button
+                      size="sm"
+                      startContent={<RotateCcw className="h-3.5 w-3.5" />}
+                      variant="light"
+                      onPress={() => setEditing(true)}
+                    >
+                      Change my vote
+                    </Button>
+                    {isAuthenticated && (
+                      <Button
+                        as={NextLink}
+                        href="/my-votes"
+                        size="sm"
+                        startContent={<History className="h-3.5 w-3.5" />}
+                        variant="light"
+                      >
+                        My votes
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -808,7 +878,11 @@ export default function VotePage() {
             </div>
           )}
 
-          {!isAuthenticated && <JoinCta returnPath={`/vote/${token}`} />}
+          {!isAuthenticated && (
+            <SafeBoundary>
+              <JoinCta returnPath={`/vote/${token}`} />
+            </SafeBoundary>
+          )}
         </>
       )}
     </div>
